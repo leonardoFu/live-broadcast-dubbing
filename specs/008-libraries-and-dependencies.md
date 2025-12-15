@@ -141,7 +141,7 @@ When adding runnable modules under `apps/`, standardize on:
 
 - Formatting/lint: `ruff` (and optionally `black` if preferred)
 - Tests: `pytest` (+ `pytest-asyncio` if async code is introduced)
-- Types (optional): `mypy`
+- Types: `mypy` (required; strict typing is a constitution gate)
 
 ---
 

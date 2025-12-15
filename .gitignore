@@ -12,3 +12,9 @@
 .DS_Store
 
 .sts-service-archive
+
+# Python caches/venvs
+__pycache__/
+.mypy_cache/
+.ruff_cache/
+.venv/
