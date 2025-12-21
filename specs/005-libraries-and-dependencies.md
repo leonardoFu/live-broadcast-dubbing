@@ -3,8 +3,8 @@
 ## 1. Goal
 
 Define a **curated, minimal** set of libraries and native/system dependencies for this repo’s planned runtime components, grounded in:
-- The target architecture in `specs/001-spec.md` (MediaMTX ingest → unified Python worker → in-process STS → republish).
-- Proven, working choices in `.sts-service-archive/` (ASR/MT/TTS pipeline and operational notes).
+- The target architecture in `specs/001-spec.md` (MediaMTX ingest → unified Python worker → Gemini Live streaming → republish).
+- Proven media-handling choices from `.sts-service-archive/` where relevant (chunking/mixing), while replacing local ASR/MT/TTS with Gemini Live.
 
 This spec is intentionally implementation-oriented: it exists to make dependency selection explicit, reproducible, and reviewable.
 
@@ -12,8 +12,8 @@ This spec is intentionally implementation-oriented: it exists to make dependency
 
 ## 2. In-Scope Components
 
-- **Unified worker (`apps/stream-worker/`)**: Python + GStreamer pipeline to demux/remux, chunk audio, run STS in-process, and republish.
-- **STS module (`apps/sts-service/`)**: Python modules for ASR → Translation → TTS and supporting DSP utilities, used in-process by the worker.
+- **Unified worker (`apps/stream-worker/`)**: Python + GStreamer pipeline to demux/remux, chunk audio, stream to Gemini Live, and republish.
+- **Gemini Live client usage**: provider SDK/HTTP client for speech-to-speech streaming.
 - **Infra/runtime**: MediaMTX and container/base OS packages required to run the above reliably.
 
 ---
@@ -42,7 +42,7 @@ These defaults match known-good behavior in `.sts-service-archive/` and reduce c
 
 ## 5. Native/System Dependencies
 
-### 5.1 Required (Worker + STS)
+### 5.1 Required (Worker + Gemini Live)
 
 - **GStreamer runtime**:
   - Core: `gstreamer1.0`
@@ -65,53 +65,39 @@ These defaults match known-good behavior in `.sts-service-archive/` and reduce c
 
 ## 6. Python Dependencies (Curated)
 
-The lists below are “what we intend to depend on”, not a final lockfile. The goal is to keep the set small and aligned with `specs/001-spec.md`.
+The lists below are “what we intend to depend on”, not a final lockfile. Keep the set small and aligned with `specs/001-spec.md`.
 
-### 6.1 Shared Core (STS module and/or Worker)
+### 6.1 Shared Core (Worker + Client)
 
 - `numpy<2.0`
 - `scipy` (filters, basic DSP utilities)
 - `soundfile` (WAV I/O for debug assets and tests)
-- `pyyaml` (voice/model configuration files, matching `.sts-service-archive/coqui-voices.yaml`)
 - `pydantic` (typed contracts/config validation)
 - `rich` (dev-friendly logs/CLI output)
 - `typer` (CLI entrypoints for local runs and test harnesses)
-- Optional (local demos/offline workflows, per `.sts-service-archive/`):
+- `httpx` or equivalent async HTTP client (for provider calls when SDKs are unavailable)
+- Optional:
   - `ffmpeg-python` (drive FFmpeg from Python where convenient)
   - `pydub` (simple audio I/O/playback helpers)
   - `sounddevice` (local audio playback; keep out of production images if not needed)
 
-### 6.2 ASR (Speech → Text)
+### 6.2 Gemini Live Client
 
-Based on `.sts-service-archive/utils/transcription.py` and `specs/sources/ASR.md`:
+- Official Gemini API client/SDK (use the provider-supported package when available).
+- `grpcio` / `websockets` (if the SDK requires them for streaming).
+- `python-dotenv` (dev-only for loading env variables locally; do not use in production images).
 
-- `faster-whisper` (Whisper inference via CTranslate2; CPU-friendly)
-- `ctranslate2` (transitive dependency; pin only if compatibility issues arise)
-- Optional utilities:
-  - `librosa` (preprocessing helpers; keep optional if we can replace with `numpy/scipy`)
-  - `inflect` / `num2words` (optional text normalization helpers used by some preprocessing policies)
+### 6.3 Optional Offline/Mock Dubbing
 
-### 6.3 Translation (Text → Text)
+- Keep deterministic tone/pass-through generators for tests (can be implemented with `numpy` only).
+- If we need offline speech synthesis for regression tests without network:
+  - `coqui-tts` (optional; behind a flag; only for non-production fixtures)
+  - `torch` (only when the optional path is enabled)
+- Avoid shipping these heavy deps in default images; gate them by extras/profiles.
 
-Mirrors `.sts-service-archive` usage of M2M100 and `specs/006-translation-component.md` goals:
+### 6.4 Speech/Background Separation (Worker)
 
-- `transformers`
-- `sentencepiece` (required by M2M100/NLLB-family tokenizers)
-- `torch` (model runtime)
-- Optional:
-  - `accelerate` (optional runtime ergonomics/perf controls; not required for correctness)
-  - `langdetect` (**not used in v0**; language is always configured explicitly)
-
-### 6.4 TTS (Text → Speech)
-
-Based on `.sts-service-archive/talk_multi_coqui.py`, `.sts-service-archive/coqui-voices.yaml`, and `specs/007-tts-audio-synthesis.md`:
-
-- `coqui-tts==0.27.2` (XTTS-v2 + VITS “fast” path as used in the archive)
-- `torch` and `torchaudio` (TTS model runtime + audio utils)
-
-### 6.5 Speech/Background Separation (Worker)
-
-`specs/001-spec.md` expects 2-stem separation (“speech vs background”). The archive does not include this stage, so we explicitly select a baseline:
+`specs/001-spec.md` expects 2-stem separation (“speech vs background”). Baseline:
 
 - Optional (recommended for v1 quality):
   - `demucs` (PyTorch-based source separation; use “vocals” as a proxy for speech in early iterations)
@@ -120,18 +106,16 @@ Based on `.sts-service-archive/talk_multi_coqui.py`, `.sts-service-archive/coqui
   - VAD + simple gating/ducking policies implemented with `numpy/scipy` (lower quality, but operationally simple)
 
 v0 decision:
-- Support both `demucs` and `spleeter` as pluggable separation backends (default: `demucs` when available).
-- If no separation backend is available, fall back to VAD + gating/ducking.
+- Support `demucs` as the default when available; fall back to VAD + gating/ducking if no separation backend is present.
 
 ---
 
 ## 7. Serving / Interop Dependencies (Optional)
 
-`specs/001-spec.md` prefers **in-process** STS usage, but `.sts-service-archive/` implements a Socket.IO live protocol. If we need compatibility with that legacy protocol for local demos/integration:
+Gemini Live is consumed directly via the provider SDK/HTTP. No local STS server is planned.
 
-- `python-socketio`
-- `flask` (only if we keep a Flask-based server path; otherwise omit)
-- `aiohttp` (only if we implement an async Socket.IO server path; otherwise omit)
+Only include additional serving deps if we intentionally keep a legacy demo path:
+- `python-socketio` + lightweight web framework (behind a dev-only flag)
 
 ---
 
@@ -148,8 +132,8 @@ When adding runnable modules under `apps/`, standardize on:
 ## 9. Acceptance Criteria
 
 - A clean machine can install the documented **native dependencies** (GStreamer, FFmpeg, rubberband) and run a minimal “smoke” pipeline without additional undocumented packages.
-- Python dependency lists remain **curated** (no committed `pip freeze`), with version pins only where required for compatibility (e.g., `numpy<2.0`, `coqui-tts==0.27.2`).
-- The chosen libraries support the behavior described in `specs/001-spec.md` without forcing a worker↔STS network hop.
+- Python dependency lists remain **curated** (no committed `pip freeze`), with version pins only where required for compatibility (e.g., `numpy<2.0`).
+- The chosen libraries support the behavior described in `specs/001-spec.md` with Gemini Live as the dubbing provider, and keep heavy optional deps gated.
 
 ---
 
@@ -158,7 +142,5 @@ When adding runnable modules under `apps/`, standardize on:
 - `specs/001-spec.md`
 - `specs/003-gstreamer-stream-worker.md`
 - `specs/004-sts-pipeline-design.md`
-- `.sts-service-archive/ARCHITECTURE.md`
-- `.sts-service-archive/environment.yml`
-- `.sts-service-archive/requirements.txt` (historical; not intended as a baseline lockfile)
-- `specs/sources/ASR.md`, `specs/sources/TRANSLATION.md`, `specs/sources/TTS.md`
+- Gemini Live API docs (file-stream example)
+- `.sts-service-archive/` (historical media/DSP references only)

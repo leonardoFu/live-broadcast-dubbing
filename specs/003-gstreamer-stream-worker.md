@@ -1,17 +1,17 @@
-# Unified Worker Spec (Python: GStreamer + STS, MediaMTX ↔ MediaMTX)
+# Unified Worker Spec (Python: GStreamer + Gemini Live, MediaMTX ↔ MediaMTX)
 
 This spec defines the **unified worker** referenced by `specs/001-spec.md` and intended to interoperate with `specs/002-mediamtx.md` (MediaMTX ingress/egress).
 
 Primary goals:
 - Pull an input stream from **MediaMTX** (RTSP)
 - **Demux** into video and audio
-- Run **STS** in-process for real-time dubbing
+- Stream audio to **Gemini Live** for real-time dubbing (speech-to-speech)
 - **Remux** dubbed audio with original video
 - Publish processed output back to **MediaMTX** (RTMP)
 - Be easy to test locally with strong observability (logs + metrics)
 
 Non-goals:
-- Documenting ASR/MT/TTS model internals; see `specs/001-spec.md` and `specs/sources/*`
+- Documenting ASR/MT/TTS model internals (Gemini Live provides this remotely); see `specs/001-spec.md`
 - Production orchestration (worker autoscaling/lifecycle); see `specs/002-mediamtx.md`
 
 ---
@@ -27,42 +27,15 @@ Constraints (v1):
 - Video: H.264 (passthrough)
 - Audio: AAC-LC (decode to PCM inside the worker)
 
-### 1.2 STS (in-process)
+### 1.2 Gemini Live session
 
-STS runs as an in-process module inside the worker.
+The worker opens and maintains a **Gemini Live streaming session** per stream. Audio fragments are sent over the session, and Gemini returns target-language speech and aligned text.
 
 Required worker behavior:
 - Maintain **per-stream FIFO ordering** for audio fragments
 - Track **in-flight** fragments and apply timeouts/fallbacks
 - Do not log raw audio payloads by default (see Constitution “Secrets & Logs”)
-
-Recommended in-process API boundary (v1):
-```python
-from __future__ import annotations
-
-from dataclasses import dataclass
-
-
-@dataclass(frozen=True)
-class FragmentMeta:
-    id: str
-    stream_id: str
-    batch_number: int
-    duration_s: float
-    sample_rate: int
-    channels: int
-
-
-@dataclass(frozen=True)
-class StsResult:
-    dubbed_pcm_s16le: bytes
-    warnings: list[str]
-
-
-class StsBackend:
-    def process_fragment(self, meta: FragmentMeta, pcm_s16le: bytes) -> StsResult:  # pragma: no cover (spec)
-        raise NotImplementedError
-```
+- Keep session context (target language/voice) stable for the lifetime of the worker.
 
 ### 1.3 Output (Worker → MediaMTX)
 
@@ -82,7 +55,7 @@ RTSP (MediaMTX)
   v
 [GStreamer input pipeline]
   - video: depay + parse  -> python -> appsrc(video)
-  - audio: depay + decode -> python -> chunker -> STS (in-process) -> PCM -> mixer -> appsrc(audio)
+  - audio: depay + decode -> python -> chunker -> Gemini Live session -> PCM -> mixer -> appsrc(audio)
   |
   v
 [GStreamer output pipeline]
@@ -135,11 +108,11 @@ flvmux name=mux streamable=true \
 
 Notes:
 - `sync=false` on `rtmpsink` avoids sink clock selection surprises; the pipeline clock is still used for timestamps.
-- `max-size-time` on queues provides bounded buffering; tune together with the expected STS latency.
+- `max-size-time` on queues provides bounded buffering; tune together with the expected Gemini Live latency.
 
 ---
 
-## 4. Audio Chunking + STS Handoff (Worker Logic)
+## 4. Audio Chunking + Gemini Live Handoff (Worker Logic)
 
 ### 4.1 Chunking model
 
@@ -158,21 +131,22 @@ Implementation sketch:
   - `t0_ns` (start PTS in input timeline)
   - `duration_ns`
 
-### 4.2 STS input/output format (v1)
+### 4.2 Gemini Live session contract (v1)
 
-Since STS runs in-process, the worker uses a simple, test-friendly format:
-- Input to STS: PCM S16LE bytes + `sampleRate` + `channels` + `duration`
-- Output from STS: PCM S16LE bytes with the same `sampleRate` + `channels` and an effective duration that matches `duration`
+The worker streams audio fragments into an active Gemini Live session:
+- Outbound request: PCM bytes + `sampleRate` + `channels` + `duration` + `sequenceNumber`
+- Inbound response: target-language PCM (same rate/channels) + aligned text for the fragment + status
+- Session context: target language, voice style, and any prompt/role instructions are set at session creation and remain fixed.
 
 Optional (dev-only) artifacting:
-- If you want to persist “what STS saw / produced” for debugging, write WAVs (or MP4/AAC) to disk behind an explicit flag.
+- If you want to persist “what Gemini Live saw/produced” for debugging, write WAVs behind an explicit flag.
 - Do not log or persist raw audio by default.
 
 ### 4.3 Background + dubbed remixing
 
 Worker responsibilities (from `specs/001-spec.md`):
 - Run speech/background separation on the original PCM chunk to obtain `background_pcm`.
-- Receive dubbed speech as `dubbed_pcm` (from STS).
+- Receive dubbed speech as `dubbed_pcm` (from Gemini Live).
 - Mix:
 ```text
 out_pcm = bg_gain * background_pcm + dub_gain * dubbed_pcm
@@ -180,7 +154,7 @@ out_pcm = bg_gain * background_pcm + dub_gain * dubbed_pcm
 
 Guards:
 - Apply hard limiting/normalization to avoid clipping.
-- If STS times out, default to original audio pass-through.
+- If Gemini Live times out, default to original audio pass-through.
 
 ---
 
@@ -199,7 +173,7 @@ Set `av_offset_ns` to a fixed “initial buffering” value (e.g., 2–5 seconds
 - hold a small video buffer while waiting for dubbed audio
 - avoid negative/rewinding timestamps
 
-v0 decision: use **10s** initial buffering to improve STS stability/quality, accepting higher latency.
+v0 decision: use **10s** initial buffering to absorb Gemini Live latency variance, accepting higher end-to-end latency.
 
 ### 5.2 Drift measurement + correction
 
@@ -215,7 +189,7 @@ Correction policy (v1, simple):
 
 The worker is written in Python using `gi.repository`:
 - `Gst`, `GObject`, `GLib`
-- an in-process `StsBackend` implementation (see §1.2)
+- a Gemini Live client wrapper (see §1.2)
 
 ### 6.1 Minimal worker CLI (proposed)
 
@@ -224,7 +198,7 @@ python -m stream_worker \
   --stream-id demo \
   --input-rtsp rtsp://localhost:8554/live/demo/in \
   --output-rtmp rtmp://localhost:1935/live/demo/out \
-  --sts-mode inprocess \
+  --dubbing-provider gemini-live \
   --chunk-ms 1000 \
   --log-json
 ```
@@ -234,7 +208,7 @@ python -m stream_worker \
 Worker must:
 - Log all GStreamer bus `ERROR`/`WARNING` with element name, debug string
 - Log state transitions (NULL→READY→PAUSED→PLAYING)
-- Emit periodic “health” logs (queue depth, in-flight count, last STS RTT)
+- Emit periodic “health” logs (queue depth, in-flight count, last Gemini RTT)
 
 ### 6.3 Appsink/appsrc loop (reference sketch)
 
@@ -245,7 +219,7 @@ Reference skeleton (not production-ready).
 Focus:
 - RTSP pull (MediaMTX) -> demux -> appsinks
 - video passthrough to RTMP (MediaMTX) via appsrc
-- audio chunking + in-process STS + push to RTMP via appsrc
+- audio chunking + Gemini Live call + push to RTMP via appsrc
 - strong bus logging (errors, warnings, state)
 """
 
@@ -381,11 +355,12 @@ def main():
     # Keep a fixed initial delay so video can wait for dubbed audio.
     av_offset_ns = 3_000_000_000
 
-    class MockStsBackend:
+    class GeminiLiveClient:
         def process_fragment(self, _meta, pcm_s16le: bytes) -> bytes:
+            # Replace with real Gemini Live streaming call; echoing input here for the skeleton.
             return pcm_s16le
 
-    sts_backend = MockStsBackend()
+    gemini_client = GeminiLiveClient()
     executor = ThreadPoolExecutor(max_workers=1)
 
     batch = 0
@@ -396,7 +371,7 @@ def main():
             fragment_id = chunk.fragment_id
             started = GLib.get_monotonic_time()
             try:
-                dubbed = sts_backend.process_fragment(
+                dubbed = gemini_client.process_fragment(
                     {
                         "id": fragment_id,
                         "streamId": stream_id,
@@ -409,7 +384,7 @@ def main():
                 )
                 status = "processed"
             except Exception as e:  # fallback: continuity over correctness
-                _log("sts_error", streamId=stream_id, runId=run_id, fragmentId=fragment_id, error=str(e))
+                _log("gemini_error", streamId=stream_id, runId=run_id, fragmentId=fragment_id, error=str(e))
                 dubbed = chunk.pcm_s16le
                 status = "fallback"
             rtt_ms = (GLib.get_monotonic_time() - started) / 1000.0
@@ -428,7 +403,7 @@ def main():
                     fragmentId=fragment_id,
                     batchNumber=chunk.batch_number,
                     status=status,
-                    stsRttMs=round(rtt_ms, 2),
+                    geminiRttMs=round(rtt_ms, 2),
                 )
                 return False
 
@@ -468,7 +443,7 @@ def main():
             pcm_s16le=pcm_chunk,
         )
         _log(
-            "sts_submit",
+            "gemini_submit",
             streamId=stream_id,
             runId=run_id,
             fragmentId=fragment_id,
@@ -506,7 +481,7 @@ Per-fragment fields:
 - `fragmentId`
 - `batchNumber`
 - `t0_ms`, `duration_ms`
-- `sts_rtt_ms`
+- `gemini_rtt_ms`
 
 Do not log:
 - stream keys / credentials
@@ -526,9 +501,9 @@ Recommended metrics:
   - `worker_inflight_fragments`
   - `worker_av_sync_delta_ms`
   - `worker_video_queue_ms`, `worker_audio_queue_ms`
-  - `worker_sts_breaker_state` (0=closed, 1=half_open, 2=open)
+  - `worker_gemini_breaker_state` (0=closed, 1=half_open, 2=open)
 - Histograms:
-  - `worker_sts_rtt_ms`
+  - `worker_gemini_rtt_ms`
   - `worker_chunk_end_to_end_latency_ms` (ingest PTS → publish PTS)
 
 ### 7.3 GStreamer debugging knobs (dev-only)
@@ -560,21 +535,21 @@ ffplay rtsp://localhost:8554/live/test-stream/in
 ffplay rtmp://localhost:1935/live/test-stream/in
 ```
 
-### 8.2 Worker “bypass mode” (no STS)
+### 8.2 Worker “bypass mode” (no Gemini Live)
 
 First milestone is a worker that republish-remuxes:
 - pull `live/<streamId>/in` via RTSP
 - push same A/V to `live/<streamId>/out` via RTMP
 
-This isolates MediaMTX + GStreamer correctness before adding STS latency.
+This isolates MediaMTX + GStreamer correctness before adding Gemini Live latency.
 
-### 8.3 Mock STS (for deterministic tests)
+### 8.3 Mock Gemini Live (for deterministic tests)
 
-Implement a mock `StsBackend` that returns either:
+Implement a mock Gemini Live client that returns either:
 - pass-through PCM, or
 - a deterministic tone synthesized to the requested `duration`
 
-This enables deterministic local tests without running Whisper/TTS (and without any worker↔STS network).
+This enables deterministic local tests without calling Gemini Live (and without any worker↔cloud network).
 
 Reference mock (tone backend):
 ```python
@@ -597,7 +572,7 @@ class FragmentMeta:
     channels: int
 
 
-class MockToneStsBackend:
+class MockToneGeminiBackend:
     def process_fragment(self, meta: FragmentMeta, _pcm_s16le: bytes) -> bytes:
         n = int(meta.sample_rate * meta.duration_s)
         t = np.arange(n, dtype=np.float32) / float(meta.sample_rate)
@@ -610,7 +585,7 @@ class MockToneStsBackend:
 if __name__ == "__main__":
     # Demo: 1s @ 48kHz stereo
     m = FragmentMeta(id="x", stream_id="demo", batch_number=1, duration_s=1.0, sample_rate=48000, channels=2)
-    out = MockToneStsBackend().process_fragment(m, b"")
+    out = MockToneGeminiBackend().process_fragment(m, b"")
     print(len(out))
 ```
 
@@ -618,7 +593,7 @@ if __name__ == "__main__":
 
 Assuming MediaMTX is running locally (see `specs/002-mediamtx.md`, or use `make dev` with `deploy/docker-compose.yml`):
 
-For a single “how to run it” flow across MediaMTX + hooks + worker milestones, see `specs/009-end-to-end-workflow.md`.
+For a single “how to run it” flow across MediaMTX + hooks + worker milestones, see `specs/006-end-to-end-workflow.md`.
 
 1) Publish a test stream to `live/<streamId>/in` (choose FFmpeg or GStreamer from `specs/002-mediamtx.md`)
 2) Run the worker (reference skeleton):
@@ -638,24 +613,24 @@ In implementation, replace (2) with the real entrypoint and ensure all args are 
 ## 9. Failure Handling (Operational Defaults)
 
 Timeouts (suggested):
-- STS per-fragment budget: 5–8s (soft) and 10–12s (hard kill / fallback)
+- Gemini Live per-fragment budget: 5–8s (soft) and 10–12s (hard kill / fallback)
 - Max in-flight fragments: 3–5 (backpressure; v0 decision: stall output and alert when limit is hit)
 
 Fallbacks:
-- STS error/timeout/overload → choose one (configurable):
+- Gemini Live error/timeout/overload → choose one (configurable):
   - `pass-through` (default): original audio chunk
   - `background-only`: separation output only (if available)
   - `ducked-original`: original audio with aggressive ducking when dub is present
   - `last-good-dub`: repeat last successfully synthesized dub chunk for continuity (use sparingly)
   - `silence`: emit silence of matching duration (last resort)
-- Invalid STS output (wrong duration, wrong sample rate/channels, NaNs/clipping) → sanitize (trim/pad/limit) then fallback if still invalid
+- Invalid Gemini Live output (wrong duration, wrong sample rate/channels, NaNs/clipping) → sanitize (trim/pad/limit) then fallback if still invalid
 - Missing video buffers → continue audio (do not stall) but log as degraded
 - GStreamer pipeline error → exit non-zero (so orchestration can restart)
 
 Circuit breaker (recommended):
-- Open the breaker (disable STS temporarily) when any of the following holds:
-  - `N` consecutive STS failures (example: 5)
-  - STS latency p95 exceeds a threshold for `T` seconds (example: > 6s for 30s)
+- Open the breaker (disable Gemini Live temporarily) when any of the following holds:
+  - `N` consecutive Gemini Live failures (example: 5)
+  - Gemini Live latency p95 exceeds a threshold for `T` seconds (example: > 6s for 30s)
   - in-flight queue exceeds a hard limit (example: > 5 chunks)
 - While open: continue republishing with the configured fallback (default pass-through).
 - Half-open after cooldown (example: 30s): allow 1 chunk through; close on success, re-open on failure.
@@ -666,10 +641,10 @@ Circuit breaker (recommended):
 
 - Worker pulls `rtsp://mediamtx:8554/live/<streamId>/in` and publishes `rtmp://mediamtx:1935/live/<streamId>/out`
 - Video remains H.264 passthrough (no re-encode), verified by codec inspection
-- Audio is replaced by processed audio from STS (or mock STS) without audible gaps
+- Audio is replaced by processed audio from Gemini Live (or mock) without audible gaps
 - A/V sync delta remains bounded (target: < 120ms steady-state)
 - Logs include stream + fragment correlation ids, and do not include secrets/audio payloads by default
-- Metrics endpoint provides at least: STS RTT histogram, in-flight gauge, A/V sync gauge, bus error counter
+- Metrics endpoint provides at least: Gemini Live RTT histogram, in-flight gauge, A/V sync gauge, bus error counter
 
 ---
 
@@ -677,7 +652,7 @@ Circuit breaker (recommended):
 
 Resolved decisions (v0):
 
-1) **STS execution model:** run STS in-process (threads), not a subprocess.
+1) **Gemini Live session model:** one persistent session per stream with fixed language/voice context.
 2) **Internal audio format:** standardize on `48kHz stereo`.
 3) **Initial buffering target:** `10s` initial buffering.
 4) **Video passthrough constraints:** “codec copy” is sufficient.

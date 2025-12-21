@@ -1,6 +1,6 @@
 # End-to-End Workflow (Ingest → Process → Republish)
 
-This doc connects `specs/001-spec.md`, `specs/002-mediamtx.md`, and `specs/003-gstreamer-stream-worker.md` into a single, runnable workflow, with a clear path from “MediaMTX only” to “full STS dubbing”.
+This doc connects `specs/001-spec.md`, `specs/002-mediamtx.md`, and `specs/003-gstreamer-stream-worker.md` into a single, runnable workflow, with a clear path from “MediaMTX only” to “full Gemini Live dubbing”.
 
 ---
 
@@ -51,7 +51,7 @@ ffplay rtmp://localhost:1935/live/test-stream/out
 
 Success criteria: `live/test-stream/out` plays; no re-encode assumptions; minimal added latency.
 
-### Milestone C — Real worker, no STS (remux + sync)
+### Milestone C — Real worker, no Gemini (remux + sync)
 
 Run the `apps/stream-worker/` in “bypass mode” as defined in `specs/003-gstreamer-stream-worker.md`:
 - pull `rtsp://mediamtx:8554/live/test-stream/in`
@@ -59,20 +59,20 @@ Run the `apps/stream-worker/` in “bypass mode” as defined in `specs/003-gstr
 
 Success criteria: same as Milestone B, but via the worker process, with worker logs/metrics present.
 
-### Milestone D — Worker + mock STS (deterministic)
+### Milestone D — Worker + mock Gemini Live (deterministic)
 
-Enable the mock STS backend (tone/pass-through) from `specs/003-gstreamer-stream-worker.md` to validate:
+Enable the mock Gemini Live backend (tone/pass-through) from `specs/003-gstreamer-stream-worker.md` to validate:
 - fragment chunking
 - backpressure / max in-flight
 - A/V sync correction strategy
 
 Success criteria: audible deterministic tone (or pass-through); bounded `worker_av_sync_delta_ms`.
 
-### Milestone E — Worker + real STS (full pipeline)
+### Milestone E — Worker + Gemini Live (full pipeline)
 
-Swap mock STS for the real in-process STS pipeline (see `specs/004-sts-pipeline-design.md`).
+Swap the mock backend for the Gemini Live streaming session (see `specs/004-sts-pipeline-design.md`).
 
-Success criteria: dubbed speech is present; background remains; fallbacks behave under induced STS latency/failure.
+Success criteria: dubbed speech is present; background remains; fallbacks behave under induced Gemini latency/failure.
 
 ---
 
@@ -105,4 +105,4 @@ Local workflow: keep the destination unset/disabled until the worker pipeline is
 - “Nothing plays”: check MediaMTX `GET /v3/paths/list` and container logs.
 - “Worker can’t pull RTSP”: verify worker network can reach `mediamtx:8554`, and force TCP (`protocols=tcp`).
 - “A/V drift”: inspect the worker A/V sync gauge and confirm `appsrc` timestamps are monotonic.
-- “Dub gaps”: look at `worker_inflight_fragments`, STS RTT histogram, and fallback counters.
+- “Dub gaps”: look at `worker_inflight_fragments`, Gemini RTT histogram, and fallback counters.

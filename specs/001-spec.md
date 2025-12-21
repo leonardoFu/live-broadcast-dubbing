@@ -1,11 +1,11 @@
 
-# Live Stream STS Processing & Republish Spec
+# Live Stream Dubbing (Gemini Live) & Republish Spec
 
 ## 1. Goal
 
 Build a live streaming pipeline that:
 - Ingests a live stream via **MediaMTX**
-- Processes audio in real time using **STS (Speech → Text → Speech)**
+- Processes audio in real time using **Gemini Live (speech-to-speech streaming)**
 - Preserves original video
 - Replaces spoken audio with dubbed audio while keeping background sound
 - Republishes the processed stream to a **3rd-party RTMP endpoint**
@@ -21,11 +21,11 @@ Build a live streaming pipeline that:
 (MediaMTX Ingest: /live/<streamId>/in)
       |
       v
-[Unified Worker (Python: GStreamer + STS)]
+[Unified Worker (Python: GStreamer + Gemini Live)]
   - Demux audio/video
   - Audio chunking
   - Speech/background separation
-  - STS (Whisper → MT → TTS, in-process)
+  - Gemini Live session (streaming ASR → translation → TTS)
   - Audio remix
   - Remux A/V
       |
@@ -71,12 +71,12 @@ See `specs/002-mediamtx.md` for the proposed hook contract and configuration tem
 
 ---
 
-### 3.3 Unified Worker (GStreamer + STS)
+### 3.3 Unified Worker (GStreamer + Gemini Live)
 
 Responsibilities:
 - Pull stream from MediaMTX
 - Split audio and video using GStreamer
-- Run the STS pipeline in-process (no worker↔STS network hop)
+- Maintain a persistent Gemini Live session for streaming dubbing
 - Perform speech/background separation
 - Remix background audio with dubbed audio
 - Remux audio with original video
@@ -92,9 +92,9 @@ Implementation spec:
 
 ---
 
-### 3.4 STS Module (in-process)
+### 3.4 Gemini Live Session (cloud STS)
 
-STS is treated as a Python module used by the unified worker (code currently planned under `apps/sts-service/`).
+STS is provided by **Gemini Live** as a cloud streaming session managed by the unified worker (no standalone `apps/sts-service/`).
 
 Internal “fragment” metadata (for logs/metrics and FIFO ordering):
 - `id`
@@ -115,13 +115,12 @@ Internal audio format (v1):
 - Chunk size: 1–2 seconds
 - Optional overlap: 100–200 ms
 
-### 4.2 STS Flow
-1. Resample PCM to 16 kHz (ASR path)
-3. Whisper transcription
-4. Translation
-5. TTS synthesis
-6. Time-stretch to match duration
-7. Return PCM dubbed speech to mixer
+### 4.2 Gemini Live Flow
+1. Resample PCM to the Gemini Live-supported format (single internal format inside the worker).
+2. Stream audio fragments to a Gemini Live session tagged with `streamId` + `sequenceNumber`.
+3. Receive target-language speech responses (audio + aligned text) from Gemini Live.
+4. Normalize received audio to worker format and time-stretch to the fragment duration when needed.
+5. Return PCM dubbed speech to the mixer with lineage to the input fragment.
 
 ### 4.3 Speech/Background Separation
 Input: original PCM audio  
@@ -186,7 +185,7 @@ Worker details (Python + observability + sync strategy):
 ## 7. Latency
 
 Primary contributors:
-- STS processing (Whisper + TTS)
+- Gemini Live round trip time (streaming ASR/translation/TTS)
 - Audio separation inference
 - Buffering
 
@@ -196,16 +195,16 @@ Expected added latency:
 Knobs:
 - Chunk duration
 - Max in-flight fragments
-- TTS model choice
+- Gemini Live session parameters (e.g., voice configuration)
 
 ---
 
 ## 8. Failure Handling
 
-### STS Failures / Overload
+### Gemini Live Failures / Overload
 Policy:
-- Prefer continuity: keep republishing even when STS is degraded.
-- Use a circuit breaker: if STS is repeatedly failing/slow, temporarily disable STS and use fallbacks.
+- Prefer continuity: keep republishing even when Gemini Live is degraded.
+- Use a circuit breaker: if Gemini Live is repeatedly failing/slow, temporarily disable Gemini Live and use fallbacks.
 
 Fallback options (configurable):
 1. Pass through original audio (default)
@@ -227,7 +226,7 @@ Fallback options (configurable):
 ## 9. Scaling
 
 - One Stream Worker per input stream
-- STS executes inside each worker process (scale by running more workers)
+- Gemini Live sessions are managed per worker/stream (scale by running more workers)
 - Preserve per-stream FIFO ordering
 
 ---
@@ -238,7 +237,7 @@ Metrics:
 - Fragment processing latency
 - Queue depth
 - A/V sync delta
-- STS breaker state + fallback counts
+- Gemini Live breaker state + fallback counts
 - Output publish status
 
 Logs:
@@ -259,4 +258,4 @@ Logs:
 
 ## 12. End-to-end workflow
 
-For a single “how to run it” doc that connects MediaMTX hooks, worker milestones, and validation commands, see `specs/009-end-to-end-workflow.md`.
+For a single “how to run it” doc that connects MediaMTX hooks, worker milestones, and validation commands, see `specs/006-end-to-end-workflow.md`.

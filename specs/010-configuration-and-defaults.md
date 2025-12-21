@@ -14,7 +14,7 @@ It aligns to these repo decisions:
 
 - Stream identity is path-based: `live/<streamId>/in` and `live/<streamId>/out`.
 - One worker per stream; stop on `not-ready` after a grace period (default `30s`).
-- Worker: STS in-process; internal audio is PCM S16LE @ 48kHz stereo; initial buffering target `10s`; video is codec-copied; backpressure stalls output and alerts.
+- Worker: uses Gemini Live as the dubbing provider; internal audio is PCM S16LE @ 48kHz stereo; initial buffering target `10s`; video is codec-copied; backpressure stalls output and alerts.
 - Recording is disabled in v0 (`record: no`).
 - Dev access is unauthenticated (“everyone”); ops/security hardening is deferred.
 - Observability: logs persisted to filesystem in dev; do not log frame-by-frame; log per-fragment operations and errors.
@@ -65,7 +65,7 @@ These environment variables apply to **every** component in v0.
 Logging requirements (behavioral, not knobs):
 
 - Do not log per-frame.
-- Do log per-fragment lifecycle (ingest fragment → STS started → STS completed → mux/publish) and any errors.
+- Do log per-fragment lifecycle (ingest fragment → Gemini send → Gemini response → mux/publish) and any errors.
 
 ## 3. MediaMTX Configuration
 
@@ -198,7 +198,9 @@ Observability impact:
 
 ## 5. `stream-worker` Configuration
 
-`stream-worker` pulls `live/<streamId>/in`, processes audio through in-process STS, and publishes `live/<streamId>/out`. Video MUST be codec-copied.
+`stream-worker` pulls `live/<streamId>/in`, processes audio through Gemini Live dubbing, and publishes `live/<streamId>/out`. Video MUST be codec-copied.
+
+Naming note: existing `STS`-prefixed knobs are kept for compatibility; `WORKER_STS_PROVIDER=gemini-live` maps to Gemini Live, and `mock` maps to the deterministic local stub.
 
 ### 5.1 Environment Variables / Flags
 
@@ -216,7 +218,7 @@ Observability impact:
 | `WORKER_AUDIO_SAMPLE_RATE_HZ` | int | `48000` | optional | v0 requires `48000`; if set to other → start fails. |
 | `WORKER_AUDIO_CHANNELS` | int | `2` | optional | v0 requires `2`; if set to other → start fails. |
 | `WORKER_STS_MODE` / `--sts-mode` | string | `enabled` | optional | One of: `enabled`, `passthrough`, `disabled`. |
-| `WORKER_STS_PROVIDER` / `--sts-provider` | string | `mock` | optional | One of: `mock`, `local`, `cloud`. Invalid → start fails. |
+| `WORKER_STS_PROVIDER` / `--sts-provider` | string | `gemini-live` | optional | One of: `gemini-live` (preferred), `mock`, `local` (legacy/offline). Invalid → start fails. |
 | `WORKER_SOURCE_LANG` | string | `en` | optional | BCP-47 or short code; validation is provider-specific. |
 | `WORKER_TARGET_LANG` | string | `en` | optional | BCP-47 or short code; validation is provider-specific. |
 | `WORKER_TTS_VOICE` | string | `default` | optional | Provider-specific voice name. |
@@ -224,7 +226,7 @@ Observability impact:
 | `WORKER_CACHE_MAX_BYTES` | int | `1073741824` | optional | `>= 0`. `0` disables cache. |
 | `WORKER_BACKPRESSURE_MODE` | string | `stall` | optional | v0 requires `stall`. Any other value → start fails. |
 | `WORKER_BACKPRESSURE_MAX_BUFFERED_AUDIO` | duration | `3s` | optional | When exceeded, worker MUST stall output and emit an alert log event; `>= 0s`. |
-| `WORKER_FRAGMENT_TARGET_DUR` | duration | `2s` | optional | Logical fragment size for per-fragment logging and STS batching; `>= 250ms` and `<= 10s`. |
+| `WORKER_FRAGMENT_TARGET_DUR` | duration | `2s` | optional | Logical fragment size for per-fragment logging and Gemini Live batching; `>= 250ms` and `<= 10s`. |
 | `WORKER_ASSETS_DIR` | string | `./.local/assets/stream-worker` | optional | Used for provider assets/models; must be writable if used. |
 
 Derived defaults:
@@ -245,17 +247,32 @@ Derived defaults:
 - Missing `WORKER_STREAM_ID` → start fails.
 - Invalid URL syntax for `WORKER_INPUT_URL`/`WORKER_OUTPUT_URL` → start fails.
 - If `WORKER_STS_MODE=enabled`:
+  - Provider `gemini-live` MUST fail fast at startup if required credentials/endpoint settings are missing (see §5.4).
   - Provider `mock` requires no additional config; it produces deterministic placeholder output.
-  - Provider `local` MAY require `WORKER_ASSETS_DIR` to exist/writable; if not, start fails.
-  - Provider `cloud` MUST fail fast at startup if required cloud credentials are missing (credential names are provider-specific and out of scope for v0).
+  - Provider `local` is legacy/offline; it MAY require `WORKER_ASSETS_DIR` to exist/writable; if not, start fails.
 - If backpressure thresholds are exceeded:
   - Worker MUST stall output (not drop video/audio silently).
   - Worker MUST emit an “alert” log event once per incident (no per-frame spam), including `streamId`, `runId`, `instanceId`, and current buffered durations.
 
 Observability impact:
 
-- `WORKER_FRAGMENT_TARGET_DUR` affects log volume (per fragment) and STS batch cadence.
+- `WORKER_FRAGMENT_TARGET_DUR` affects log volume (per fragment) and Gemini Live batch cadence.
 - `WORKER_BUFFER_TARGET` affects startup latency and the timing of the first fragment logs.
+
+### 5.4 Gemini Live Provider Config (v0)
+
+Required when `WORKER_STS_PROVIDER=gemini-live`:
+
+| Name / Flag | Type | Default | Required | Notes / Validation |
+|---|---:|---|---:|---|
+| `WORKER_GEMINI_API_KEY` | string | (none) | required | Inject via env/secret (never baked into images). Must be non-empty. |
+| `WORKER_GEMINI_MODEL` | string | provider default | optional | Gemini model/voice profile to request; string is passed through to the SDK. |
+| `WORKER_GEMINI_REGION` | string | provider default | optional | Region/endpoint hint; validated only for non-empty. |
+| `WORKER_GEMINI_SESSION_HINT` | string | (none) | optional | Optional text prompt for session context; must be <= 2KB if set. |
+
+Validation rules:
+- Startup MUST fail fast if `WORKER_GEMINI_API_KEY` is empty when `WORKER_STS_PROVIDER=gemini-live`.
+- Region/model are not validated here; rely on provider errors but surface them clearly in logs.
 
 ## 6. Egress Forwarder Configuration
 
@@ -332,7 +349,9 @@ ORCH_WORKER_COMMAND=stream-worker
 
 # stream-worker (when launched by orchestrator, values are passed as flags)
 WORKER_BUFFER_TARGET=10s
-WORKER_STS_PROVIDER=mock
+WORKER_STS_PROVIDER=gemini-live
+WORKER_GEMINI_API_KEY=<set in env or secret>
+# For offline testing without credentials, set WORKER_STS_PROVIDER=mock instead.
 
 # shared
 LOG_DIR=./.local/logs

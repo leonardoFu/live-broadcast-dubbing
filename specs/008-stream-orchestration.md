@@ -24,7 +24,7 @@ Provide a deterministic, observable, and safe way to:
 ## 2. Non-Goals
 
 - Implementing media processing (belongs to the worker; see `specs/003-gstreamer-stream-worker.md`)
-- Designing the STS pipeline (see `specs/004-sts-pipeline-design.md`)
+- Designing the dubbing pipeline (see `specs/004-sts-pipeline-design.md`)
 - Choosing a production platform for process/container management (Kubernetes/ECS/systemd/etc.)
 - Managing end-user entitlements/billing (this spec focuses on internal orchestration)
 
@@ -277,4 +277,3 @@ Recommended metrics (names are illustrative; exact names are non-binding):
 - Brief disconnect/reconnect loops do not cause repeated worker churn beyond configured policy limits.
 - Operators can identify stream session state and failure reasons using orchestrator logs/metrics without inspecting worker internals.
 - Forwarding failures do not prevent internal processed output (`live/<streamId>/out`) from being produced when the worker is healthy.
-
