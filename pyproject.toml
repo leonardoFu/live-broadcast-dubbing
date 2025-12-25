@@ -24,3 +24,52 @@ warn_unreachable = true
 ignore_missing_imports = true
 exclude = "(?x)(^\\.codex/|^\\.project-scripts/|^\\.specify/|^\\.sts-service-archive/|^specs/)"
 
+[tool.pytest.ini_options]
+testpaths = ["apps", "tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",                          # Verbose output
+    "--strict-markers",            # Strict marker validation
+    "--tb=short",                  # Short traceback format
+    "--cov=apps",                  # Coverage for apps/ directory
+    "--cov-report=term-missing",   # Show missing lines in terminal
+    "--cov-report=html:coverage",  # Generate HTML coverage report
+    "--cov-fail-under=80",         # Fail if coverage < 80%
+]
+markers = [
+    "unit: Unit tests (fast, no external dependencies)",
+    "contract: Contract tests (API/event schema validation)",
+    "integration: Integration tests (mocked services)",
+    "e2e: End-to-end tests (real services, slow)",
+]
+
+[tool.coverage.run]
+source = ["apps"]
+omit = [
+    "*/tests/*",
+    "*/__init__.py",
+    "*/conftest.py",
+    "*/.venv/*",
+    "*/.sts-service-archive/*",
+]
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
+
+[tool.coverage.html]
+directory = "coverage"
+

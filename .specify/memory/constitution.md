@@ -1,20 +1,23 @@
 # Live Stream Dubbing Constitution
 
 <!--
-SYNC IMPACT REPORT - Constitution v1.0.0
+SYNC IMPACT REPORT - Constitution v1.1.0
 ===========================================
-Version: Initial → 1.0.0
-Modified Principles: N/A (initial constitution)
-Added Sections: All sections (initial creation)
+Version: 1.0.0 → 1.1.0
+Modified Principles: Added Principle VIII (Test-First Development)
+Added Sections: Principle VIII - TDD enforcement mandate
 Removed Sections: None
 
 Templates Requiring Updates:
-✅ plan-template.md - Constitution Check section aligns with new principles
-✅ spec-template.md - User scenarios align with real-time processing requirements
-✅ tasks-template.md - Task organization supports TDD and modular development
+⚠️  plan-template.md - Constitution Check section needs Principle VIII gate
+⚠️  spec-template.md - Independent Test field needs structured TDD format
+⚠️  tasks-template.md - Tests must change from OPTIONAL to MANDATORY
 ✅ CLAUDE.md - Testing guidelines match constitution expectations
 
-Follow-up TODOs: None
+Follow-up TODOs:
+- Update plan-template.md to include Principle VIII in Constitution Check
+- Update spec-template.md to add structured test requirements (unit, contract, integration)
+- Update tasks-template.md to make tests mandatory with TDD naming conventions
 ===========================================
 -->
 
@@ -61,6 +64,35 @@ Video passthrough MUST preserve original timestamps. Audio processing MUST track
 Features MUST be implemented in independently deployable milestones: (1) Video passthrough + dubbed audio, (2) Background separation and remix, (3) Overlap + crossfade, (4) Fallback modes, (5) Quality tuning.
 
 **Rationale**: Attempting to build everything at once delays validation and increases risk. Each milestone delivers measurable value and can be tested end-to-end. Incremental delivery enables fast feedback and course correction.
+
+### VIII. Test-First Development (NON-NEGOTIABLE)
+
+All production code MUST be preceded by failing tests. Tests define behavior before implementation. Coverage gates MUST block CI/CD pipeline. Mock-based unit tests run on every commit; integration tests gate deployment.
+
+**Rationale**: TDD is not optional—it's a quality gate. Writing tests after code leads to untestable designs, missing edge cases, and regression-prone systems. In a real-time A/V pipeline where latency and sync bugs are catastrophic, comprehensive test coverage is survival. Tests document intent, enable fearless refactoring, and prevent production failures.
+
+**Enforcement**:
+- Pre-commit hooks block commits without corresponding tests
+- CI fails if test coverage drops below 80% for new code
+- PRs without tests are automatically rejected
+- `/speckit.implement` workflow validates test existence before proceeding
+
+**Test Levels** (per Principle II):
+1. **Unit Tests** (mandatory): Pure functions, business logic, calculations
+2. **Contract Tests** (mandatory): API contracts, event schemas, STS fragments
+3. **Integration Tests** (required for workflows): Pipeline assembly, service integration
+4. **E2E Tests** (optional): Full system validation with real dependencies
+
+**Coverage Requirements**:
+- New modules: 80% minimum line coverage
+- Critical paths (A/V sync, STS pipeline): 95% minimum
+- Utility functions: 100% (no excuses—they're small)
+- Integration tests: All user stories must have at least one happy path test
+
+**Exemptions** (requires explicit justification in PR):
+- Prototype/spike code (must be in separate branch, never merged to main)
+- Generated code (clearly marked with generator tool)
+- Vendor/third-party code (must be in separate directory)
 
 ## Technology Constraints
 
@@ -156,4 +188,4 @@ Constitution changes require:
 
 Runtime development guidance (build commands, local dev setup, framework versions) lives in `CLAUDE.md`, not in this constitution. The constitution defines what (principles), CLAUDE.md defines how (commands).
 
-**Version**: 1.0.0 | **Ratified**: 2025-12-24 | **Last Amended**: 2025-12-24
+**Version**: 1.1.0 | **Ratified**: 2025-12-24 | **Last Amended**: 2025-12-24

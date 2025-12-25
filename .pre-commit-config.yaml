@@ -1,0 +1,58 @@
+# Pre-commit hooks for TDD enforcement (Constitution Principle VIII)
+# Install: pre-commit install
+# Run manually: pre-commit run --all-files
+
+repos:
+  # Ruff - Fast Python linter
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.0
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  # MyPy - Type checking
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.10.0
+    hooks:
+      - id: mypy
+        additional_dependencies: [types-all]
+        args: [--strict, --ignore-missing-imports]
+        exclude: '^(\.codex/|\.specify/|\.sts-service-archive/|specs/)'
+
+  # Pytest - Test execution and coverage
+  - repo: local
+    hooks:
+      - id: pytest-check
+        name: pytest (unit + contract tests)
+        entry: bash -c 'python3 -m pytest apps/ tests/ -m "unit or contract" --cov=apps --cov-fail-under=80 || (echo "❌ Tests failed or coverage < 80%. Fix tests before committing." && exit 1)'
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [commit]
+
+  # Test existence checker (custom enforcement)
+  - repo: local
+    hooks:
+      - id: check-tests-exist
+        name: Verify tests exist for new code
+        entry: python3 .specify/scripts/check_tests_exist.py
+        language: system
+        pass_filenames: true
+        types: [python]
+        exclude: '^(tests/|\.specify/|\.codex/|\.sts-service-archive/|specs/)'
+        stages: [commit]
+
+  # Standard pre-commit hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+        args: [--maxkb=1000]
+      - id: check-merge-conflict
+      - id: check-json
+      - id: check-toml
+      - id: mixed-line-ending
