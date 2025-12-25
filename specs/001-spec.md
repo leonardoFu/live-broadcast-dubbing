@@ -14,26 +14,37 @@ Build a live streaming pipeline that:
 
 ## 2. High-Level Architecture
 
+**Note**: This system deploys as **two separate services** for optimal cost and performance. See `specs/015-deployment-architecture.md` for the full two-service deployment architecture (EC2 + RunPod).
+
 ```
 [Source Stream]
       |
       v
-(MediaMTX Ingest: /live/<streamId>/in)
+(MediaMTX Ingest: /live/<streamId>/in) — EC2
       |
       v
-[Unified Worker (Python: GStreamer + STS)]
+[Stream Worker (Python: GStreamer)]       — EC2
   - Demux audio/video
   - Audio chunking
   - Speech/background separation
-  - STS (Whisper → MT → TTS, in-process)
+  - STS Client (calls RunPod STS API)
   - Audio remix
   - Remux A/V
+      |                              |
+      |                              | (HTTPS to RunPod)
+      |                              v
+      |                        [STS Service API] — RunPod (GPU)
+      |                          - ASR (Whisper)
+      |                          - Translation (MT)
+      |                          - TTS (Synthesis)
+      |                              |
+      |                              | (dubbed audio)
+      |<─────────────────────────────┘
+      v
+(MediaMTX Processed Path: /live/<streamId>/out) — EC2
       |
       v
-(MediaMTX Processed Path: /live/<streamId>/out)
-      |
-      v
-[Egress Forwarder (managed by stream-orchestration)]
+[Egress Forwarder (managed by stream-orchestration)] — EC2
       |
       v
 [3rd-party RTMP Destination]
@@ -71,13 +82,15 @@ See `specs/002-mediamtx.md` for the proposed hook contract and configuration tem
 
 ---
 
-### 3.3 Unified Worker (GStreamer + STS)
+### 3.3 Stream Worker (GStreamer + STS Client)
+
+**Deployment**: Runs on EC2 instance (CPU-only, no GPU required)
 
 Responsibilities:
 - Pull stream from MediaMTX
 - Split audio and video using GStreamer
-- Run the STS pipeline in-process (no worker↔STS network hop)
-- Perform speech/background separation
+- Perform speech/background separation (CPU-based)
+- Call remote STS Service API on RunPod for GPU processing
 - Remix background audio with dubbed audio
 - Remux audio with original video
 - Push processed stream back to MediaMTX
@@ -86,26 +99,34 @@ Design principles:
 - Video passthrough whenever possible (H.264)
 - Audio decoded to PCM for processing
 - Maintain A/V sync using timestamps
+- Lightweight CPU operations only (audio processing, mixing)
 
 Implementation spec:
 - `specs/003-gstreamer-stream-worker.md`
 
 ---
 
-### 3.4 STS Module (in-process)
+### 3.4 STS Service (Remote API on RunPod)
 
-STS is treated as a Python module used by the unified worker (code currently planned under `apps/sts-service/`).
+**Deployment**: Runs on RunPod.io GPU pods for optimal GPU performance and cost
 
-Internal “fragment” metadata (for logs/metrics and FIFO ordering):
-- `id`
-- `streamId`
-- `batchNumber`
-- `duration` (seconds)
-- `sampleRate`
-- `channels`
+The STS Service is a standalone HTTP/REST API service deployed on RunPod.io that executes GPU-intensive operations (code planned under `apps/sts-service/`).
 
-Internal audio format (v1):
-- PCM S16LE (bytes), plus `sampleRate` + `channels`
+API contract (see `specs/015-deployment-architecture.md` for details):
+- Endpoint: `POST /api/v1/sts/process`
+- Input: audio fragment (PCM S16LE, base64-encoded) + config (languages, voice)
+- Output: dubbed audio (PCM S16LE, base64-encoded) + metadata
+
+Fragment metadata:
+- `fragment_id`: unique identifier
+- `stream_id`: stream identifier
+- `sequence_number`: monotonic ordering
+- `duration_ms`: fragment duration
+- `sample_rate`: audio sample rate
+- `channels`: audio channels
+
+Audio format (v1):
+- PCM S16LE (bytes, base64-encoded), plus `sampleRate` + `channels`
 
 ---
 
@@ -115,13 +136,17 @@ Internal audio format (v1):
 - Chunk size: 1–2 seconds
 - Optional overlap: 100–200 ms
 
-### 4.2 STS Flow
-1. Resample PCM to 16 kHz (ASR path)
-3. Whisper transcription
-4. Translation
-5. TTS synthesis
-6. Time-stretch to match duration
-7. Return PCM dubbed speech to mixer
+### 4.2 STS Flow (Remote API Call)
+1. Worker chunks audio and prepares fragment for API call
+2. Worker sends fragment to RunPod STS Service via HTTPS
+3. STS Service processes on GPU:
+   - Resample PCM to 16 kHz (ASR path)
+   - Whisper transcription (GPU)
+   - Translation (GPU)
+   - TTS synthesis (GPU)
+   - Time-stretch to match duration
+4. STS Service returns dubbed PCM audio to worker
+5. Worker remixes dubbed audio with background
 
 ### 4.3 Speech/Background Separation
 Input: original PCM audio  
@@ -226,9 +251,17 @@ Fallback options (configurable):
 
 ## 9. Scaling
 
+**Stream Infrastructure (EC2)**:
 - One Stream Worker per input stream
-- STS executes inside each worker process (scale by running more workers)
-- Preserve per-stream FIFO ordering
+- Scale by running more EC2 instances for additional concurrent streams
+- Each worker independently calls the STS Service API
+
+**STS Service (RunPod)**:
+- Vertical scaling: Use larger GPU instances (A5000, A6000) for faster processing
+- Horizontal scaling: Deploy multiple RunPod pods behind a load balancer
+- On-demand scaling: Start/stop pods based on stream activity
+
+Per-stream FIFO ordering is preserved within each worker.
 
 ---
 

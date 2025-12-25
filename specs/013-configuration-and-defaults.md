@@ -1,14 +1,14 @@
 # 013 — Configuration and Defaults
 
-Status: Draft  
-Last updated: 2025-12-15
+Status: Draft
+Last updated: 2025-12-24
 
 This document is the single source of truth for runtime configuration and defaults across:
 
-- MediaMTX
-- `stream-orchestration` (HTTP hook receiver)
-- `stream-worker`
-- Egress forwarder
+- **Stream Infrastructure (EC2)**: MediaMTX, `stream-orchestration`, `stream-worker`, Egress forwarder
+- **STS Service (RunPod)**: GPU-accelerated STS processing API
+
+See `specs/015-deployment-architecture.md` for the full two-service deployment architecture.
 
 It aligns to these repo decisions:
 
@@ -216,7 +216,10 @@ Observability impact:
 | `WORKER_AUDIO_SAMPLE_RATE_HZ` | int | `48000` | optional | v0 requires `48000`; if set to other → start fails. |
 | `WORKER_AUDIO_CHANNELS` | int | `2` | optional | v0 requires `2`; if set to other → start fails. |
 | `WORKER_STS_MODE` / `--sts-mode` | string | `enabled` | optional | One of: `enabled`, `passthrough`, `disabled`. |
-| `WORKER_STS_PROVIDER` / `--sts-provider` | string | `mock` | optional | One of: `mock`, `local`, `cloud`. Invalid → start fails. |
+| `WORKER_STS_SERVICE_URL` / `--sts-service-url` | string | `http://localhost:8000` | required (if enabled) | Full URL to STS Service API (e.g., `https://<runpod-id>.runpod.io`). |
+| `WORKER_STS_API_KEY` / `--sts-api-key` | string | (none) | required (if enabled) | API key for authenticating with STS Service. |
+| `WORKER_STS_TIMEOUT_MS` / `--sts-timeout-ms` | int | `8000` | optional | Request timeout in milliseconds; range `1000..30000`. |
+| `WORKER_STS_MAX_RETRIES` / `--sts-max-retries` | int | `1` | optional | Number of retries on failure; range `0..3`. |
 | `WORKER_SOURCE_LANG` | string | `en` | optional | BCP-47 or short code; validation is provider-specific. |
 | `WORKER_TARGET_LANG` | string | `en` | optional | BCP-47 or short code; validation is provider-specific. |
 | `WORKER_TTS_VOICE` | string | `default` | optional | Provider-specific voice name. |
@@ -257,11 +260,52 @@ Observability impact:
 - `WORKER_FRAGMENT_TARGET_DUR` affects log volume (per fragment) and STS batch cadence.
 - `WORKER_BUFFER_TARGET` affects startup latency and the timing of the first fragment logs.
 
-## 6. Egress Forwarder Configuration
+## 6. STS Service Configuration (RunPod)
+
+The STS Service runs on RunPod.io and exposes an HTTP/REST API for GPU-accelerated speech processing.
+
+### 6.1 Environment Variables / Flags
+
+| Name / Flag | Type | Default | Required | Notes / Validation |
+|---|---:|---|---:|---|
+| `STS_API_PORT` / `--api-port` | int | `8000` | optional | Port for HTTP server; range `1..65535`. |
+| `STS_API_KEY` / `--api-key` | string | (none) | required | API key for authenticating incoming requests. If unset → start fails. |
+| `STS_MAX_WORKERS` / `--max-workers` | int | `4` | optional | Concurrent request processing workers; range `1..16`. |
+| `STS_CUDA_VISIBLE_DEVICES` | string | `0` | optional | GPU device IDs (comma-separated); must match available GPUs. |
+| `STS_MODEL_CACHE_DIR` / `--model-cache-dir` | string | `/models` | required | Persistent volume path for model caches; must be writable. |
+| `STS_WHISPER_MODEL` / `--whisper-model` | string | `medium` | optional | One of: `tiny`, `base`, `small`, `medium`, `large`. |
+| `STS_TTS_MODEL` / `--tts-model` | string | `coqui-es` | optional | TTS model identifier; provider-specific. |
+| `STS_TRANSLATION_MODEL` / `--translation-model` | string | `opus-mt` | optional | MT model identifier; provider-specific. |
+| `STS_HEALTH_CHECK_PATH` | string | `/health` | optional | Path for health check endpoint. |
+
+### 6.2 Behavioral Defaults
+
+- API server listens on `0.0.0.0:<STS_API_PORT>` and serves:
+  - `POST /api/v1/sts/process` - Main STS processing endpoint
+  - `GET /health` - Health check (returns 200 when models loaded and ready)
+- All requests must include `Authorization: Bearer <STS_API_KEY>` header
+- Invalid API key → HTTP 401
+- Model loading happens at startup; service doesn't accept requests until health check passes
+- Concurrent requests limited by `STS_MAX_WORKERS`; excess requests queued or rejected (503)
+
+### 6.3 Validation Rules and Failure Modes
+
+- Missing `STS_API_KEY` → start fails with error
+- Missing or unwritable `STS_MODEL_CACHE_DIR` → start fails
+- Invalid model names → start fails during model loading
+- GPU not available or `STS_CUDA_VISIBLE_DEVICES` invalid → start fails
+- Health check must return 200 before accepting processing requests
+
+Observability impact:
+- Request processing logged per fragment (not per model operation)
+- GPU metrics (utilization, VRAM) exposed if available
+- Model load time logged once at startup
+
+## 7. Egress Forwarder Configuration
 
 The egress forwarder republishes `live/<streamId>/out` to one or more external destinations (e.g., RTMP endpoints). In v0, it is optional and disabled by default.
 
-### 6.1 Environment Variables / Flags
+### 7.1 Environment Variables / Flags
 
 | Name / Flag | Type | Default | Required | Notes / Validation |
 |---|---:|---|---:|---|
@@ -297,11 +341,14 @@ Observability impact:
 
 - Destination failures MUST be logged per incident with backoff-aware cadence, not per packet/frame.
 
-## 7. Recommended Dev Defaults (Cross-Component)
+## 8. Recommended Dev Defaults (Cross-Component)
 
 These defaults are recommended for local development (v0):
 
+**Stream Infrastructure (EC2)**:
 - `WORKER_BUFFER_TARGET=10s`
+- `WORKER_STS_SERVICE_URL=http://localhost:8000` (for local STS service)
+- `WORKER_STS_TIMEOUT_MS=8000`
 - `ORCH_GRACE_PERIOD=30s`
 - `LOG_FORMAT=json`
 - `LOG_LEVEL=info` (use `debug` only when diagnosing a specific issue)
@@ -309,10 +356,17 @@ These defaults are recommended for local development (v0):
 - MediaMTX recording disabled (`record: no`)
 - Unauthenticated dev access (no auth)
 
-## 8. Minimal Required Configuration to Run Locally (v0)
+**STS Service (RunPod or local)**:
+- `STS_API_PORT=8000`
+- `STS_WHISPER_MODEL=medium` (balance of speed vs quality)
+- `STS_MAX_WORKERS=4`
+- `STS_MODEL_CACHE_DIR=/models` (persistent volume on RunPod)
+
+## 9. Minimal Required Configuration to Run Locally (v0)
 
 Local runs SHOULD require only:
 
+**Stream Infrastructure**:
 - MediaMTX with:
   - RTSP enabled (internal transport for worker/forwarder).
   - RTMP enabled (optional; for common broadcaster ingest).
@@ -321,18 +375,32 @@ Local runs SHOULD require only:
 - `stream-orchestration` reachable by MediaMTX at `ORCH_HOOK_BASE_URL`.
 - Worker spawning enabled (`ORCH_WORKER_MODE=process`) or an external equivalent that ensures one worker per stream.
 
+**STS Service** (can run locally or on RunPod):
+- HTTP server on port 8000
+- Model cache directory writable
+- API key configured
+
 Suggested minimal environment (example only; not a required file format):
 
 ```text
-# stream-orchestration
+# stream-orchestration (EC2)
 ORCH_HTTP_ADDR=0.0.0.0:8080
 ORCH_GRACE_PERIOD=30s
 ORCH_WORKER_MODE=process
 ORCH_WORKER_COMMAND=stream-worker
 
-# stream-worker (when launched by orchestrator, values are passed as flags)
+# stream-worker (EC2, when launched by orchestrator, values are passed as flags)
 WORKER_BUFFER_TARGET=10s
-WORKER_STS_PROVIDER=mock
+WORKER_STS_SERVICE_URL=http://localhost:8000
+# For production: WORKER_STS_SERVICE_URL=https://<runpod-id>.runpod.io
+WORKER_STS_API_KEY=dev-secret-key
+WORKER_STS_TIMEOUT_MS=8000
+
+# sts-service (RunPod or local)
+STS_API_PORT=8000
+STS_API_KEY=dev-secret-key
+STS_MODEL_CACHE_DIR=/models
+STS_WHISPER_MODEL=medium
 
 # shared
 LOG_DIR=./.local/logs
@@ -340,7 +408,7 @@ LOG_LEVEL=info
 LOG_FORMAT=json
 ```
 
-## 9. Validation Rules (Summary)
+## 10. Validation Rules (Summary)
 
 All components MUST validate configuration at startup and fail fast with a non-zero exit code on invalid configuration, including:
 
@@ -353,10 +421,11 @@ Runtime validation:
 - Hook endpoints MUST return `4xx` on invalid payloads and MUST not crash.
 - Backpressure incidents MUST be observable via alert logs and MUST stall output rather than silently dropping.
 
-## 10. Acceptance Criteria
+## 11. Acceptance Criteria
 
-- This spec enumerates configuration for MediaMTX, `stream-orchestration`, `stream-worker`, and the egress forwarder, including name, type, default, and required/optional semantics.
-- Dev defaults include worker buffering target `10s` and orchestrator grace period `30s`, with recording disabled and unauthenticated dev access.
-- Minimal local configuration is described without requiring recording or authentication.
+- This spec enumerates configuration for MediaMTX, `stream-orchestration`, `stream-worker`, STS Service, and the egress forwarder, including name, type, default, and required/optional semantics.
+- Dev defaults include worker buffering target `10s`, orchestrator grace period `30s`, STS timeout `8s`, with recording disabled and unauthenticated dev access.
+- Minimal local configuration is described for both stream infrastructure and STS service without requiring recording or authentication.
+- STS Service configuration includes RunPod-specific settings (GPU, model cache, API authentication).
 - Validation behavior is defined for missing/invalid config and v0-incompatible settings.
 - Observability impacts of configuration (log level/format, fragment sizing, grace period, backpressure) are documented and avoid frame-by-frame logging.

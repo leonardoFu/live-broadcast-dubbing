@@ -1,16 +1,18 @@
-# Docker Repo Setup (macOS + AWS GPU)
+# Docker Repo Setup (macOS + EC2 + RunPod)
 
 ## 1. Goal
 
 Provide a **Docker-first** setup that runs the end-to-end workflow described in:
-- `specs/001-spec.md` (live ingest → in-process STS → republish)
+- `specs/001-spec.md` (live ingest → distributed STS → republish)
 - `specs/009-end-to-end-workflow.md` (milestones A→E)
+- `specs/015-deployment-architecture.md` (EC2 + RunPod split architecture)
 
 The setup must work for:
-- **Local development on macOS** (CPU-only, deterministic, easy to iterate)
-- **Recommended AWS GPU instance** (repeatable, production-like runtime for real-time performance)
+- **Local development on macOS** (CPU-only, deterministic, easy to iterate, single-host mode)
+- **Production deployment on EC2** (stream infrastructure without GPU)
+- **Production deployment on RunPod.io** (GPU-accelerated STS processing)
 
-This spec is derived from the dependency baseline in `specs/008-libraries-and-dependencies.md`.
+This spec is derived from the dependency baseline in `specs/008-libraries-and-dependencies.md` and the deployment architecture in `specs/015-deployment-architecture.md`.
 
 ---
 
@@ -34,24 +36,50 @@ This spec is derived from the dependency baseline in `specs/008-libraries-and-de
 
 ## 4. Repo Layout (Docker-Related)
 
-Canonical Docker runtime assets live under `deploy/`:
+The repository is split into **two deployment projects** (see `specs/015-deployment-architecture.md`):
 
-- `deploy/docker-compose.yml`: local “baseline stack” for MediaMTX + orchestration
-- `deploy/mediamtx/`: MediaMTX container build + config + hooks
-- `deploy/orchestrator/`: hook receiver that starts/stops workers
-- `deploy/recordings/`: local recordings volume (optional)
+### 4.1 Stream Infrastructure Project (EC2)
 
-When implementation lands:
+Canonical Docker runtime assets live under `deploy/stream-infrastructure/`:
 
-- `apps/stream-worker/`: unified worker image (GStreamer + in-process STS)
-- `apps/sts-service/`: in-process STS module (Python)
-- `deploy/stream-worker/` (optional): Dockerfile(s) and runtime configs if not colocated under `apps/`
+- `deploy/stream-infrastructure/docker-compose.yml`: local baseline stack for MediaMTX + orchestration
+- `deploy/stream-infrastructure/mediamtx/`: MediaMTX container build + config + hooks
+- `deploy/stream-infrastructure/orchestrator/`: hook receiver that starts/stops workers
+- `deploy/stream-infrastructure/recordings/`: local recordings volume (optional)
+
+Application code:
+
+- `apps/stream-infrastructure/`: stream worker (GStreamer-based, lightweight, CPU-only)
+  - Audio/video demux and remux
+  - Audio chunking and background separation
+  - STS client (HTTP calls to RunPod or local mock)
+  - Audio remixing
+
+### 4.2 GPU Processing Project (RunPod)
+
+Canonical Docker runtime assets live under `deploy/sts-service/`:
+
+- `deploy/sts-service/Dockerfile`: CUDA-enabled image for RunPod
+- `deploy/sts-service/runpod-template.json`: RunPod pod configuration template
+- `deploy/sts-service/docker-compose.yml`: optional local testing (CPU fallback mode)
+
+Application code:
+
+- `apps/sts-service/`: STS service API (HTTP server)
+  - ASR module (Whisper, GPU-accelerated)
+  - Translation module (MT, GPU-accelerated)
+  - TTS module (Coqui or alternative, GPU-accelerated)
+  - Time-stretching utilities
 
 ---
 
 ## 5. Docker Compose Roles
 
-### 5.1 Required Services (Baseline)
+### 5.1 Stream Infrastructure Compose Stack (EC2 / Local Dev)
+
+**File**: `deploy/stream-infrastructure/docker-compose.yml`
+
+Required services:
 
 - **MediaMTX** (`mediamtx`)
   - Ingest RTMP (`live/<streamId>/in`)
@@ -59,25 +87,52 @@ When implementation lands:
   - Publish processed stream (`live/<streamId>/out`)
   - Emit hooks (`runOnReady` / `runOnNotReady`) to orchestrator
 
-- **Stream orchestrator** (`stream-orchestration`)
+- **Stream Orchestrator** (`stream-orchestration`)
   - Receive hook events
   - Start/stop exactly one worker per stream id
 
-### 5.2 Planned Services (Milestones C→E)
-
-- **Stream worker** (`stream-worker`)
+- **Stream Worker** (`stream-worker`)
   - Pull RTSP from `mediamtx`
-  - Run GStreamer demux/remux + chunking + STS in-process
+  - Run GStreamer demux/remux + chunking + background separation (CPU)
+  - Call STS service API (local or RunPod)
+  - Remix and remux audio/video
   - Push RTMP back to `mediamtx` (`live/<streamId>/out`)
 
-### 5.3 Profiles (CPU vs GPU)
+- **STS Service Mock** (`sts-service-mock`) — **Local dev only**
+  - Provides mock STS API for local testing without GPU
+  - Returns deterministic pass-through or tone audio
 
-Compose SHOULD support two execution profiles for the worker:
+### 5.2 GPU Processing Compose Stack (RunPod / Optional Local)
 
-- **`cpu` (default)**: runs everywhere (macOS dev and non-GPU Linux)
-- **`gpu` (AWS)**: enables CUDA/NVIDIA runtime; requires NVIDIA Container Toolkit on the host
+**File**: `deploy/sts-service/docker-compose.yml`
 
-The stack MUST remain runnable without GPU by using the CPU profile and CPU-compatible model settings.
+Optional services (for local GPU testing):
+
+- **STS Service** (`sts-service`)
+  - HTTP/gRPC API server
+  - GPU-accelerated ASR, MT, TTS
+  - Requires NVIDIA Container Toolkit and GPU
+
+This stack is primarily for local validation; production runs as RunPod pod.
+
+### 5.3 Deployment Modes
+
+Three deployment modes are supported:
+
+1. **Local Development (Single Host, CPU)**:
+   - Run `deploy/stream-infrastructure/docker-compose.yml` with `sts-service-mock`
+   - No GPU required
+   - Stream worker calls local mock API
+
+2. **Local Development (Single Host, GPU)**:
+   - Run both compose stacks on same machine
+   - Stream worker calls local STS service on `http://localhost:8000`
+   - Requires NVIDIA Container Toolkit
+
+3. **Production (EC2 + RunPod)**:
+   - EC2: Run `deploy/stream-infrastructure/docker-compose.yml` without mock service
+   - RunPod: Deploy `apps/sts-service/` as pod
+   - Stream worker calls RunPod URL via `STS_SERVICE_URL` env var
 
 ---
 

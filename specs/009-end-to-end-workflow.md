@@ -1,6 +1,12 @@
 # End-to-End Workflow (Ingest → Process → Republish)
 
-This doc connects `specs/001-spec.md`, `specs/002-mediamtx.md`, and `specs/003-gstreamer-stream-worker.md` into a single, runnable workflow, with a clear path from “MediaMTX only” to “full STS dubbing”.
+This doc connects `specs/001-spec.md`, `specs/002-mediamtx.md`, and `specs/003-gstreamer-stream-worker.md` into a single, runnable workflow, with a clear path from "MediaMTX only" to "full STS dubbing".
+
+**Deployment Note**: The production system deploys as two separate services:
+1. **Stream Infrastructure (EC2)**: MediaMTX, stream orchestrator, stream workers, egress forwarder
+2. **STS Service (RunPod)**: GPU-accelerated ASR/MT/TTS processing
+
+See `specs/015-deployment-architecture.md` for full deployment architecture details.
 
 ---
 
@@ -59,20 +65,33 @@ Run the `apps/stream-worker/` in “bypass mode” as defined in `specs/003-gstr
 
 Success criteria: same as Milestone B, but via the worker process, with worker logs/metrics present.
 
-### Milestone D — Worker + mock STS (deterministic)
+### Milestone D — Worker + mock STS API (deterministic)
 
-Enable the mock STS backend (tone/pass-through) from `specs/003-gstreamer-stream-worker.md` to validate:
-- fragment chunking
+Enable a mock STS Service API endpoint (locally or via docker-compose) that returns deterministic responses:
+- fragment chunking and HTTP client implementation
 - backpressure / max in-flight
 - A/V sync correction strategy
+- network timeout and retry behavior
 
-Success criteria: audible deterministic tone (or pass-through); bounded `worker_av_sync_delta_ms`.
+Success criteria: audible deterministic tone (or pass-through); bounded `worker_av_sync_delta_ms`; HTTP client logs show successful API calls.
 
-### Milestone E — Worker + real STS (full pipeline)
+### Milestone E — Worker + local STS Service (full pipeline)
 
-Swap mock STS for the real in-process STS pipeline (see `specs/004-sts-pipeline-design.md`).
+Run the real STS Service locally (CPU mode for development) and configure worker to call it:
+- Test full ASR → MT → TTS pipeline locally
+- Validate error handling and fallbacks
+- Measure end-to-end latency
 
 Success criteria: dubbed speech is present; background remains; fallbacks behave under induced STS latency/failure.
+
+### Milestone F — Worker + RunPod STS Service (production)
+
+Deploy STS Service to RunPod.io and configure worker to call the remote endpoint:
+- Verify HTTPS communication and authentication
+- Measure GPU-accelerated processing latency
+- Test circuit breaker and network resilience
+
+Success criteria: end-to-end latency within 3-8s target; circuit breaker prevents cascading failures; cost per stream-hour is measurable.
 
 ---
 

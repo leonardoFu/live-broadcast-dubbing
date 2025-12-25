@@ -1,13 +1,16 @@
-# STS Pipeline Design (Flexible, Async, Testable)
+# STS Pipeline Design (RunPod Service, Flexible, Async, Testable)
 
 ## 1. Goal
 
 Define a **Speech → Text → Speech (STS)** design that supports live-stream dubbing as described in `specs/001-spec.md`, while making ASR / Translate / TTS:
+- **Deployable as a standalone HTTP service** on RunPod.io for GPU acceleration
 - **Abstract and replaceable** (swappable providers/implementations)
 - **Async-first** (can be concurrent without losing ordering guarantees)
-- **Easy to integrate** as an importable (in-process) Python module (primary) and in offline runs (secondary)
+- **Easy to integrate** via HTTP/REST API (primary) and as a local module for testing (secondary)
 - **Easy to test** with deterministic stubs (e.g., mock ASR returns static text)
 - **Traceable** with clear inputs/outputs and trackable intermediate assets
+
+**Deployment**: This service runs on RunPod.io GPU pods. See `specs/015-deployment-architecture.md` for the full deployment architecture.
 
 ## 2. Non-Goals
 
@@ -214,16 +217,27 @@ Case C: 10 fragments, concurrency=4, inject slow TTS on fragment #3
 Expected: outputs emitted in sequence_number order, no missing fragments, timing metrics recorded
 ```
 
-## 9. Integration with Stream Worker (Boundary)
+## 9. Integration with Stream Worker (HTTP API Boundary)
 
-The stream worker (see `specs/003-gstreamer-stream-worker.md`) calls the STS pipeline per audio fragment and receives:
-- A synthesized audio asset reference (if available)
-- A complete STS Result with traceable intermediate assets and errors
+The stream worker (see `specs/003-gstreamer-stream-worker.md`) calls the STS Service API via HTTPS for each audio fragment.
+
+**API Contract** (see `specs/015-deployment-architecture.md` for details):
+- Endpoint: `POST /api/v1/sts/process`
+- Input: JSON payload with base64-encoded audio + config (languages, voice)
+- Output: JSON response with dubbed audio + metadata (transcript, translation, timing)
+- Authentication: API key header
+- Timeout: Configurable (default: 8s)
+
+The STS Service returns:
+- Dubbed audio (base64-encoded PCM)
+- Processing metadata (transcript, translation, timing, model info)
+- Error information (if any stage failed)
 
 The worker remains responsible for:
 - Chunking strategy and timestamps
 - Audio separation/mixing and A/V sync
 - Applying higher-level fallbacks when STS output is partial/failed
+- Network resilience (retries, circuit breaker)
 
 ## 10. Success Criteria
 

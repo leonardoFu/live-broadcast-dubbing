@@ -1,18 +1,21 @@
-# Unified Worker Spec (Python: GStreamer + STS, MediaMTX ↔ MediaMTX)
+# Stream Worker Spec (Python: GStreamer + STS Client, MediaMTX ↔ MediaMTX)
 
-This spec defines the **unified worker** referenced by `specs/001-spec.md` and intended to interoperate with `specs/002-mediamtx.md` (MediaMTX ingress/egress).
+This spec defines the **stream worker** referenced by `specs/001-spec.md` and intended to interoperate with `specs/002-mediamtx.md` (MediaMTX ingress/egress).
+
+**Deployment**: Runs on EC2 instance (CPU-only, no GPU required)
 
 Primary goals:
 - Pull an input stream from **MediaMTX** (RTSP)
 - **Demux** into video and audio
-- Run **STS** in-process for real-time dubbing
+- Call remote **STS Service API** (RunPod) for GPU-accelerated dubbing
 - **Remux** dubbed audio with original video
 - Publish processed output back to **MediaMTX** (RTMP)
 - Be easy to test locally with strong observability (logs + metrics)
 
 Non-goals:
-- Documenting ASR/MT/TTS model internals; see `specs/001-spec.md` and `specs/sources/*`
+- Documenting ASR/MT/TTS model internals; see `specs/004-sts-pipeline-design.md`
 - Production orchestration (worker autoscaling/lifecycle); see `specs/002-mediamtx.md`
+- GPU operations (handled by remote STS Service); see `specs/015-deployment-architecture.md`
 
 ---
 
@@ -27,42 +30,58 @@ Constraints (v1):
 - Video: H.264 (passthrough)
 - Audio: AAC-LC (decode to PCM inside the worker)
 
-### 1.2 STS (in-process)
+### 1.2 STS Service API (Remote, RunPod)
 
-STS runs as an in-process module inside the worker.
+The worker calls a remote STS Service API hosted on RunPod for GPU-accelerated processing.
 
 Required worker behavior:
 - Maintain **per-stream FIFO ordering** for audio fragments
 - Track **in-flight** fragments and apply timeouts/fallbacks
-- Do not log raw audio payloads by default (see Constitution “Secrets & Logs”)
+- Handle network failures and circuit breaking
+- Do not log raw audio payloads by default (see Constitution "Secrets & Logs")
 
-Recommended in-process API boundary (v1):
-```python
-from __future__ import annotations
-
-from dataclasses import dataclass
-
-
-@dataclass(frozen=True)
-class FragmentMeta:
-    id: str
-    stream_id: str
-    batch_number: int
-    duration_s: float
-    sample_rate: int
-    channels: int
-
-
-@dataclass(frozen=True)
-class StsResult:
-    dubbed_pcm_s16le: bytes
-    warnings: list[str]
-
-
-class StsBackend:
-    def process_fragment(self, meta: FragmentMeta, pcm_s16le: bytes) -> StsResult:  # pragma: no cover (spec)
-        raise NotImplementedError
+API contract (HTTP/REST):
 ```
+POST /api/v1/sts/process
+
+Request:
+{
+  "fragment_id": "uuid",
+  "stream_id": "string",
+  "sequence_number": 123,
+  "audio": {
+    "format": "pcm_s16le",
+    "sample_rate_hz": 48000,
+    "channels": 2,
+    "duration_ms": 1000,
+    "data_base64": "..."
+  },
+  "config": {
+    "source_language": "en",
+    "target_language": "es",
+    "voice_profile": "default"
+  },
+  "timeout_ms": 8000
+}
+
+Response (Success):
+{
+  "fragment_id": "uuid",
+  "status": "success",
+  "dubbed_audio": {
+    "format": "pcm_s16le",
+    "sample_rate_hz": 48000,
+    "channels": 2,
+    "duration_ms": 1000,
+    "data_base64": "..."
+  },
+  "transcript": "Hello world",
+  "translated_text": "Hola mundo",
+  "processing_time_ms": 2340
+}
+```
+
+See `specs/015-deployment-architecture.md` for full API specification and error handling.
 
 ### 1.3 Output (Worker → MediaMTX)
 
@@ -82,16 +101,27 @@ RTSP (MediaMTX)
   v
 [GStreamer input pipeline]
   - video: depay + parse  -> python -> appsrc(video)
-  - audio: depay + decode -> python -> chunker -> STS (in-process) -> PCM -> mixer -> appsrc(audio)
+  - audio: depay + decode -> python -> chunker -> STS Client (HTTP to RunPod) -> PCM -> mixer -> appsrc(audio)
+                                                        |
+                                                        v
+                                                   [HTTPS to RunPod]
+                                                        |
+                                                        v
+                                                   [STS Service API]
+                                                   (GPU processing)
+                                                        |
+                                                        v
+                                                   [Dubbed audio]
   |
   v
 [GStreamer output pipeline]
   - flvmux -> rtmpsink (MediaMTX)
 ```
 
-Key principle: **timestamps are the contract**. The worker preserves/derives PTS for:
-- Video buffers (passthrough, offset as needed)
-- Audio buffers (constructed from fragment timeline, offset as needed)
+Key principles:
+- **Timestamps are the contract**: The worker preserves/derives PTS for video (passthrough) and audio (constructed from fragment timeline)
+- **Network resilience**: Circuit breaker pattern for STS API calls with fallback to original audio
+- **FIFO ordering**: Fragments sent to RunPod may complete out-of-order but are reassembled in sequence
 
 ---
 
@@ -158,14 +188,22 @@ Implementation sketch:
   - `t0_ns` (start PTS in input timeline)
   - `duration_ns`
 
-### 4.2 STS input/output format (v1)
+### 4.2 STS API call format (v1)
 
-Since STS runs in-process, the worker uses a simple, test-friendly format:
-- Input to STS: PCM S16LE bytes + `sampleRate` + `channels` + `duration`
-- Output from STS: PCM S16LE bytes with the same `sampleRate` + `channels` and an effective duration that matches `duration`
+The worker calls the remote STS Service API via HTTPS:
+- Input: JSON payload with base64-encoded PCM S16LE bytes + metadata (see §1.2)
+- Output: JSON response with base64-encoded dubbed PCM S16LE bytes + processing metadata
+- Timeout: Configurable (default: 8s per fragment)
+- Retry: Up to 1 retry with exponential backoff
+- Circuit breaker: Open after 5 consecutive failures, auto-recover after cooldown
+
+Connection details:
+- URL: `https://<runpod-id>.runpod.io/api/v1/sts/process` (configured via environment)
+- Authentication: API key in request header
+- TLS: All traffic encrypted in transit
 
 Optional (dev-only) artifacting:
-- If you want to persist “what STS saw / produced” for debugging, write WAVs (or MP4/AAC) to disk behind an explicit flag.
+- If you want to persist "what STS saw / produced" for debugging, write WAVs (or MP4/AAC) to disk behind an explicit flag.
 - Do not log or persist raw audio by default.
 
 ### 4.3 Background + dubbed remixing
