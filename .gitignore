@@ -1,12 +1,7 @@
 # Codex CLI (local agent workflows)
 .codex/
+.claude/
 
-# Spec Kit / Specify (local tooling + generated artifacts)
-.specify/
-.specify-scripts/
-
-# Codex batch outputs
-.project-scripts/out/
 
 # OS/editor noise
 .DS_Store
