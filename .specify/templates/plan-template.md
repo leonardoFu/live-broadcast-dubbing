@@ -31,7 +31,14 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+**Principle VIII - Test-First Development (NON-NEGOTIABLE)**:
+- [ ] Test strategy defined for all user stories
+- [ ] Mock patterns documented for STS events (fragment:data, fragment:processed)
+- [ ] Coverage targets specified (80% minimum, 95% for critical paths)
+- [ ] Test infrastructure matches constitution requirements (pytest, coverage enforcement)
+- [ ] Test organization follows standard structure (apps/*/tests/{unit,contract,integration})
+
+[Additional gates determined based on constitution file]
 
 ## Project Structure
 
@@ -93,6 +100,67 @@ ios/ or android/
 
 **Structure Decision**: [Document the selected structure and reference the real
 directories captured above]
+
+## Test Strategy
+
+### Test Levels for This Feature
+
+**Unit Tests** (mandatory):
+- Target: All business logic, calculations, data transformations
+- Tools: pytest, pytest-mock
+- Coverage: 80% minimum
+- Mocking: STS events, GStreamer components, external APIs
+- Location: `apps/<module>/tests/unit/`
+
+**Contract Tests** (mandatory):
+- Target: API contracts, event schemas (e.g., STS `fragment:data`, `fragment:processed`)
+- Tools: pytest with JSON schema validation
+- Coverage: 100% of all contracts
+- Mocking: Use deterministic fixtures from `.specify/templates/test-fixtures/`
+- Location: `apps/<module>/tests/contract/`
+
+**Integration Tests** (required for workflows):
+- Target: Pipeline assembly, service communication, MediaMTX integration
+- Tools: pytest with mocked services
+- Coverage: Happy path + critical error scenarios
+- Mocking: Mock MediaMTX RTSP streams, mock STS service responses
+- Location: `tests/integration/`
+
+**E2E Tests** (optional, for validation only):
+- Target: Full pipeline with real MediaMTX instance
+- Tools: pytest with Docker Compose
+- Coverage: Critical user journeys only
+- When: Run on-demand, not in CI
+- Location: `tests/e2e/`
+
+### Mock Patterns (Constitution Principle II)
+
+**STS Event Mocks** (see `.specify/templates/test-fixtures/sts-events.py`):
+- `fragment:data` event with deterministic PCM audio
+- `fragment:processed` event with synthetic dubbed audio
+- STS service API responses (success, timeout, error)
+
+**MediaMTX Mocks**:
+- RTSP stream source (PCM audio + H.264 video)
+- Stream lifecycle events (ready, not ready)
+
+**GStreamer Mocks**:
+- Mock pipeline elements for unit tests
+- Real pipeline with mock sources for integration tests
+
+### Coverage Enforcement
+
+**Pre-commit**: Run `pytest --cov` - fail if coverage < 80%
+**CI**: Run `pytest --cov --cov-fail-under=80` - block merge if fails
+**Critical paths**: A/V sync, STS pipeline, fragment processing → 95% minimum
+
+### Test Naming Conventions
+
+Follow conventions from `tasks-template.md`:
+- `test_<function>_happy_path()` - Normal operation
+- `test_<function>_error_<condition>()` - Error handling
+- `test_<function>_edge_<case>()` - Boundary conditions
+- `test_<function>_integration_<workflow>()` - Integration scenarios
 
 ## Complexity Tracking
 

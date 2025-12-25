@@ -8,7 +8,7 @@ description: "Task list template for feature implementation"
 **Input**: Design documents from `/specs/[###-feature-name]/`
 **Prerequisites**: plan.md (required), spec.md (required for user stories), research.md, data-model.md, contracts/
 
-**Tests**: The examples below include test tasks. Tests are OPTIONAL - only include them if explicitly requested in the feature specification.
+**Tests**: Tests are MANDATORY per Constitution Principle VIII. Every user story MUST have tests written FIRST before implementation. The tasks below enforce a test-first workflow.
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 
@@ -79,12 +79,31 @@ Examples of foundational tasks (adjust based on your project):
 
 **Independent Test**: [How to verify this story works on its own]
 
-### Tests for User Story 1 (OPTIONAL - only if tests requested) ⚠️
+### Tests for User Story 1 (MANDATORY - Test-First) ✅
 
-> **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
+> **CRITICAL: These tests MUST be written FIRST and MUST FAIL before implementation begins**
 
-- [ ] T010 [P] [US1] Contract test for [endpoint] in tests/contract/test_[name].py
-- [ ] T011 [P] [US1] Integration test for [user journey] in tests/integration/test_[name].py
+**Test Naming Conventions**:
+- Unit tests: `test_<function>_<scenario>.py` (e.g., `test_chunk_audio_happy_path.py`)
+- Contract tests: `test_<contract>_<event>.py` (e.g., `test_sts_fragment_processed.py`)
+- Integration tests: `test_<workflow>_<scenario>.py` (e.g., `test_pipeline_assembly_valid_stream.py`)
+
+**Coverage Target for US1**: 80% minimum (95% for critical paths)
+
+- [ ] T010 [P] [US1] **Unit tests** for [specific functions] in `apps/<module>/tests/unit/test_<name>.py`
+  - Test happy path: valid inputs → expected outputs
+  - Test error cases: invalid inputs → proper exceptions
+  - Test edge cases: boundary conditions, empty inputs, etc.
+- [ ] T011 [P] [US1] **Contract tests** for STS events in `apps/<module>/tests/contract/test_sts_<event>.py`
+  - Mock `fragment:data` event → validate processing
+  - Mock `fragment:processed` event → validate output schema
+  - Validate event serialization/deserialization
+- [ ] T012 [P] [US1] **Integration tests** for [user journey] in `tests/integration/test_<workflow>.py`
+  - Mock MediaMTX stream → validate end-to-end flow
+  - Validate A/V sync preservation
+  - Validate fallback behavior on STS failure
+
+**Verification**: Run `pytest apps/<module>/tests` - ALL tests MUST FAIL with "NotImplementedError" or similar
 
 ### Implementation for User Story 1
 
@@ -105,10 +124,17 @@ Examples of foundational tasks (adjust based on your project):
 
 **Independent Test**: [How to verify this story works on its own]
 
-### Tests for User Story 2 (OPTIONAL - only if tests requested) ⚠️
+### Tests for User Story 2 (MANDATORY - Test-First) ✅
 
-- [ ] T018 [P] [US2] Contract test for [endpoint] in tests/contract/test_[name].py
-- [ ] T019 [P] [US2] Integration test for [user journey] in tests/integration/test_[name].py
+> **CRITICAL: These tests MUST be written FIRST and MUST FAIL before implementation begins**
+
+**Coverage Target for US2**: 80% minimum (95% for critical paths)
+
+- [ ] T018 [P] [US2] **Unit tests** for [specific functions] in `apps/<module>/tests/unit/test_<name>.py`
+- [ ] T019 [P] [US2] **Contract tests** for [API/events] in `apps/<module>/tests/contract/test_<name>.py`
+- [ ] T020 [P] [US2] **Integration tests** for [user journey] in `tests/integration/test_<workflow>.py`
+
+**Verification**: Run `pytest apps/<module>/tests` - ALL tests MUST FAIL before implementation
 
 ### Implementation for User Story 2
 
@@ -127,10 +153,17 @@ Examples of foundational tasks (adjust based on your project):
 
 **Independent Test**: [How to verify this story works on its own]
 
-### Tests for User Story 3 (OPTIONAL - only if tests requested) ⚠️
+### Tests for User Story 3 (MANDATORY - Test-First) ✅
 
-- [ ] T024 [P] [US3] Contract test for [endpoint] in tests/contract/test_[name].py
-- [ ] T025 [P] [US3] Integration test for [user journey] in tests/integration/test_[name].py
+> **CRITICAL: These tests MUST be written FIRST and MUST FAIL before implementation begins**
+
+**Coverage Target for US3**: 80% minimum (95% for critical paths)
+
+- [ ] T024 [P] [US3] **Unit tests** for [specific functions] in `apps/<module>/tests/unit/test_<name>.py`
+- [ ] T025 [P] [US3] **Contract tests** for [API/events] in `apps/<module>/tests/contract/test_<name>.py`
+- [ ] T026 [P] [US3] **Integration tests** for [user journey] in `tests/integration/test_<workflow>.py`
+
+**Verification**: Run `pytest apps/<module>/tests` - ALL tests MUST FAIL before implementation
 
 ### Implementation for User Story 3
 
@@ -143,6 +176,122 @@ Examples of foundational tasks (adjust based on your project):
 ---
 
 [Add more user story phases as needed, following the same pattern]
+
+---
+
+## Test Organization Standards
+
+### Directory Structure
+```
+apps/<module>/
+├── src/
+│   ├── __init__.py
+│   ├── models/
+│   ├── services/
+│   └── pipeline/
+└── tests/
+    ├── __init__.py
+    ├── conftest.py          # Shared fixtures
+    ├── unit/
+    │   ├── __init__.py
+    │   ├── test_models.py
+    │   ├── test_services.py
+    │   └── test_pipeline.py
+    ├── contract/
+    │   ├── __init__.py
+    │   ├── test_sts_events.py
+    │   └── test_api_schema.py
+    └── integration/
+        ├── __init__.py
+        └── test_workflow.py
+
+tests/                        # Root-level integration/e2e
+├── __init__.py
+├── conftest.py              # Global fixtures
+├── integration/
+│   ├── test_mediamtx_integration.py
+│   └── test_worker_lifecycle.py
+└── e2e/
+    └── test_full_pipeline.py (optional)
+```
+
+### Naming Conventions
+
+**Test Files**:
+- `test_<module>.py` - Tests for a specific module
+- `test_<feature>_<scenario>.py` - Tests for specific scenarios
+
+**Test Functions**:
+- `test_<function>_happy_path()` - Normal operation
+- `test_<function>_error_<condition>()` - Error handling
+- `test_<function>_edge_<case>()` - Boundary conditions
+- `test_<function>_integration_<workflow>()` - Integration scenarios
+
+**Examples**:
+```python
+# Unit test
+def test_chunk_audio_happy_path():
+    """Test audio chunking with valid PCM input."""
+    pass
+
+# Error case
+def test_chunk_audio_error_invalid_sample_rate():
+    """Test audio chunking raises ValueError for invalid sample rate."""
+    pass
+
+# Edge case
+def test_chunk_audio_edge_zero_duration():
+    """Test audio chunking handles zero-duration input."""
+    pass
+
+# Integration test
+def test_pipeline_assembly_integration_valid_stream():
+    """Test GStreamer pipeline assembles correctly with mocked RTSP stream."""
+    pass
+```
+
+### Fixture Organization
+
+**apps/<module>/tests/conftest.py**:
+```python
+"""Module-level test fixtures."""
+import pytest
+
+@pytest.fixture
+def sample_pcm_audio():
+    """Provide deterministic PCM audio for testing."""
+    # 1 second of silence at 16kHz, S16LE
+    return b'\x00\x00' * 16000
+
+@pytest.fixture
+def mock_sts_fragment():
+    """Provide mock STS fragment event."""
+    return {
+        "fragment_id": "test-frag-001",
+        "stream_id": "test-stream",
+        "sequence_number": 1,
+        "audio_data": "base64encodedpcm...",
+        "duration_ms": 1000,
+        "sample_rate": 16000,
+        "channels": 1
+    }
+```
+
+**tests/conftest.py** (global):
+```python
+"""Global test fixtures for integration tests."""
+import pytest
+
+@pytest.fixture
+def mock_mediamtx_stream():
+    """Provide mock MediaMTX RTSP stream."""
+    pass
+
+@pytest.fixture
+def mock_sts_service():
+    """Provide mock STS service API for integration tests."""
+    pass
+```
 
 ---
 

@@ -27,8 +27,44 @@ This repository currently contains specifications and templates only; build/test
 
 ## Testing Guidelines
 
-- Add tests alongside each module (e.g., `apps/<module>/tests/`), and keep integration tests separate (e.g., `tests/integration/`).
-- Prefer deterministic tests; avoid requiring live RTMP endpoints. Mock STS events (`fragment:data`, `fragment:processed`) where possible.
+**TDD is mandatory** (Constitution Principle VIII). Tests MUST be written BEFORE implementation.
+
+### Quick TDD Workflow
+
+```bash
+# 1. Write failing tests first
+# 2. Run tests - verify they FAIL
+# 3. Implement code
+# 4. Run tests - verify they PASS
+# 5. Check coverage (80% minimum, 95% for critical paths)
+# 6. Commit (pre-commit hooks will validate)
+```
+
+See [TDD Quick Start Guide](docs/tdd-quickstart.md) for complete workflow.
+
+### Test Organization
+
+- **Unit tests**: `apps/<module>/tests/unit/` - Fast, isolated, mocked dependencies
+- **Contract tests**: `apps/<module>/tests/contract/` - API/event schema validation
+- **Integration tests**: `tests/integration/` - Cross-service workflows with mocks
+- **E2E tests**: `tests/e2e/` - Optional, full pipeline validation
+
+### Key Commands
+
+- `make test` - Run all tests
+- `make test-coverage` - Run tests with coverage report (80% required)
+- `make install-hooks` - Install pre-commit hooks (enforces TDD)
+- `make pre-implement` - Verify tests exist and fail before implementing
+
+### Mock Fixtures
+
+Prefer deterministic tests; avoid requiring live RTMP endpoints. Mock STS events (`fragment:data`, `fragment:processed`) using fixtures from `.specify/templates/test-fixtures/`.
+
+### Enforcement
+
+- **Pre-commit hooks**: Block commits without tests
+- **CI/CD**: Block PR merges if coverage <80% or tests missing
+- **Constitution**: See Principle VIII for full TDD requirements
 
 ## Commit & Pull Request Guidelines
 

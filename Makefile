@@ -33,3 +33,31 @@ typecheck:
 
 test:
 	$(PYTHON) -m pytest -q
+
+# TDD workflow commands
+.PHONY: test-unit test-contract test-integration test-all test-coverage test-watch pre-implement install-hooks
+
+test-unit:
+	$(PYTHON) -m pytest apps/ tests/ -m unit -v
+
+test-contract:
+	$(PYTHON) -m pytest apps/ tests/ -m contract -v
+
+test-integration:
+	$(PYTHON) -m pytest apps/ tests/ -m integration -v
+
+test-all:
+	$(PYTHON) -m pytest apps/ tests/ -v
+
+test-coverage:
+	$(PYTHON) -m pytest apps/ tests/ --cov=apps --cov-report=html --cov-report=term
+
+test-watch:
+	$(PYTHON) -m pytest apps/ tests/ -f -v
+
+pre-implement:
+	$(PYTHON) .specify/scripts/pre_implement_check.py
+
+install-hooks:
+	pre-commit install
+	@echo "✓ Pre-commit hooks installed"
