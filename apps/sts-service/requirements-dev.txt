@@ -1,0 +1,8 @@
+# Development dependencies for sts-service
+# Install with: pip install -r requirements-dev.txt
+pytest>=7.0
+pytest-asyncio
+pytest-cov
+mypy>=1.0
+ruff>=0.1.0
+httpx

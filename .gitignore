@@ -10,6 +10,34 @@
 
 # Python caches/venvs
 __pycache__/
+*.pyc
+*.pyo
+*.pyd
 .mypy_cache/
 .ruff_cache/
 .venv/
+.venv-stream/
+.venv-sts/
+env/
+venv/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+coverage/
+*.cover
+.tox/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~

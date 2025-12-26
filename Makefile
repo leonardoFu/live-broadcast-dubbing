@@ -1,6 +1,55 @@
-.PHONY: dev down logs ps fmt lint typecheck test
+.PHONY: dev down logs ps fmt lint typecheck test help setup-stream setup-sts
 
 PYTHON ?= python3
+
+# Help target
+help:
+	@echo "Python Monorepo - Available Commands:"
+	@echo ""
+	@echo "Setup:"
+	@echo "  make setup-stream    - Create venv and install stream-infrastructure service"
+	@echo "  make setup-sts       - Create venv and install sts-service"
+	@echo ""
+	@echo "Docker:"
+	@echo "  make dev             - Start services with Docker Compose"
+	@echo "  make down            - Stop Docker services"
+	@echo "  make logs            - View Docker logs"
+	@echo "  make ps              - List Docker containers"
+	@echo ""
+	@echo "Code Quality:"
+	@echo "  make fmt             - Format code with ruff"
+	@echo "  make lint            - Lint code with ruff"
+	@echo "  make typecheck       - Type check with mypy"
+	@echo "  make clean           - Remove build artifacts and caches"
+	@echo ""
+	@echo "Testing:"
+	@echo "  make test            - Run all tests"
+	@echo "  make test-unit       - Run unit tests only"
+	@echo "  make test-contract   - Run contract tests only"
+	@echo "  make test-integration - Run integration tests only"
+	@echo "  make test-coverage   - Run tests with coverage report"
+	@echo ""
+
+# Monorepo setup targets
+setup-stream:
+	@echo "Setting up stream-infrastructure service..."
+	python3.10 -m venv .venv-stream
+	.venv-stream/bin/pip install --upgrade pip
+	.venv-stream/bin/pip install -e libs/common
+	.venv-stream/bin/pip install -e libs/contracts
+	.venv-stream/bin/pip install -e "apps/stream-infrastructure[dev]"
+	@echo "✓ Stream infrastructure setup complete!"
+	@echo "  Activate with: source .venv-stream/bin/activate"
+
+setup-sts:
+	@echo "Setting up sts-service..."
+	python3.10 -m venv .venv-sts
+	.venv-sts/bin/pip install --upgrade pip
+	.venv-sts/bin/pip install -e libs/common
+	.venv-sts/bin/pip install -e libs/contracts
+	.venv-sts/bin/pip install -e "apps/sts-service[dev]"
+	@echo "✓ STS service setup complete!"
+	@echo "  Activate with: source .venv-sts/bin/activate"
 
 dev:
 	docker compose -f deploy/docker-compose.yml up --build
@@ -35,7 +84,19 @@ test:
 	$(PYTHON) -m pytest -q
 
 # TDD workflow commands
-.PHONY: test-unit test-contract test-integration test-all test-coverage test-watch pre-implement install-hooks
+.PHONY: test-unit test-contract test-integration test-all test-coverage test-watch pre-implement install-hooks clean
+
+clean:
+	@echo "Cleaning build artifacts..."
+	find . -type d -name "__pycache__" -not -path "./.venv*" -exec rm -rf {} + 2>/dev/null || true
+	find . -type d -name ".mypy_cache" -not -path "./.venv*" -exec rm -rf {} + 2>/dev/null || true
+	find . -type d -name ".ruff_cache" -not -path "./.venv*" -exec rm -rf {} + 2>/dev/null || true
+	find . -type d -name ".pytest_cache" -not -path "./.venv*" -exec rm -rf {} + 2>/dev/null || true
+	find . -type d -name "build" -not -path "./.venv*" -exec rm -rf {} + 2>/dev/null || true
+	find . -type d -name "dist" -not -path "./.venv*" -exec rm -rf {} + 2>/dev/null || true
+	find . -type d -name "*.egg-info" -not -path "./.venv*" -exec rm -rf {} + 2>/dev/null || true
+	rm -rf coverage htmlcov .coverage
+	@echo "✓ Build artifacts cleaned!"
 
 test-unit:
 	$(PYTHON) -m pytest apps/ tests/ -m unit -v

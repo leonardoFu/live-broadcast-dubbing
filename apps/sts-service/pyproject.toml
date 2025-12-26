@@ -1,0 +1,42 @@
+[project]
+name = "sts-service"
+version = "0.1.0"
+description = "RunPod GPU service for speech-to-speech processing (ASR + Translation + TTS)"
+requires-python = ">=3.10,<3.11"
+dependencies = [
+    "numpy<2.0",
+    "scipy",
+    "soundfile",
+    "pyyaml",
+    "pydantic>=2.0",
+    "rich",
+    # GPU-enabled PyTorch (CUDA 11.8)
+    # Note: Install with --extra-index-url https://download.pytorch.org/whl/cu118
+    # ML models
+    "faster-whisper>=0.10.0",
+    "transformers>=4.35.0",
+    "sentencepiece",
+    # API server
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+    # Shared internal packages
+    "dubbing-common",
+    "dubbing-contracts",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio",
+    "pytest-cov",
+    "mypy>=1.0",
+    "ruff>=0.1.0",
+    "httpx",  # For API testing
+]
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
