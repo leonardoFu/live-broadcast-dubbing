@@ -41,10 +41,7 @@ def validate_fragment_data_schema(event: dict) -> bool:
         if field not in event:
             return False
 
-    if event["event"] != "fragment:data":
-        return False
-
-    return True
+    return event["event"] == "fragment:data"
 
 
 def test_sts_fragment_data_schema():

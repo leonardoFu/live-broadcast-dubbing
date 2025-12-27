@@ -219,6 +219,105 @@ INFO: Hook executed successfully: runOnReady for live/test-stream/in
 ---
 
 ## Reading and Playing Streams
+## Observability and Monitoring
+
+### Control API
+
+MediaMTX exposes a Control API on port 9997 for querying stream status.
+
+**Quick query using Makefile:**
+```bash
+make api-status
+```
+
+**Manual query:**
+```bash
+curl -u admin:admin http://localhost:9997/v3/paths/list | python3 -m json.tool
+```
+
+**Authentication:** Default credentials are `admin:admin` (configured in `mediamtx.yml`)
+
+**Available endpoints:**
+- `/v3/paths/list` - List all active stream paths
+- `/v3/paths/get/{path}` - Get details for specific path
+- `/v3/rtmpconns/list` - List active RTMP connections
+- `/v3/rtspsessions/list` - List active RTSP sessions
+
+**Response time:** < 100ms (per SC-006)
+
+### Prometheus Metrics
+
+MediaMTX exposes Prometheus-format metrics on port 9998 for monitoring system health.
+
+**Quick query using Makefile:**
+```bash
+make metrics
+```
+
+**Manual query:**
+```bash
+# All metrics
+curl -u admin:admin http://localhost:9998/metrics
+
+# Path-specific metrics
+curl -u admin:admin "http://localhost:9998/metrics?type=paths&path=live/test-stream/in"
+```
+
+**Key metrics to monitor:**
+- `bytes_received` - Data flowing into MediaMTX
+- `bytes_sent` - Data flowing out of MediaMTX
+- `readers` - Number of active stream readers
+- Path state (ready/not-ready)
+
+**Response time:** < 100ms (per SC-007)
+
+### Log Correlation Fields
+
+All hook events and stream operations include correlation fields for debugging:
+
+**In media-service logs:**
+```json
+{
+  "timestamp": "2025-12-27T10:30:45.123Z",
+  "level": "INFO",
+  "message": "Received hook event",
+  "path": "live/test-stream/in",
+  "streamId": "test-stream",
+  "sourceType": "rtmp",
+  "sourceId": "uuid-1234-5678",
+  "query": "lang=es",
+  "correlation_id": "req-9876-5432"
+}
+```
+
+**Key correlation fields:**
+- `path` - Full MediaMTX path (e.g., `live/test-stream/in`)
+- `streamId` - Extracted from path (e.g., `test-stream`)
+- `sourceType` - Origin protocol (`rtmp`, `rtsp`, `webrtc`)
+- `sourceId` - Unique connection identifier from MediaMTX
+- `query` - URL query parameters (e.g., `lang=es`)
+- `correlation_id` - Request tracking ID
+
+**Using correlation fields for debugging:**
+
+```bash
+# Find all logs for a specific stream
+make logs | grep "streamId=test-stream"
+
+# Trace a specific connection
+make logs | grep "sourceId=uuid-1234-5678"
+
+# Filter by event type
+make logs | grep "hook event: ready"
+```
+
+### Playback Server
+
+MediaMTX exposes a playback server on port 9996 for future recording retrieval.
+
+**Note:** Recording is disabled in v0 (`record: no` in config), but the playback server is available for future use.
+
+## Reading Streams
 
 ### Using FFplay (Simple Playback)
 
@@ -347,7 +446,13 @@ The following codecs are **not recommended** for this pipeline:
 
 ### Check Active Streams
 
-Query the MediaMTX Control API:
+Use the Makefile target for quick access:
+
+```bash
+make api-status
+```
+
+Or query the MediaMTX Control API directly:
 
 ```bash
 curl -u admin:admin http://localhost:9997/v3/paths/list | jq
@@ -368,7 +473,13 @@ curl -u admin:admin http://localhost:9997/v3/paths/list | jq
 
 ### Check Metrics
 
-Query Prometheus metrics:
+Use the Makefile target:
+
+```bash
+make metrics
+```
+
+Or query Prometheus metrics directly:
 
 ```bash
 curl http://localhost:9998/metrics | grep mediamtx
@@ -395,6 +506,8 @@ ffprobe -v quiet -print_format json -show_streams \
 ---
 
 ## Troubleshooting
+
+**Tip:** See the "Observability and Monitoring" section above for complete details on all available endpoints and correlation fields.
 
 ### Common Errors
 
