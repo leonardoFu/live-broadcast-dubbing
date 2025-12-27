@@ -6,7 +6,7 @@
 
 ## Overview
 
-This guide helps you get started developing in the live-broadcast-dubbing-cloud Python monorepo. The repository contains 2 services (stream-infrastructure, sts-service) and 2 shared libraries (common, contracts) with independent dependency trees and isolated virtual environments.
+This guide helps you get started developing in the live-broadcast-dubbing-cloud Python monorepo. The repository contains 2 services (media-service, sts-service) and 2 shared libraries (common, contracts) with independent dependency trees and isolated virtual environments.
 
 ## Prerequisites
 
@@ -35,7 +35,7 @@ python3.10 --version
 ```
 live-broadcast-dubbing-cloud/
 ├── apps/                       # Service applications
-│   ├── stream-infrastructure/  # EC2 stream worker (CPU-only)
+│   ├── media-service/  # EC2 stream worker (CPU-only)
 │   └── sts-service/            # RunPod GPU service (GPU-accelerated)
 ├── libs/                       # Shared libraries
 │   ├── common/                 # Common utilities (audio, types, logging)
@@ -60,7 +60,7 @@ cd live-broadcast-dubbing-cloud
 
 You'll work on **one service at a time**. Each service has its own virtual environment to avoid dependency conflicts.
 
-- **Stream Infrastructure** (CPU-only PyTorch): `apps/stream-infrastructure/`
+- **Stream Infrastructure** (CPU-only PyTorch): `apps/media-service/`
 - **STS Service** (GPU PyTorch): `apps/sts-service/`
 
 ## Working on Stream Infrastructure (EC2 Service)
@@ -75,7 +75,7 @@ make setup-stream
 python3.10 -m venv .venv-stream
 source .venv-stream/bin/activate  # On Windows: .venv-stream\Scripts\activate
 pip install -e libs/common -e libs/contracts  # Install shared libraries first
-pip install -e "apps/stream-infrastructure[dev]"  # Install service + dev dependencies
+pip install -e "apps/media-service[dev]"  # Install service + dev dependencies
 ```
 
 ### Activate Virtual Environment
@@ -92,14 +92,14 @@ source .venv-stream/bin/activate
 ### Run Tests
 
 ```bash
-# Run all tests for stream-infrastructure
-pytest apps/stream-infrastructure/tests/
+# Run all tests for media-service
+pytest apps/media-service/tests/
 
 # Run only unit tests
-pytest apps/stream-infrastructure/tests/unit/
+pytest apps/media-service/tests/unit/
 
 # Run with coverage report
-pytest apps/stream-infrastructure/tests/ --cov=stream_infrastructure --cov-report=html
+pytest apps/media-service/tests/ --cov=media_service --cov-report=html
 # Open htmlcov/index.html to view coverage
 ```
 
@@ -123,7 +123,7 @@ make type-check
 source .venv-stream/bin/activate
 
 # Run the worker (example command - actual implementation pending)
-python -m stream_infrastructure.worker --config local.yaml
+python -m media_service.worker --config local.yaml
 ```
 
 ## Working on STS Service (RunPod Service)
@@ -197,12 +197,12 @@ All commands should be run from the **repository root** directory.
 make help
 
 # Setup commands
-make setup-stream     # Create venv and install stream-infrastructure
+make setup-stream     # Create venv and install media-service
 make setup-sts        # Create venv and install sts-service
 
 # Testing commands
 make test-all         # Run tests for all packages (both venvs required)
-make test-stream      # Run tests for stream-infrastructure only
+make test-stream      # Run tests for media-service only
 make test-sts         # Run tests for sts-service only
 
 # Code quality commands
@@ -225,7 +225,7 @@ ruff check apps/ libs/
 ruff format apps/ libs/
 
 # Type checking
-mypy apps/stream-infrastructure/src
+mypy apps/media-service/src
 mypy apps/sts-service/src
 mypy libs/common/src
 mypy libs/contracts/src
@@ -233,7 +233,7 @@ mypy libs/contracts/src
 # Install new dependency
 source .venv-stream/bin/activate
 pip install some-package
-# Add to apps/stream-infrastructure/pyproject.toml dependencies list
+# Add to apps/media-service/pyproject.toml dependencies list
 ```
 
 ## Development Workflow
@@ -250,10 +250,10 @@ Before implementing any feature, write failing tests:
 
 ```bash
 # Example: Adding a new audio processing function
-touch apps/stream-infrastructure/tests/unit/test_audio_processor.py
+touch apps/media-service/tests/unit/test_audio_processor.py
 
 # Write test cases that will fail
-pytest apps/stream-infrastructure/tests/unit/test_audio_processor.py
+pytest apps/media-service/tests/unit/test_audio_processor.py
 # Tests should FAIL (no implementation yet)
 ```
 
@@ -261,10 +261,10 @@ pytest apps/stream-infrastructure/tests/unit/test_audio_processor.py
 
 ```bash
 # Create the module
-touch apps/stream-infrastructure/src/stream_infrastructure/audio_processor.py
+touch apps/media-service/src/media_service/audio_processor.py
 
 # Implement until tests pass
-pytest apps/stream-infrastructure/tests/unit/test_audio_processor.py
+pytest apps/media-service/tests/unit/test_audio_processor.py
 # Tests should now PASS
 ```
 
@@ -272,10 +272,10 @@ pytest apps/stream-infrastructure/tests/unit/test_audio_processor.py
 
 ```bash
 # Ensure all tests still pass
-pytest apps/stream-infrastructure/tests/
+pytest apps/media-service/tests/
 
 # Check coverage (must be ≥80%)
-pytest apps/stream-infrastructure/tests/ --cov=stream_infrastructure --cov-fail-under=80
+pytest apps/media-service/tests/ --cov=media_service --cov-fail-under=80
 ```
 
 ### 5. Lint and Format
@@ -348,12 +348,12 @@ chmod u+w .
 
 ```bash
 # WRONG (don't do this)
-pip install -e apps/stream-infrastructure -e apps/sts-service
+pip install -e apps/media-service -e apps/sts-service
 
 # RIGHT (use separate venvs)
-# Terminal 1: stream-infrastructure
+# Terminal 1: media-service
 source .venv-stream/bin/activate
-pip install -e apps/stream-infrastructure[dev]
+pip install -e apps/media-service[dev]
 
 # Terminal 2: sts-service
 source .venv-sts/bin/activate
@@ -396,7 +396,7 @@ pip install -e libs/common --force-reinstall --no-deps
 
 ```bash
 # See coverage report
-pytest apps/stream-infrastructure/tests/ --cov=stream_infrastructure --cov-report=html
+pytest apps/media-service/tests/ --cov=media_service --cov-report=html
 open htmlcov/index.html  # macOS
 # xdg-open htmlcov/index.html  # Linux
 # start htmlcov/index.html  # Windows
@@ -406,21 +406,21 @@ open htmlcov/index.html  # macOS
 
 ## Adding a New Module to a Service
 
-### Example: Adding `worker.py` to stream-infrastructure
+### Example: Adding `worker.py` to media-service
 
 1. **Create the module file**:
    ```bash
-   touch apps/stream-infrastructure/src/stream_infrastructure/worker.py
+   touch apps/media-service/src/media_service/worker.py
    ```
 
 2. **Write tests first** (TDD):
    ```bash
-   touch apps/stream-infrastructure/tests/unit/test_worker.py
+   touch apps/media-service/tests/unit/test_worker.py
    ```
 
 3. **Implement the module**:
    ```python
-   # apps/stream-infrastructure/src/stream_infrastructure/worker.py
+   # apps/media-service/src/media_service/worker.py
    def process_stream(stream_id: str) -> None:
        """Process a live stream with dubbing."""
        pass
@@ -428,7 +428,7 @@ open htmlcov/index.html  # macOS
 
 4. **Run tests**:
    ```bash
-   pytest apps/stream-infrastructure/tests/unit/test_worker.py
+   pytest apps/media-service/tests/unit/test_worker.py
    ```
 
 5. **No reinstall needed** - editable install automatically picks up new files!
@@ -459,7 +459,7 @@ open htmlcov/index.html  # macOS
 
 4. **Use in services** (automatic via editable install):
    ```python
-   # apps/stream-infrastructure/src/stream_infrastructure/worker.py
+   # apps/media-service/src/media_service/worker.py
    from dubbing_common.audio import normalize_audio
 
    normalized = normalize_audio(audio_chunk)

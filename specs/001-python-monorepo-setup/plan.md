@@ -7,7 +7,7 @@
 
 ## Summary
 
-Create the Python monorepo directory structure and configuration files for two independent services (stream-infrastructure and sts-service) with shared libraries (common, contracts). This is a foundational setup task that establishes the development environment described in `specs/001-1-python-monorepo-setup.md`. The implementation will create all necessary directories, package metadata files (pyproject.toml), Python package namespaces (__init__.py), development tooling configuration (ruff, mypy, Makefile), and documentation (README.md files).
+Create the Python monorepo directory structure and configuration files for two independent services (media-service and sts-service) with shared libraries (common, contracts). This is a foundational setup task that establishes the development environment described in `specs/001-1-python-monorepo-setup.md`. The implementation will create all necessary directories, package metadata files (pyproject.toml), Python package namespaces (__init__.py), development tooling configuration (ruff, mypy, Makefile), and documentation (README.md files).
 
 ## Technical Context
 
@@ -69,12 +69,12 @@ This feature creates the repository structure itself. The target layout (from `s
 ```text
 live-broadcast-dubbing-cloud/
 ├── apps/                               # Service applications
-│   ├── stream-infrastructure/          # EC2 stream worker (CPU-only)
+│   ├── media-service/          # EC2 stream worker (CPU-only)
 │   │   ├── pyproject.toml              # Service-specific dependencies
 │   │   ├── requirements.txt            # Locked CPU-only dependencies
 │   │   ├── requirements-dev.txt        # Dev/test dependencies
 │   │   ├── src/
-│   │   │   └── stream_infrastructure/  # Python package namespace
+│   │   │   └── media_service/  # Python package namespace
 │   │   │       ├── __init__.py
 │   │   │       ├── pipelines/          # Module subdirectories
 │   │   │       │   └── __init__.py
@@ -135,7 +135,7 @@ live-broadcast-dubbing-cloud/
 │       └── __init__.py
 │
 ├── deploy/                             # Docker and deployment configs
-│   ├── stream-infrastructure/
+│   ├── media-service/
 │   │   └── [future: Dockerfile, docker-compose.yml]
 │   └── sts-service/
 │       └── [future: Dockerfile, docker-compose.yml]
@@ -288,9 +288,9 @@ JSON Schema defining the expected directory structure for validation:
   "properties": {
     "apps": {
       "type": "object",
-      "required": ["stream-infrastructure", "sts-service"],
+      "required": ["media-service", "sts-service"],
       "properties": {
-        "stream-infrastructure": {
+        "media-service": {
           "$ref": "#/definitions/service"
         },
         "sts-service": {

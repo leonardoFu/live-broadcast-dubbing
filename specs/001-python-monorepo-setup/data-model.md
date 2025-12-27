@@ -72,8 +72,8 @@ Represents a configuration or documentation file that must be created.
 Represents a Python package (service or shared library) with its complete structure.
 
 **Attributes**:
-- `name` (string): Package name (e.g., "stream-infrastructure", "dubbing-common")
-- `python_name` (string): Import name (e.g., "stream_infrastructure", "dubbing_common")
+- `name` (string): Package name (e.g., "media-service", "dubbing-common")
+- `python_name` (string): Import name (e.g., "media_service", "dubbing_common")
 - `type` (enum): Package type
   - `service`: Deployable application (apps/*)
   - `library`: Shared library (libs/*)
@@ -90,15 +90,15 @@ Represents a Python package (service or shared library) with its complete struct
 - `readme_file` (File): README.md file
 
 **Validation Rules**:
-- Package `name` must use kebab-case (e.g., "stream-infrastructure")
-- Python `python_name` must use snake_case (e.g., "stream_infrastructure")
+- Package `name` must use kebab-case (e.g., "media-service")
+- Python `python_name` must use snake_case (e.g., "media_service")
 - `python_name` must be a valid Python identifier (no hyphens, no leading digits)
 - All packages must have pyproject.toml, src/, tests/, README.md (per contract)
 - Services must have both tests/unit/ and tests/integration/
 - Libraries must have at least tests/unit/
 
 **Dependency Rules** (from architectural spec):
-- Services can depend on libraries (e.g., stream-infrastructure → dubbing-common)
+- Services can depend on libraries (e.g., media-service → dubbing-common)
 - Services CANNOT depend on other services (cross-service imports forbidden)
 - Libraries can depend on other libraries (e.g., common → contracts is allowed)
 - Circular dependencies between packages are forbidden
@@ -172,8 +172,8 @@ apps/<service-name>/                    # type: Package (service)
 ```
 
 **Instances**:
-1. `apps/stream-infrastructure/` (service package)
-   - Python name: `stream_infrastructure`
+1. `apps/media-service/` (service package)
+   - Python name: `media_service`
    - Module subdirectories: `pipelines/`
 
 2. `apps/sts-service/` (service package)
@@ -216,7 +216,7 @@ deploy/<service-name>/                  # type: Directory (deployment configs)
 ```
 
 **Instances**:
-1. `deploy/stream-infrastructure/` (empty directory for now)
+1. `deploy/media-service/` (empty directory for now)
 2. `deploy/sts-service/` (empty directory for now)
 
 ### Test Structure
@@ -236,8 +236,8 @@ tests/                                  # type: Directory (E2E tests)
 **Location**: `apps/<service-name>/pyproject.toml`
 
 **Template Variables**:
-- `{service_name}`: Kebab-case service name (e.g., "stream-infrastructure")
-- `{python_name}`: Snake_case Python name (e.g., "stream_infrastructure")
+- `{service_name}`: Kebab-case service name (e.g., "media-service")
+- `{python_name}`: Snake_case Python name (e.g., "media_service")
 - `{dependencies}`: List of package dependencies
 
 **Minimal Required Sections** (from research.md):
@@ -337,7 +337,7 @@ disallow_untyped_defs = true
 
 **Required Targets** (from FR-008 and research.md):
 - `help`: Display available commands
-- `setup-stream`: Create venv and install stream-infrastructure service
+- `setup-stream`: Create venv and install media-service service
 - `setup-sts`: Create venv and install sts-service
 - `test-all`: Run tests for all packages
 - `lint`: Run ruff check on all code
@@ -416,7 +416,7 @@ The complete JSON schema for directory structure validation is defined in `contr
 
 1. **Required directories**: apps/, libs/, tests/, deploy/
 2. **Required packages**:
-   - Services: apps/stream-infrastructure/, apps/sts-service/
+   - Services: apps/media-service/, apps/sts-service/
    - Libraries: libs/common/, libs/contracts/
 3. **Required files per package**:
    - pyproject.toml (valid TOML syntax)

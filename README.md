@@ -10,7 +10,7 @@ This repository contains a Python monorepo with multiple services and shared lib
 
 The platform consists of two main services:
 
-- **Stream Infrastructure Service** (CPU-based) - Handles audio stream ingestion, preprocessing, and pipeline orchestration
+- **Media Service** (CPU-based) - Handles audio stream ingestion, preprocessing, and pipeline orchestration
 - **STS Service** (GPU-based) - Performs speech-to-speech translation (ASR → Translation → TTS)
 
 These services share common functionality through two libraries:
@@ -37,7 +37,7 @@ These services share common functionality through two libraries:
 
 2. **Choose your service and set up the environment**
 
-   For Stream Infrastructure Service (CPU-based):
+   For Media Service (CPU-based):
    ```bash
    make setup-stream
    source .venv-stream/bin/activate
@@ -64,8 +64,8 @@ These services share common functionality through two libraries:
 ```
 .
 ├── apps/
-│   ├── stream-infrastructure/    # CPU-based stream processing service
-│   │   ├── src/stream_infrastructure/
+│   ├── media-service/            # CPU-based media processing service
+│   │   ├── src/media_service/
 │   │   ├── tests/
 │   │   ├── pyproject.toml
 │   │   └── README.md
@@ -103,7 +103,7 @@ These services share common functionality through two libraries:
 
 This monorepo uses **isolated virtual environments per service** to maintain independence:
 
-- `.venv-stream/` - For stream-infrastructure service
+- `.venv-stream/` - For media-service
 - `.venv-sts/` - For sts-service
 
 Both environments include the shared libraries (`dubbing-common`, `dubbing-contracts`) installed in editable mode.
@@ -112,7 +112,7 @@ Both environments include the shared libraries (`dubbing-common`, `dubbing-contr
 
 ```bash
 # Setup
-make setup-stream          # Set up stream-infrastructure service
+make setup-stream          # Set up media-service
 make setup-sts             # Set up sts-service
 
 # Testing
@@ -168,7 +168,7 @@ Tests are organized by type using pytest markers:
 
 Each service and library has detailed documentation:
 
-- [Stream Infrastructure Service](apps/stream-infrastructure/README.md) - CPU-based audio processing
+- [Media Service](apps/media-service/README.md) - CPU-based audio processing
 - [STS Service](apps/sts-service/README.md) - GPU-based speech translation
 - [Common Library](libs/common/README.md) - Shared utilities
 - [Contracts Library](libs/contracts/README.md) - API contracts and schemas
@@ -254,7 +254,7 @@ pip list | grep dubbing
 # Should see:
 # dubbing-common     0.1.0  /path/to/libs/common
 # dubbing-contracts  0.1.0  /path/to/libs/contracts
-# stream-infrastructure 0.1.0  /path/to/apps/stream-infrastructure
+# media-service 0.1.0  /path/to/apps/media-service
 # (or sts-service, depending on which venv you're in)
 ```
 
@@ -265,7 +265,7 @@ pip list | grep dubbing
 pytest -vv
 
 # Run specific test file
-pytest apps/stream-infrastructure/tests/unit/test_example.py -v
+pytest apps/media-service/tests/unit/test_example.py -v
 
 # Run with debugging
 pytest --pdb

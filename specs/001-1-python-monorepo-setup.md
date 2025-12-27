@@ -4,7 +4,7 @@
 
 Define a **Python monorepo structure** that supports two independent services with conflicting dependencies in a single repository:
 
-- **Stream Infrastructure Project** (`apps/stream-infrastructure/`): CPU-only, lightweight stream processing
+- **Stream Infrastructure Project** (`apps/media-service/`): CPU-only, lightweight stream processing
 - **STS Service** (`apps/sts-service/`): GPU-accelerated speech-to-speech processing
 
 The setup must provide:
@@ -46,12 +46,12 @@ This spec is complementary to:
 ```
 live-broadcast-dubbing-cloud/
 ├── apps/
-│   ├── stream-infrastructure/          # EC2 stream worker (CPU-only)
+│   ├── media-service/          # EC2 stream worker (CPU-only)
 │   │   ├── pyproject.toml              # Service-specific dependencies
 │   │   ├── requirements.txt            # Locked CPU-only dependencies
 │   │   ├── requirements-dev.txt        # Dev/test dependencies
 │   │   ├── src/
-│   │   │   └── stream_infrastructure/  # Python package namespace
+│   │   │   └── media_service/  # Python package namespace
 │   │   │       ├── __init__.py
 │   │   │       ├── worker.py           # GStreamer worker entrypoint
 │   │   │       ├── sts_client.py       # HTTP client for STS service
@@ -105,7 +105,7 @@ live-broadcast-dubbing-cloud/
 │       └── fixtures/
 │
 ├── deploy/                             # Docker and deployment configs
-│   ├── stream-infrastructure/
+│   ├── media-service/
 │   │   └── Dockerfile                  # CPU-only image
 │   └── sts-service/
 │       └── Dockerfile                  # GPU-enabled image
@@ -127,11 +127,11 @@ Each service in `apps/` has:
 - **`requirements.txt`**: Locked dependencies for production (generated via `pip-compile` or `poetry export`)
 - **`requirements-dev.txt`**: Dev/test dependencies (pytest, mypy, ruff, etc.)
 
-#### Example: `apps/stream-infrastructure/pyproject.toml`
+#### Example: `apps/media-service/pyproject.toml`
 
 ```toml
 [project]
-name = "stream-infrastructure"
+name = "media-service"
 version = "0.1.0"
 requires-python = ">=3.10,<3.11"
 dependencies = [
@@ -260,7 +260,7 @@ where = ["src"]
 
 ### 5.3 Avoiding Dependency Conflicts
 
-**Problem**: `stream-infrastructure` uses CPU-only PyTorch, `sts-service` uses GPU PyTorch.
+**Problem**: `media-service` uses CPU-only PyTorch, `sts-service` uses GPU PyTorch.
 
 **Solution**: Each service has its own virtual environment or container.
 
@@ -294,7 +294,7 @@ python3.10 -m venv .venv-stream
 source .venv-stream/bin/activate  # On Windows: .venv-stream\Scripts\activate
 
 # Install service + shared libs in editable mode
-cd apps/stream-infrastructure
+cd apps/media-service
 pip install -e ../../libs/common -e ../../libs/contracts
 pip install -e ".[dev]"
 
@@ -302,13 +302,13 @@ pip install -e ".[dev]"
 pytest tests/
 
 # Run the worker locally
-python -m stream_infrastructure.worker --config local.yaml
+python -m media_service.worker --config local.yaml
 ```
 
 ### 6.3 Working on STS Service (RunPod Service)
 
 ```bash
-# Create and activate virtual environment (SEPARATE from stream-infrastructure)
+# Create and activate virtual environment (SEPARATE from media-service)
 python3.10 -m venv .venv-sts
 source .venv-sts/bin/activate
 
@@ -333,7 +333,7 @@ python -m sts_service.api --port 8000
 
 help:
 	@echo "Targets:"
-	@echo "  setup-stream    - Set up stream-infrastructure venv"
+	@echo "  setup-stream    - Set up media-service venv"
 	@echo "  setup-sts       - Set up sts-service venv"
 	@echo "  test-all        - Run all tests (requires both venvs)"
 	@echo "  lint            - Run mypy and ruff on all code"
@@ -342,7 +342,7 @@ help:
 setup-stream:
 	python3.10 -m venv .venv-stream
 	.venv-stream/bin/pip install -e libs/common -e libs/contracts
-	.venv-stream/bin/pip install -e "apps/stream-infrastructure[dev]"
+	.venv-stream/bin/pip install -e "apps/media-service[dev]"
 
 setup-sts:
 	python3.10 -m venv .venv-sts
@@ -350,13 +350,13 @@ setup-sts:
 	.venv-sts/bin/pip install -e "apps/sts-service[dev]"
 
 test-all:
-	.venv-stream/bin/pytest apps/stream-infrastructure/tests/
+	.venv-stream/bin/pytest apps/media-service/tests/
 	.venv-sts/bin/pytest apps/sts-service/tests/
 	pytest tests/e2e/  # Run with either venv
 
 lint:
 	ruff check apps/ libs/
-	mypy apps/stream-infrastructure/src
+	mypy apps/media-service/src
 	mypy apps/sts-service/src
 	mypy libs/common/src
 	mypy libs/contracts/src
@@ -379,9 +379,9 @@ Each service and library has its own `tests/` directory:
 
 Example:
 ```bash
-# Test stream-infrastructure
+# Test media-service
 source .venv-stream/bin/activate
-pytest apps/stream-infrastructure/tests/unit/
+pytest apps/media-service/tests/unit/
 
 # Test sts-service
 source .venv-sts/bin/activate
@@ -399,7 +399,7 @@ Example:
 ```bash
 # Test stream worker with mock STS service
 source .venv-stream/bin/activate
-pytest apps/stream-infrastructure/tests/integration/test_sts_client.py
+pytest apps/media-service/tests/integration/test_sts_client.py
 ```
 
 ### 7.3 End-to-End Tests
@@ -413,14 +413,14 @@ Test the full pipeline (requires both services):
 Example:
 ```bash
 # Start both services via Docker Compose
-docker compose -f deploy/stream-infrastructure/docker-compose.yml up -d
+docker compose -f deploy/media-service/docker-compose.yml up -d
 docker compose -f deploy/sts-service/docker-compose.yml up -d
 
 # Run E2E tests
 pytest tests/e2e/
 
 # Tear down
-docker compose -f deploy/stream-infrastructure/docker-compose.yml down
+docker compose -f deploy/media-service/docker-compose.yml down
 docker compose -f deploy/sts-service/docker-compose.yml down
 ```
 
@@ -489,7 +489,7 @@ Each service has its own `Dockerfile` (detailed in `specs/001-2-docker-repo-setu
 
 ### 9.1 Stream Infrastructure Dockerfile
 
-**Location**: `deploy/stream-infrastructure/Dockerfile`
+**Location**: `deploy/media-service/Dockerfile`
 
 ```dockerfile
 FROM python:3.10-slim
@@ -518,12 +518,12 @@ COPY libs/contracts libs/contracts
 RUN pip install --no-cache-dir ./libs/common ./libs/contracts
 
 # Copy service code
-COPY apps/stream-infrastructure apps/stream-infrastructure
+COPY apps/media-service apps/media-service
 
 # Install service dependencies (CPU-only PyTorch)
-RUN pip install --no-cache-dir ./apps/stream-infrastructure
+RUN pip install --no-cache-dir ./apps/media-service
 
-ENTRYPOINT ["python", "-m", "stream_infrastructure.worker"]
+ENTRYPOINT ["python", "-m", "media_service.worker"]
 ```
 
 ### 9.2 STS Service Dockerfile
@@ -589,12 +589,12 @@ jobs:
       - name: Lint
         run: |
           ruff check apps/ libs/
-          mypy apps/stream-infrastructure/src
+          mypy apps/media-service/src
           mypy apps/sts-service/src
           mypy libs/common/src
           mypy libs/contracts/src
 
-  test-stream-infrastructure:
+  test-media-service:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -606,9 +606,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y gstreamer1.0-tools python3-gi
           pip install -e libs/common -e libs/contracts
-          pip install -e "apps/stream-infrastructure[dev]"
+          pip install -e "apps/media-service[dev]"
       - name: Run tests
-        run: pytest apps/stream-infrastructure/tests/
+        run: pytest apps/media-service/tests/
 
   test-sts-service:
     runs-on: ubuntu-latest
@@ -624,12 +624,12 @@ jobs:
       - name: Run tests (CPU fallback)
         run: pytest apps/sts-service/tests/
 
-  build-stream-infrastructure:
+  build-media-service:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - name: Build Docker image
-        run: docker build -f deploy/stream-infrastructure/Dockerfile -t stream-infrastructure:${{ github.sha }} .
+        run: docker build -f deploy/media-service/Dockerfile -t media-service:${{ github.sha }} .
 
   build-sts-service:
     runs-on: ubuntu-latest
@@ -653,7 +653,7 @@ jobs:
 **Wrong**:
 ```python
 # In apps/sts-service/src/sts_service/api.py
-from stream_infrastructure.worker import SomeUtil  # BAD: cross-service import
+from media_service.worker import SomeUtil  # BAD: cross-service import
 ```
 
 **Right**:

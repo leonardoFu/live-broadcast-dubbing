@@ -1,10 +1,10 @@
-# Stream Infrastructure Service
+# Media Service
 
 CPU-based audio stream processing service for live broadcast dubbing.
 
 ## Description
 
-The stream-infrastructure service handles real-time audio stream processing, including:
+The media-service handles real-time audio stream processing, including:
 - Audio stream ingestion from MediaMTX RTMP sources
 - Audio preprocessing and buffering
 - Fragment-based audio processing pipeline
@@ -42,7 +42,7 @@ make setup-stream
 This will:
 - Create `.venv-stream` virtual environment
 - Install shared libraries (`dubbing-common`, `dubbing-contracts`)
-- Install `stream-infrastructure` package with development dependencies
+- Install `media-service` package with development dependencies
 
 ### 3. Activate Virtual Environment
 
@@ -56,16 +56,16 @@ source .venv-stream/bin/activate
 
 ```bash
 # Run all tests for this service
-pytest apps/stream-infrastructure/tests/ -v
+pytest apps/media-service/tests/ -v
 
 # Run only unit tests (fast)
-pytest apps/stream-infrastructure/tests/unit/ -m unit -v
+pytest apps/media-service/tests/unit/ -m unit -v
 
 # Run integration tests
-pytest apps/stream-infrastructure/tests/integration/ -m integration -v
+pytest apps/media-service/tests/integration/ -m integration -v
 
 # Run with coverage report
-pytest apps/stream-infrastructure/tests/ --cov=stream_infrastructure --cov-report=html
+pytest apps/media-service/tests/ --cov=media_service --cov-report=html
 ```
 
 ### Code Quality
@@ -85,16 +85,16 @@ make typecheck
 
 1. Ensure MediaMTX is running (see `deploy/` directory)
 2. Activate the virtual environment
-3. Make code changes in `src/stream_infrastructure/`
+3. Make code changes in `src/media_service/`
 4. Run tests to verify changes
 5. Test against live RTMP stream (optional)
 
 ## Project Structure
 
 ```
-apps/stream-infrastructure/
+apps/media-service/
 ├── src/
-│   └── stream_infrastructure/
+│   └── media_service/
 │       ├── __init__.py
 │       └── pipelines/          # Audio processing pipelines
 │           └── __init__.py

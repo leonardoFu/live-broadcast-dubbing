@@ -8,7 +8,7 @@
 
 Planned runtime components (not all may exist yet):
 - `apps/sts-service/`: Speech→Text→Speech service referenced by `specs/001-spec.md`.
-- `apps/stream-worker/`: GStreamer-based stream worker that pulls from MediaMTX, processes audio, and republishes.
+- `apps/media-service/`: GStreamer-based media processing service that pulls from MediaMTX, processes audio, and republishes.
 - `infra/` or `deploy/`: Container/runtime configuration (e.g., MediaMTX, compose files).
 
 ## Build, Test, and Development Commands

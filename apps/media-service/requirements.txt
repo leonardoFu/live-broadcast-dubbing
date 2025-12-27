@@ -1,4 +1,4 @@
-# Locked dependencies for stream-infrastructure service
+# Locked dependencies for media-service
 # Generated from pyproject.toml
 # Install with: pip install -r requirements.txt
 #
