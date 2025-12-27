@@ -8,7 +8,6 @@ specs/001-mediamtx-integration/contracts/hook-events.json
 import pytest
 from fastapi.testclient import TestClient
 
-from media_service.main import app
 from media_service.models.events import HookEvent, NotReadyEvent, ReadyEvent
 
 

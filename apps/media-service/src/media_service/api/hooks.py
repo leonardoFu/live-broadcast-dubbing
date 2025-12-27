@@ -5,7 +5,6 @@ Receives POST requests from MediaMTX hooks when streams become ready/not-ready.
 """
 
 import logging
-from typing import Dict
 
 from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import JSONResponse

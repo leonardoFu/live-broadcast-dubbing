@@ -4,7 +4,6 @@ Unit tests for Docker Compose configuration validation.
 Tests FR-001: Docker Compose starts MediaMTX and stream-orchestration services.
 """
 
-import os
 from pathlib import Path
 
 import pytest
