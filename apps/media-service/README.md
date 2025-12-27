@@ -1,138 +1,66 @@
-# Media Service
+# Stream Orchestration Service
 
-CPU-based audio stream processing service for live broadcast dubbing.
+HTTP service that receives MediaMTX hook events and manages stream worker lifecycle.
 
-## Description
+## Overview
 
-The media-service handles real-time audio stream processing, including:
-- Audio stream ingestion from MediaMTX RTMP sources
-- Audio preprocessing and buffering
-- Fragment-based audio processing pipeline
-- Integration with STS service for speech translation
-- Processed audio stream output
+The stream-orchestration service acts as the control plane for the live streaming pipeline:
+- Receives hook events from MediaMTX when streams start/stop (runOnReady, runOnNotReady)
+- Manages worker lifecycle for stream processing
+- Provides observability through structured logging
 
-This service is designed to run on CPU-only infrastructure and uses GStreamer for audio processing.
+## API Endpoints
 
-## Prerequisites
+### Hook Receiver Endpoints
 
-- Python 3.10.x (required, not compatible with 3.11+)
-- Linux environment (for GStreamer dependencies)
-- MediaMTX server (for RTMP stream handling)
+**POST /v1/mediamtx/events/ready**
+- Triggered when a stream becomes available in MediaMTX
+- Payload: `{path, query, sourceType, sourceId}`
+- Response: 200 OK
 
-## Setup
+**POST /v1/mediamtx/events/not-ready**
+- Triggered when a stream becomes unavailable in MediaMTX
+- Payload: `{path, query, sourceType, sourceId}`
+- Response: 200 OK
 
-### 1. Install Python 3.10
+## Development
 
-```bash
-# Ubuntu/Debian
-sudo apt-get install python3.10 python3.10-venv
-
-# macOS (using Homebrew)
-brew install python@3.10
-```
-
-### 2. Create Virtual Environment and Install
-
-From the repository root:
+### Install dependencies
 
 ```bash
-make setup-stream
+cd apps/stream-orchestration
+pip install -e ".[dev]"
 ```
 
-This will:
-- Create `.venv-stream` virtual environment
-- Install shared libraries (`dubbing-common`, `dubbing-contracts`)
-- Install `media-service` package with development dependencies
-
-### 3. Activate Virtual Environment
+### Run tests
 
 ```bash
-source .venv-stream/bin/activate
+pytest
 ```
 
-## Development Workflow
-
-### Running Tests
+### Run the service locally
 
 ```bash
-# Run all tests for this service
-pytest apps/media-service/tests/ -v
-
-# Run only unit tests (fast)
-pytest apps/media-service/tests/unit/ -m unit -v
-
-# Run integration tests
-pytest apps/media-service/tests/integration/ -m integration -v
-
-# Run with coverage report
-pytest apps/media-service/tests/ --cov=media_service --cov-report=html
+uvicorn stream_orchestration.main:app --host 0.0.0.0 --port 8080 --reload
 ```
 
-### Code Quality
+## Architecture
 
-```bash
-# Format code
-make fmt
-
-# Lint code
-make lint
-
-# Type checking
-make typecheck
-```
-
-### Local Development
-
-1. Ensure MediaMTX is running (see `deploy/` directory)
-2. Activate the virtual environment
-3. Make code changes in `src/media_service/`
-4. Run tests to verify changes
-5. Test against live RTMP stream (optional)
-
-## Project Structure
-
-```
-apps/media-service/
-├── src/
-│   └── media_service/
-│       ├── __init__.py
-│       └── pipelines/          # Audio processing pipelines
-│           └── __init__.py
-├── tests/
-│   ├── unit/                   # Fast, isolated tests
-│   ├── integration/            # Cross-component tests
-│   └── conftest.py             # Shared test fixtures
-├── pyproject.toml              # Package metadata and dependencies
-└── README.md                   # This file
-```
-
-## Dependencies
-
-### Core Dependencies
-- `numpy<2.0` - Audio buffer manipulation
-- `scipy` - Signal processing
-- `soundfile` - Audio I/O
-- `pyyaml` - Configuration management
-- `pydantic>=2.0` - Data validation
-
-### Shared Libraries
-- `dubbing-common` - Shared utilities and configurations
-- `dubbing-contracts` - API contracts and event schemas
-
-### Development Dependencies
-- `pytest>=7.0` - Testing framework
-- `mypy>=1.0` - Type checking
-- `ruff>=0.1.0` - Linting and formatting
+- FastAPI for HTTP endpoints
+- Pydantic for request/response validation
+- Structured logging with correlation fields
+- Designed for containerized deployment
 
 ## Configuration
 
-Service configuration is managed via YAML files (to be added in implementation phase).
+Environment variables:
+- `PORT`: HTTP service port (default: 8080)
+- `LOG_LEVEL`: Logging level (default: INFO)
 
-## Related Services
+## Testing
 
-- `sts-service` - Speech-to-speech translation service (GPU-based)
-- See repository root README.md for monorepo overview
+- Unit tests: `tests/unit/` - Test event parsing and business logic
+- Contract tests: `tests/contract/` - Validate API schemas against contracts
+- Integration tests: `tests/integration/` - Test HTTP endpoints with mock clients
 
-## License
-
-(Add license information as needed)
+Coverage requirement: 80% minimum

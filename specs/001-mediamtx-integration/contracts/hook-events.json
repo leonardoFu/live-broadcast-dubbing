@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MediaMTX Hook Event",
+  "type": "object",
+  "required": ["path", "sourceType", "sourceId"],
+  "properties": {
+    "path": {
+      "type": "string",
+      "pattern": "^live/[a-zA-Z0-9_-]+/(in|out)$",
+      "description": "Stream path in MediaMTX (e.g., live/stream123/in)"
+    },
+    "query": {
+      "type": "string",
+      "description": "Query string from RTMP URL (e.g., lang=es)"
+    },
+    "sourceType": {
+      "type": "string",
+      "enum": ["rtmp", "rtsp", "webrtc"],
+      "description": "Source protocol type"
+    },
+    "sourceId": {
+      "type": "string",
+      "description": "Unique identifier for the source connection"
+    }
+  }
+}

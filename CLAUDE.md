@@ -3,13 +3,96 @@
 ## Project Structure & Module Organization
 
 - `specs/`: Product/architecture specs. Start here before implementing changes.
-- `.specify/`: Spec templates and shared “memory” used to generate/maintain specs.
-- `.codex/`: Local agent prompts/workflows for this repo.
+- `.specify/`: Spec templates and shared "memory" used to generate/maintain specs.
 
-Planned runtime components (not all may exist yet):
-- `apps/sts-service/`: Speech→Text→Speech service referenced by `specs/001-spec.md`.
-- `apps/media-service/`: GStreamer-based media processing service that pulls from MediaMTX, processes audio, and republishes.
-- `infra/` or `deploy/`: Container/runtime configuration (e.g., MediaMTX, compose files).
+### Standard Directory Structure
+
+This repository follows a strict Python monorepo structure defined in `specs/001-python-monorepo-setup/contracts/directory-structure.json`. All new code MUST conform to this structure:
+
+```
+live-broadcast-dubbing-cloud/
+├── apps/                          # Service applications (independent deployment)
+│   ├── media-service/             # EC2 stream worker (CPU-only GStreamer pipeline)
+│   │   ├── pyproject.toml         # Package metadata and dependencies
+│   │   ├── requirements.txt       # Locked production dependencies
+│   │   ├── requirements-dev.txt   # Locked development/test dependencies
+│   │   ├── src/
+│   │   │   └── media_service/     # Python package (snake_case)
+│   │   │       ├── __init__.py
+│   │   │       └── pipelines/     # Subpackages as needed
+│   │   ├── tests/
+│   │   │   ├── unit/              # Unit tests (mocked dependencies)
+│   │   │   │   └── __init__.py
+│   │   │   └── integration/       # Integration tests (service + mocked externals)
+│   │   │       └── __init__.py
+│   │   └── README.md
+│   │
+│   └── sts-service/               # RunPod GPU service (speech-to-speech processing)
+│       ├── pyproject.toml
+│       ├── requirements.txt
+│       ├── requirements-dev.txt
+│       ├── src/
+│       │   └── sts_service/       # Python package (snake_case)
+│       │       ├── __init__.py
+│       │       ├── asr/           # Automatic Speech Recognition
+│       │       ├── translation/   # Translation engine
+│       │       └── tts/           # Text-to-Speech
+│       ├── tests/
+│       │   ├── unit/
+│       │   │   └── __init__.py
+│       │   └── integration/
+│       │       └── __init__.py
+│       └── README.md
+│
+├── libs/                          # Shared libraries
+│   ├── common/                    # Common utilities (audio, types, logging)
+│   │   ├── pyproject.toml         # Minimal dependencies only
+│   │   ├── src/
+│   │   │   └── dubbing_common/    # MUST use dubbing_ prefix
+│   │   │       └── __init__.py
+│   │   ├── tests/
+│   │   │   └── unit/
+│   │   │       └── __init__.py
+│   │   └── README.md
+│   │
+│   └── contracts/                 # API contracts and event schemas
+│       ├── pyproject.toml
+│       ├── src/
+│       │   └── dubbing_contracts/ # MUST use dubbing_ prefix
+│       │       └── __init__.py
+│       ├── tests/
+│       │   └── unit/
+│       │       └── __init__.py
+│       └── README.md
+│
+├── tests/                         # Cross-service tests
+│   └── e2e/                       # Full pipeline E2E tests
+│       └── __init__.py
+│
+├── deploy/                        # Deployment configurations
+│   ├── media-service/             # Stream infrastructure deployment configs
+│   │   ├── Dockerfile
+│   │   └── docker-compose.yml
+│   └── sts-service/               # STS service deployment configs
+│       ├── Dockerfile
+│       └── docker-compose.yml
+│
+├── pyproject.toml                 # Root tooling configuration (ruff, mypy)
+├── .gitignore                     # Git exclusion patterns
+├── Makefile                       # Development workflow commands
+└── README.md                      # Repository overview
+```
+
+### Naming Conventions
+
+- **Services** (apps/*): Use kebab-case for directories, snake_case for Python packages
+  - Example: `apps/media-service/src/media_service/`
+- **Libraries** (libs/*): Use kebab-case for directories, snake_case with `dubbing_` prefix for packages
+  - Example: `libs/common/src/dubbing_common/`
+- **Test files**: Must start with `test_` prefix
+  - Example: `test_pipeline.py`, `test_audio_utils.py`
+- **Python modules**: snake_case only
+  - Example: `audio_utils.py`, `stream_processor.py`
 
 ## Build, Test, and Development Commands
 

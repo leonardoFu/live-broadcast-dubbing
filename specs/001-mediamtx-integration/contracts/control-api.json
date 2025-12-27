@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MediaMTX Paths List Response",
+  "type": "object",
+  "required": ["items"],
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "ready"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Path name (e.g., live/stream123/in)"
+          },
+          "ready": {
+            "type": "boolean",
+            "description": "Whether the path has an active source"
+          },
+          "tracks": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Available tracks (e.g., H264, AAC)"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,67 @@
+# MediaMTX Configuration for Live Streaming Pipeline
+# Version: v1.0+
+# Purpose: Local development environment with hook-based worker triggering
+
+# Logging Configuration (FR-014)
+logLevel: info
+logDestinations: [stdout]
+
+# Authentication Configuration
+# Simple internal auth for local development
+authMethod: internal
+authInternalUsers:
+  - user: admin
+    pass: admin
+    permissions:
+      - action: api
+      - action: metrics
+      - action: pprof
+      - action: publish
+      - action: read
+      - action: playback
+
+# RTMP Server Configuration (FR-002)
+rtmp: true
+rtmpAddress: :1935
+
+# RTSP Server Configuration (FR-003, FR-019)
+rtsp: true
+rtspAddress: :8554
+protocols: [tcp]  # Force TCP to avoid UDP packet loss in Docker
+
+# Control API Configuration (FR-008)
+api: true
+apiAddress: :9997
+
+# Prometheus Metrics Configuration (FR-009)
+metrics: true
+metricsAddress: :9998
+
+# Playback Server Configuration (FR-010)
+playback: true
+playbackAddress: :9996
+
+# Path Configuration (FR-015)
+paths:
+  # Default configuration for all paths
+  all_others:
+    # Dynamic path creation with publisher as source
+    source: publisher
+    sourceOnDemand: no
+
+    # Recording disabled in v0 (FR-013)
+    record: no
+
+    # Hook Configuration (FR-004, FR-005, FR-006, FR-007)
+    # Called when a stream becomes ready (published)
+    runOnReady: /hooks/mtx-hook ready
+
+    # Called when a stream becomes unavailable (disconnected)
+    runOnNotReady: /hooks/mtx-hook not-ready
+
+    # Hook Environment Variables
+    # These are passed to the hook script:
+    # - MTX_PATH: Stream path (e.g., live/stream123/in)
+    # - MTX_QUERY: Query string from URL (e.g., lang=es)
+    # - MTX_SOURCE_TYPE: Source protocol (rtmp, rtsp, webrtc)
+    # - MTX_SOURCE_ID: Unique source connection identifier

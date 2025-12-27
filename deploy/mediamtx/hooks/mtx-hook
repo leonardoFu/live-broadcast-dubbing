@@ -1,0 +1,175 @@
+#!/usr/bin/env python3
+"""
+MediaMTX Hook Wrapper Script
+
+This script is called by MediaMTX when streams become ready/not-ready.
+It parses environment variables and forwards events to the stream-orchestration service.
+
+Environment Variables (provided by MediaMTX):
+- MTX_PATH: Stream path (e.g., live/stream123/in)
+- MTX_QUERY: Query string from URL (e.g., lang=es)
+- MTX_SOURCE_TYPE: Source protocol (rtmp, rtsp, webrtc)
+- MTX_SOURCE_ID: Unique source connection identifier
+- ORCHESTRATOR_URL: Stream orchestration service URL (configured in docker-compose)
+
+Usage:
+    mtx-hook ready      # Trigger ready event
+    mtx-hook not-ready  # Trigger not-ready event
+"""
+
+import json
+import os
+import sys
+import urllib.request
+from typing import Any, Dict, Optional
+
+
+def parse_env_vars() -> Dict[str, Any]:
+    """
+    Parse MediaMTX environment variables into event payload.
+
+    Returns:
+        dict: Event payload with path, query, sourceType, sourceId
+
+    Raises:
+        ValueError: If required environment variables are missing
+    """
+    mtx_path = os.getenv("MTX_PATH")
+    if not mtx_path:
+        raise ValueError("MTX_PATH environment variable is required")
+
+    mtx_source_type = os.getenv("MTX_SOURCE_TYPE")
+    if not mtx_source_type:
+        raise ValueError("MTX_SOURCE_TYPE environment variable is required")
+
+    mtx_source_id = os.getenv("MTX_SOURCE_ID")
+    if not mtx_source_id:
+        raise ValueError("MTX_SOURCE_ID environment variable is required")
+
+    # Query is optional
+    mtx_query = os.getenv("MTX_QUERY", "")
+
+    payload = {
+        "path": mtx_path,
+        "sourceType": mtx_source_type,
+        "sourceId": mtx_source_id,
+    }
+
+    # Only include query if not empty
+    if mtx_query:
+        payload["query"] = mtx_query
+
+    return payload
+
+
+def construct_endpoint_url(event_type: str) -> str:
+    """
+    Construct full endpoint URL for the stream-orchestration service.
+
+    Args:
+        event_type: Event type (ready or not-ready)
+
+    Returns:
+        str: Full endpoint URL
+
+    Raises:
+        ValueError: If ORCHESTRATOR_URL environment variable is missing
+    """
+    orchestrator_url = os.getenv("ORCHESTRATOR_URL")
+    if not orchestrator_url:
+        raise ValueError("ORCHESTRATOR_URL environment variable is required")
+
+    # Remove trailing slash if present
+    base_url = orchestrator_url.rstrip("/")
+
+    return f"{base_url}/v1/mediamtx/events/{event_type}"
+
+
+def send_hook_event(endpoint_url: str, payload: Dict[str, Any]) -> None:
+    """
+    Send hook event to stream-orchestration service via HTTP POST.
+
+    Args:
+        endpoint_url: Full endpoint URL
+        payload: Event payload
+
+    Raises:
+        Exception: If HTTP request fails
+    """
+    data = json.dumps(payload).encode("utf-8")
+    headers = {
+        "Content-Type": "application/json",
+        "User-Agent": "MediaMTX-Hook/1.0",
+    }
+
+    req = urllib.request.Request(endpoint_url, data=data, headers=headers, method="POST")
+
+    try:
+        with urllib.request.urlopen(req, timeout=5) as response:
+            status_code = response.getcode()
+            if status_code != 200:
+                raise Exception(f"HTTP request failed with status {status_code}")
+
+            # Log success
+            print(f"Hook event sent successfully: {payload.get('path')} ({status_code})")
+
+    except urllib.error.HTTPError as e:
+        # Log HTTP error with status code
+        error_msg = f"HTTP error {e.code}: {e.reason}"
+        print(f"ERROR: {error_msg}", file=sys.stderr)
+        raise Exception(error_msg) from e
+
+    except urllib.error.URLError as e:
+        # Log network error
+        error_msg = f"Network error: {e.reason}"
+        print(f"ERROR: {error_msg}", file=sys.stderr)
+        raise Exception(error_msg) from e
+
+    except Exception as e:
+        # Log unexpected error
+        print(f"ERROR: Unexpected error: {e}", file=sys.stderr)
+        raise
+
+
+def main() -> int:
+    """
+    Main entry point for hook script.
+
+    Returns:
+        int: Exit code (0 for success, non-zero for failure)
+    """
+    try:
+        # Parse command-line argument for event type
+        if len(sys.argv) < 2:
+            print("ERROR: Event type argument required (ready or not-ready)", file=sys.stderr)
+            return 1
+
+        event_type = sys.argv[1]
+        if event_type not in ["ready", "not-ready"]:
+            print(f"ERROR: Invalid event type '{event_type}' (expected 'ready' or 'not-ready')", file=sys.stderr)
+            return 1
+
+        # Parse environment variables
+        payload = parse_env_vars()
+
+        # Construct endpoint URL
+        endpoint_url = construct_endpoint_url(event_type)
+
+        # Send hook event
+        send_hook_event(endpoint_url, payload)
+
+        return 0
+
+    except ValueError as e:
+        # Missing or invalid environment variables
+        print(f"ERROR: {e}", file=sys.stderr)
+        return 1
+
+    except Exception as e:
+        # HTTP request failure or unexpected error
+        print(f"ERROR: Failed to send hook event: {e}", file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
