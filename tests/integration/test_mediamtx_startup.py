@@ -7,7 +7,7 @@ Tests FR-008, FR-009, FR-011a: API and metrics endpoints are reachable.
 
 import subprocess
 import time
-from typing import Generator
+from collections.abc import Generator
 
 import pytest
 import requests

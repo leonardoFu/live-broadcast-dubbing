@@ -7,8 +7,8 @@ This demonstrates:
 - Mock patterns
 - Coverage best practices
 """
+
 import pytest
-from unittest.mock import Mock, patch
 
 
 # Example function to test (would be in apps/*/src/)

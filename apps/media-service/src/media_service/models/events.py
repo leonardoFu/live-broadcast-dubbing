@@ -6,7 +6,6 @@ specs/001-mediamtx-integration/contracts/hook-events.json
 """
 
 from datetime import datetime
-from typing import Optional
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, field_validator
@@ -20,7 +19,7 @@ class HookEvent(BaseModel):
         description="Stream path in MediaMTX (e.g., live/stream123/in)",
         pattern=r"^live/[a-zA-Z0-9_-]+/(in|out)$",
     )
-    query: Optional[str] = Field(
+    query: str | None = Field(
         default=None, description="Query string from RTMP URL (e.g., lang=es)"
     )
     source_type: str = Field(

@@ -6,8 +6,8 @@ This service receives MediaMTX hook events and manages stream worker lifecycle.
 
 import logging
 import os
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
