@@ -6,7 +6,6 @@ This demonstrates:
 - Mock fixture usage
 - Contract testing patterns
 """
-import pytest
 import sys
 from pathlib import Path
 

@@ -5,14 +5,11 @@ These tests verify the hook script logic with mocked environment variables.
 Coverage target: 100% (simple deterministic code, critical path).
 """
 
-import json
 import os
 import sys
-from typing import Dict
 from unittest import mock
 
 import pytest
-
 
 # Import the hook script functions
 # Since it's a script, we need to import it as a module
@@ -190,17 +187,16 @@ class TestMTXHookMain:
             "MTX_SOURCE_TYPE": "rtmp",
             "MTX_SOURCE_ID": "1",
             "ORCHESTRATOR_URL": "http://stream-orchestration:8080",
-        }):
-            with mock.patch("sys.argv", ["mtx-hook", "ready"]):
-                with mock.patch("urllib.request.urlopen") as mock_urlopen:
-                    mock_response = mock.Mock()
-                    mock_response.getcode.return_value = 200
-                    mock_response.__enter__.return_value = mock_response
-                    mock_response.__exit__.return_value = None
-                    mock_urlopen.return_value = mock_response
+        }), mock.patch("sys.argv", ["mtx-hook", "ready"]):
+            with mock.patch("urllib.request.urlopen") as mock_urlopen:
+                mock_response = mock.Mock()
+                mock_response.getcode.return_value = 200
+                mock_response.__enter__.return_value = mock_response
+                mock_response.__exit__.return_value = None
+                mock_urlopen.return_value = mock_response
 
-                    exit_code = mtx_hook.main()
-                    assert exit_code == 0
+                exit_code = mtx_hook.main()
+                assert exit_code == 0
 
     def test_main_missing_event_type_argument(self) -> None:
         """Test main with missing event type argument."""
@@ -228,17 +224,16 @@ class TestMTXHookMain:
             "MTX_SOURCE_TYPE": "rtmp",
             "MTX_SOURCE_ID": "1",
             "ORCHESTRATOR_URL": "http://stream-orchestration:8080",
-        }):
-            with mock.patch("sys.argv", ["mtx-hook", "ready"]):
-                import urllib.error
-                with mock.patch("urllib.request.urlopen") as mock_urlopen:
-                    mock_urlopen.side_effect = urllib.error.HTTPError(
-                        url="http://stream-orchestration:8080/v1/mediamtx/events/ready",
-                        code=500,
-                        msg="Internal Server Error",
-                        hdrs={},
-                        fp=None,
-                    )
+        }), mock.patch("sys.argv", ["mtx-hook", "ready"]):
+            import urllib.error
+            with mock.patch("urllib.request.urlopen") as mock_urlopen:
+                mock_urlopen.side_effect = urllib.error.HTTPError(
+                    url="http://stream-orchestration:8080/v1/mediamtx/events/ready",
+                    code=500,
+                    msg="Internal Server Error",
+                    hdrs={},
+                    fp=None,
+                )
 
-                    exit_code = mtx_hook.main()
-                    assert exit_code == 1
+                exit_code = mtx_hook.main()
+                assert exit_code == 1
