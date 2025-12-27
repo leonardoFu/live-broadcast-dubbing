@@ -1,0 +1,279 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/live-broadcast-dubbing-cloud/schemas/directory-structure.json",
+  "title": "Python Monorepo Directory Structure Schema",
+  "description": "JSON Schema validating the Python monorepo structure for live-broadcast-dubbing-cloud with 2 services and 2 shared libraries",
+  "type": "object",
+  "required": ["apps", "libs", "tests", "deploy"],
+  "properties": {
+    "apps": {
+      "type": "object",
+      "description": "Service applications with independent deployment",
+      "required": ["stream-infrastructure", "sts-service"],
+      "additionalProperties": false,
+      "properties": {
+        "stream-infrastructure": {
+          "$ref": "#/definitions/service",
+          "description": "EC2 stream worker (CPU-only GStreamer pipeline)"
+        },
+        "sts-service": {
+          "$ref": "#/definitions/service",
+          "description": "RunPod GPU service (speech-to-speech processing)"
+        }
+      }
+    },
+    "libs": {
+      "type": "object",
+      "description": "Shared libraries used by services",
+      "required": ["common", "contracts"],
+      "additionalProperties": false,
+      "properties": {
+        "common": {
+          "$ref": "#/definitions/library",
+          "description": "Common utilities (audio, types, logging)"
+        },
+        "contracts": {
+          "$ref": "#/definitions/library",
+          "description": "API contracts and event schemas"
+        }
+      }
+    },
+    "tests": {
+      "type": "object",
+      "description": "End-to-end integration tests",
+      "required": ["e2e"],
+      "properties": {
+        "e2e": {
+          "$ref": "#/definitions/testDirectory",
+          "description": "Full pipeline E2E tests"
+        }
+      }
+    },
+    "deploy": {
+      "type": "object",
+      "description": "Deployment configurations (Docker, docker-compose)",
+      "required": ["stream-infrastructure", "sts-service"],
+      "additionalProperties": false,
+      "properties": {
+        "stream-infrastructure": {
+          "$ref": "#/definitions/deployDirectory",
+          "description": "Stream infrastructure deployment configs"
+        },
+        "sts-service": {
+          "$ref": "#/definitions/deployDirectory",
+          "description": "STS service deployment configs"
+        }
+      }
+    },
+    "root": {
+      "type": "object",
+      "description": "Root-level configuration files",
+      "required": ["pyproject.toml", ".gitignore", "Makefile"],
+      "properties": {
+        "pyproject.toml": {
+          "$ref": "#/definitions/tomlFile",
+          "description": "Root tooling configuration (ruff, mypy)"
+        },
+        ".gitignore": {
+          "$ref": "#/definitions/textFile",
+          "description": "Git exclusion patterns"
+        },
+        "Makefile": {
+          "$ref": "#/definitions/textFile",
+          "description": "Development workflow commands"
+        },
+        "README.md": {
+          "$ref": "#/definitions/markdownFile",
+          "description": "Repository overview documentation"
+        }
+      }
+    }
+  },
+  "definitions": {
+    "service": {
+      "type": "object",
+      "description": "Service package structure (apps/*)",
+      "required": ["pyproject.toml", "requirements.txt", "requirements-dev.txt", "src", "tests", "README.md"],
+      "properties": {
+        "pyproject.toml": {
+          "$ref": "#/definitions/tomlFile",
+          "description": "Service package metadata and dependencies"
+        },
+        "requirements.txt": {
+          "$ref": "#/definitions/textFile",
+          "description": "Locked production dependencies"
+        },
+        "requirements-dev.txt": {
+          "$ref": "#/definitions/textFile",
+          "description": "Locked development/test dependencies"
+        },
+        "src": {
+          "type": "object",
+          "description": "Source code directory",
+          "minProperties": 1,
+          "patternProperties": {
+            "^[a-z_][a-z0-9_]*$": {
+              "$ref": "#/definitions/pythonPackage",
+              "description": "Python package namespace (snake_case)"
+            }
+          },
+          "additionalProperties": false
+        },
+        "tests": {
+          "type": "object",
+          "description": "Test directory",
+          "required": ["unit", "integration"],
+          "properties": {
+            "unit": {
+              "$ref": "#/definitions/testDirectory",
+              "description": "Unit tests (mocked dependencies)"
+            },
+            "integration": {
+              "$ref": "#/definitions/testDirectory",
+              "description": "Integration tests (service internals + mocked externals)"
+            }
+          }
+        },
+        "README.md": {
+          "$ref": "#/definitions/markdownFile",
+          "description": "Service documentation and setup instructions"
+        }
+      }
+    },
+    "library": {
+      "type": "object",
+      "description": "Shared library package structure (libs/*)",
+      "required": ["pyproject.toml", "src", "tests", "README.md"],
+      "properties": {
+        "pyproject.toml": {
+          "$ref": "#/definitions/tomlFile",
+          "description": "Library package metadata and minimal dependencies"
+        },
+        "src": {
+          "type": "object",
+          "description": "Source code directory",
+          "minProperties": 1,
+          "patternProperties": {
+            "^dubbing_[a-z_][a-z0-9_]*$": {
+              "$ref": "#/definitions/pythonPackage",
+              "description": "Python package namespace (dubbing_ prefix, snake_case)"
+            }
+          },
+          "additionalProperties": false
+        },
+        "tests": {
+          "type": "object",
+          "description": "Test directory",
+          "required": ["unit"],
+          "properties": {
+            "unit": {
+              "$ref": "#/definitions/testDirectory",
+              "description": "Unit tests for library code"
+            }
+          }
+        },
+        "README.md": {
+          "$ref": "#/definitions/markdownFile",
+          "description": "Library documentation and usage examples"
+        }
+      }
+    },
+    "pythonPackage": {
+      "type": "object",
+      "description": "Python package with __init__.py and optional modules",
+      "required": ["__init__.py"],
+      "properties": {
+        "__init__.py": {
+          "$ref": "#/definitions/pythonFile",
+          "description": "Package initialization file"
+        }
+      },
+      "patternProperties": {
+        "^[a-z_][a-z0-9_]*/$": {
+          "$ref": "#/definitions/pythonPackage",
+          "description": "Subpackage directory"
+        },
+        "^[a-z_][a-z0-9_]*\\.py$": {
+          "$ref": "#/definitions/pythonFile",
+          "description": "Python module file"
+        }
+      }
+    },
+    "testDirectory": {
+      "type": "object",
+      "description": "Test directory with __init__.py",
+      "required": ["__init__.py"],
+      "properties": {
+        "__init__.py": {
+          "$ref": "#/definitions/pythonFile",
+          "description": "Test package initialization"
+        }
+      },
+      "patternProperties": {
+        "^test_[a-z_][a-z0-9_]*\\.py$": {
+          "$ref": "#/definitions/pythonFile",
+          "description": "Test module file"
+        }
+      }
+    },
+    "deployDirectory": {
+      "type": "object",
+      "description": "Deployment configuration directory (may be empty initially)",
+      "properties": {
+        "Dockerfile": {
+          "$ref": "#/definitions/textFile",
+          "description": "Container image definition"
+        },
+        "docker-compose.yml": {
+          "$ref": "#/definitions/textFile",
+          "description": "Multi-container orchestration"
+        }
+      }
+    },
+    "tomlFile": {
+      "type": "object",
+      "description": "TOML configuration file",
+      "properties": {
+        "encoding": {
+          "const": "UTF-8"
+        },
+        "syntax": {
+          "const": "TOML"
+        }
+      }
+    },
+    "pythonFile": {
+      "type": "object",
+      "description": "Python source file",
+      "properties": {
+        "encoding": {
+          "const": "UTF-8"
+        },
+        "syntax": {
+          "const": "Python"
+        }
+      }
+    },
+    "markdownFile": {
+      "type": "object",
+      "description": "Markdown documentation file",
+      "properties": {
+        "encoding": {
+          "const": "UTF-8"
+        },
+        "syntax": {
+          "const": "Markdown"
+        }
+      }
+    },
+    "textFile": {
+      "type": "object",
+      "description": "Plain text file",
+      "properties": {
+        "encoding": {
+          "const": "UTF-8"
+        }
+      }
+    }
+  }
+}

@@ -72,3 +72,10 @@ Prefer deterministic tests; avoid requiring live RTMP endpoints. Mock STS events
 - PRs should link the relevant spec (e.g., `specs/001-spec.md`) and describe: local run steps, latency/AV-sync impact, and any config changes.
 - Do not commit secrets (RTMP stream keys, API tokens). Add `.env.example` when introducing new required env vars.
 
+
+## Active Technologies
+- Python 3.10.x (as specified in constitution and architecture spec) + setuptools>=68.0 (build system), ruff>=0.1.0 (linting), mypy>=1.0 (type checking), pytest>=7.0 (testing) (001-python-monorepo-setup)
+- File system (directory and file creation only) (001-python-monorepo-setup)
+
+## Recent Changes
+- 001-python-monorepo-setup: Added Python 3.10.x (as specified in constitution and architecture spec) + setuptools>=68.0 (build system), ruff>=0.1.0 (linting), mypy>=1.0 (type checking), pytest>=7.0 (testing)

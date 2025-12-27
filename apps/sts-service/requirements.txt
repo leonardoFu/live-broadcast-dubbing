@@ -1,0 +1,8 @@
+# Locked dependencies for sts-service
+# Generated from pyproject.toml
+# Install with: pip install -r requirements.txt
+#
+# To update:
+# pip-compile pyproject.toml --output-file requirements.txt
+#
+# NOTE: This file is initially empty - dependencies will be locked after first install
