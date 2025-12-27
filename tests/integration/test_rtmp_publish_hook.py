@@ -11,15 +11,11 @@ Prerequisites:
 - FFmpeg installed for test stream publishing
 """
 
-import asyncio
-import json
 import subprocess
 import time
-from typing import Dict, List
 
 import pytest
 import requests
-
 
 # Service URLs
 MEDIAMTX_RTMP_URL = "rtmp://localhost:1935"
@@ -34,7 +30,7 @@ def stream_id() -> str:
 
 
 @pytest.fixture
-def media_service_events() -> List[Dict]:
+def media_service_events() -> list[dict]:
     """Fixture to collect hook events received by media-service."""
     # This would need media-service to expose a test endpoint
     # For now, we'll rely on logs or Control API
