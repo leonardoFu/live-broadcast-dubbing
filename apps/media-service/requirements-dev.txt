@@ -1,4 +1,4 @@
-# Development dependencies for stream-infrastructure service
+# Development dependencies for media-service
 # Install with: pip install -r requirements-dev.txt
 pytest>=7.0
 pytest-asyncio

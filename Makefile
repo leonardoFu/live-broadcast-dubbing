@@ -7,7 +7,7 @@ help:
 	@echo "Python Monorepo - Available Commands:"
 	@echo ""
 	@echo "Setup:"
-	@echo "  make setup-stream    - Create venv and install stream-infrastructure service"
+	@echo "  make setup-stream    - Create venv and install media-service"
 	@echo "  make setup-sts       - Create venv and install sts-service"
 	@echo ""
 	@echo "Docker:"
@@ -32,13 +32,13 @@ help:
 
 # Monorepo setup targets
 setup-stream:
-	@echo "Setting up stream-infrastructure service..."
+	@echo "Setting up media-service..."
 	python3.10 -m venv .venv-stream
 	.venv-stream/bin/pip install --upgrade pip
 	.venv-stream/bin/pip install -e libs/common
 	.venv-stream/bin/pip install -e libs/contracts
-	.venv-stream/bin/pip install -e "apps/stream-infrastructure[dev]"
-	@echo "✓ Stream infrastructure setup complete!"
+	.venv-stream/bin/pip install -e "apps/media-service[dev]"
+	@echo "✓ Media service setup complete!"
 	@echo "  Activate with: source .venv-stream/bin/activate"
 
 setup-sts:

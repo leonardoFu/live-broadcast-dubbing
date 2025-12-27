@@ -14,8 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### Monorepo Structure (Feature 001-python-monorepo-setup)
 
 **Services:**
-- `apps/stream-infrastructure/` - CPU-based audio stream processing service
-  - Complete package structure with src/stream_infrastructure/ and tests/
+- `apps/media-service/` - CPU-based audio stream processing service
+  - Complete package structure with src/media_service/ and tests/
   - Submodule: `pipelines/` for audio processing pipelines
   - Dependencies: numpy, scipy, soundfile, pyyaml, pydantic
   - Virtual environment: `.venv-stream/`
@@ -72,7 +72,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **Documentation:**
 - `README.md` (root) - Repository overview, quick start, development workflow
-- `apps/stream-infrastructure/README.md` - Service-specific documentation
+- `apps/media-service/README.md` - Service-specific documentation
 - `apps/sts-service/README.md` - Service-specific documentation with GPU requirements
 - `libs/common/README.md` - Library documentation with usage examples
 - `libs/contracts/README.md` - Contract definitions and validation examples
@@ -109,7 +109,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
    - Not compatible with Python 3.11+
 
 3. **Service Separation**
-   - CPU-based service (stream-infrastructure) isolated from GPU service (sts-service)
+   - CPU-based service (media-service) isolated from GPU service (sts-service)
    - Enables independent deployment and scaling
 
 4. **Shared Libraries Pattern**

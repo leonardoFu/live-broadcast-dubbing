@@ -27,7 +27,7 @@ pip install -e libs/common
 ### For Other Packages in Monorepo
 
 This library is automatically installed when you run:
-- `make setup-stream` (for stream-infrastructure service)
+- `make setup-stream` (for media-service service)
 - `make setup-sts` (for sts-service)
 
 ## Usage Examples
@@ -176,7 +176,7 @@ Current version: `0.1.0` (initial development)
 
 ## Usage in Services
 
-### stream-infrastructure
+### media-service
 - Configuration loading and validation
 - Audio buffer management
 - Logging utilities

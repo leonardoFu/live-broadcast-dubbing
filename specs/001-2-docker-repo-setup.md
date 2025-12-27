@@ -40,16 +40,16 @@ The repository is split into **two deployment projects** (see `specs/015-deploym
 
 ### 4.1 Stream Infrastructure Project (EC2)
 
-Canonical Docker runtime assets live under `deploy/stream-infrastructure/`:
+Canonical Docker runtime assets live under `deploy/media-service/`:
 
-- `deploy/stream-infrastructure/docker-compose.yml`: local baseline stack for MediaMTX + orchestration
-- `deploy/stream-infrastructure/mediamtx/`: MediaMTX container build + config + hooks
-- `deploy/stream-infrastructure/orchestrator/`: hook receiver that starts/stops workers
-- `deploy/stream-infrastructure/recordings/`: local recordings volume (optional)
+- `deploy/media-service/docker-compose.yml`: local baseline stack for MediaMTX + orchestration
+- `deploy/media-service/mediamtx/`: MediaMTX container build + config + hooks
+- `deploy/media-service/orchestrator/`: hook receiver that starts/stops workers
+- `deploy/media-service/recordings/`: local recordings volume (optional)
 
 Application code:
 
-- `apps/stream-infrastructure/`: stream worker (GStreamer-based, lightweight, CPU-only)
+- `apps/media-service/`: stream worker (GStreamer-based, lightweight, CPU-only)
   - Audio/video demux and remux
   - Audio chunking and background separation
   - STS client (HTTP calls to RunPod or local mock)
@@ -77,7 +77,7 @@ Application code:
 
 ### 5.1 Stream Infrastructure Compose Stack (EC2 / Local Dev)
 
-**File**: `deploy/stream-infrastructure/docker-compose.yml`
+**File**: `deploy/media-service/docker-compose.yml`
 
 Required services:
 
@@ -120,7 +120,7 @@ This stack is primarily for local validation; production runs as RunPod pod.
 Three deployment modes are supported:
 
 1. **Local Development (Single Host, CPU)**:
-   - Run `deploy/stream-infrastructure/docker-compose.yml` with `sts-service-mock`
+   - Run `deploy/media-service/docker-compose.yml` with `sts-service-mock`
    - No GPU required
    - Stream worker calls local mock API
 
@@ -130,7 +130,7 @@ Three deployment modes are supported:
    - Requires NVIDIA Container Toolkit
 
 3. **Production (EC2 + RunPod)**:
-   - EC2: Run `deploy/stream-infrastructure/docker-compose.yml` without mock service
+   - EC2: Run `deploy/media-service/docker-compose.yml` without mock service
    - RunPod: Deploy `apps/sts-service/` as pod
    - Stream worker calls RunPod URL via `STS_SERVICE_URL` env var
 

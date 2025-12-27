@@ -26,7 +26,7 @@ pip install -e libs/contracts
 ### For Other Packages in Monorepo
 
 This library is automatically installed when you run:
-- `make setup-stream` (for stream-infrastructure service)
+- `make setup-stream` (for media-service service)
 - `make setup-sts` (for sts-service)
 
 ## Usage Examples
@@ -235,7 +235,7 @@ def test_transcribe_request_invalid_sample_rate():
 
 ## Usage in Services
 
-### stream-infrastructure Service
+### media-service Service
 - Imports: `events.stream`, `models.audio`
 - Uses: Event publishing for fragment processing status
 - Uses: Audio metadata validation

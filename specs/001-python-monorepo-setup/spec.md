@@ -22,7 +22,7 @@ As a developer, I need the base monorepo directory structure created so that I c
 **Acceptance Scenarios**:
 
 1. **Given** an empty repository root, **When** the setup is executed, **Then** all directories from the architecture spec are created
-2. **Given** the directory structure exists, **When** a developer navigates to apps/stream-infrastructure/, **Then** they find pyproject.toml, src/, and tests/ directories
+2. **Given** the directory structure exists, **When** a developer navigates to apps/media-service/, **Then** they find pyproject.toml, src/, and tests/ directories
 3. **Given** the directory structure exists, **When** a developer navigates to apps/sts-service/, **Then** they find pyproject.toml, src/, and tests/ directories
 4. **Given** the directory structure exists, **When** a developer navigates to libs/common/, **Then** they find pyproject.toml, src/dubbing_common/, and tests/
 5. **Given** the directory structure exists, **When** a developer navigates to libs/contracts/, **Then** they find pyproject.toml, src/dubbing_contracts/, and tests/
@@ -43,7 +43,7 @@ As a developer, I need all pyproject.toml files created with correct package nam
 
 **Acceptance Scenarios**:
 
-1. **Given** pyproject.toml exists in apps/stream-infrastructure/, **When** developer runs pip install -e ., **Then** stream_infrastructure package is installed
+1. **Given** pyproject.toml exists in apps/media-service/, **When** developer runs pip install -e ., **Then** media_service package is installed
 2. **Given** pyproject.toml exists in apps/sts-service/, **When** developer runs pip install -e ., **Then** sts_service package is installed
 3. **Given** pyproject.toml exists in libs/common/, **When** developer runs pip install -e ., **Then** dubbing_common package is installed
 4. **Given** pyproject.toml exists in libs/contracts/, **When** developer runs pip install -e ., **Then** dubbing_contracts package is installed
@@ -65,11 +65,11 @@ As a developer, I need __init__.py files in all package directories so that Pyth
 
 **Acceptance Scenarios**:
 
-1. **Given** __init__.py exists in src/stream_infrastructure/, **When** developer imports stream_infrastructure, **Then** import succeeds
+1. **Given** __init__.py exists in src/media_service/, **When** developer imports media_service, **Then** import succeeds
 2. **Given** __init__.py exists in src/sts_service/, **When** developer imports sts_service, **Then** import succeeds
 3. **Given** __init__.py exists in src/dubbing_common/, **When** developer imports dubbing_common, **Then** import succeeds
 4. **Given** __init__.py exists in src/dubbing_contracts/, **When** developer imports dubbing_contracts, **Then** import succeeds
-5. **Given** all packages are set up, **When** stream_infrastructure imports dubbing_common, **Then** import succeeds
+5. **Given** all packages are set up, **When** media_service imports dubbing_common, **Then** import succeeds
 
 ---
 
@@ -109,7 +109,7 @@ As a developer, I need README.md files in each service and shared library so tha
 
 **Acceptance Scenarios**:
 
-1. **Given** README.md exists in apps/stream-infrastructure/, **When** developer opens it, **Then** they find local setup instructions
+1. **Given** README.md exists in apps/media-service/, **When** developer opens it, **Then** they find local setup instructions
 2. **Given** README.md exists in apps/sts-service/, **When** developer opens it, **Then** they find local setup instructions
 3. **Given** README.md exists in libs/common/, **When** developer opens it, **Then** they find library usage documentation
 4. **Given** README.md exists in repository root, **When** developer opens it, **Then** they find overview and getting started guide
@@ -132,7 +132,7 @@ As a developer, I need README.md files in each service and shared library so tha
 ### Functional Requirements
 
 - **FR-001**: System MUST create all directories specified in specs/001-1-python-monorepo-setup.md section 4 (Repository Layout)
-- **FR-002**: System MUST create pyproject.toml for each service (apps/stream-infrastructure/, apps/sts-service/) with correct package name and Python version constraint (>=3.10,<3.11)
+- **FR-002**: System MUST create pyproject.toml for each service (apps/media-service/, apps/sts-service/) with correct package name and Python version constraint (>=3.10,<3.11)
 - **FR-003**: System MUST create pyproject.toml for each shared library (libs/common/, libs/contracts/) with minimal dependencies
 - **FR-004**: System MUST create __init__.py files in all Python package source directories to enable imports
 - **FR-005**: System MUST create test directories (unit/, integration/) under each service's tests/ folder
@@ -143,13 +143,13 @@ As a developer, I need README.md files in each service and shared library so tha
 - **FR-010**: System MUST create README.md in each service directory with service-specific setup instructions
 - **FR-011**: System MUST ensure all created files use UTF-8 encoding
 - **FR-012**: System MUST preserve existing files and directories (do not overwrite)
-- **FR-013**: System MUST create deploy/ directory with subdirectories for each service (stream-infrastructure/, sts-service/)
+- **FR-013**: System MUST create deploy/ directory with subdirectories for each service (media-service/, sts-service/)
 - **FR-014**: System MUST create tests/e2e/ directory for end-to-end integration tests
 - **FR-015**: System MUST ensure all package names follow Python naming conventions (lowercase with underscores)
 
 ### Key Entities
 
-- **Service Package**: A deployable Python application (stream-infrastructure, sts-service) with its own dependency tree, test suite, and deployment configuration
+- **Service Package**: A deployable Python application (media-service, sts-service) with its own dependency tree, test suite, and deployment configuration
 - **Shared Library**: An internal Python package (common, contracts) providing shared utilities and data structures reusable across services
 - **Virtual Environment**: An isolated Python environment per service containing service-specific dependencies
 - **Project Configuration**: Metadata files (pyproject.toml) defining package identity, dependencies, and build requirements

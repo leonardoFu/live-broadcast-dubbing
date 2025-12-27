@@ -82,7 +82,7 @@ This separation optimizes costs by:
 
 ### 3.1 Stream Infrastructure Project (EC2)
 
-**Repository location**: `apps/stream-infrastructure/`
+**Repository location**: `apps/media-service/`
 
 **Components**:
 - **MediaMTX**: Stream ingestion and republishing
@@ -272,7 +272,7 @@ STS_MAX_RETRIES=1
 
 # Shared
 LOG_LEVEL=info
-LOG_DIR=/var/log/stream-infrastructure
+LOG_DIR=/var/log/media-service
 ```
 
 **Scaling**:

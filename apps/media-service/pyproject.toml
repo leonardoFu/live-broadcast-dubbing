@@ -1,7 +1,7 @@
 [project]
-name = "stream-infrastructure"
+name = "media-service"
 version = "0.1.0"
-description = "EC2 stream worker for live broadcast dubbing (CPU-only GStreamer pipeline)"
+description = "EC2 media processing service for live broadcast dubbing (CPU-only GStreamer pipeline)"
 requires-python = ">=3.10,<3.11"
 dependencies = [
     "numpy<2.0",

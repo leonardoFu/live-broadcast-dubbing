@@ -181,7 +181,7 @@ REST API endpoints (to be implemented):
 
 ## Related Services
 
-- `stream-infrastructure` - Audio stream processing service (CPU-based)
+- `media-service` - Audio stream processing service (CPU-based)
 - See repository root README.md for monorepo overview
 
 ## Troubleshooting

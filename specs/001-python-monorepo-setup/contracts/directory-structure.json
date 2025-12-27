@@ -9,10 +9,10 @@
     "apps": {
       "type": "object",
       "description": "Service applications with independent deployment",
-      "required": ["stream-infrastructure", "sts-service"],
+      "required": ["media-service", "sts-service"],
       "additionalProperties": false,
       "properties": {
-        "stream-infrastructure": {
+        "media-service": {
           "$ref": "#/definitions/service",
           "description": "EC2 stream worker (CPU-only GStreamer pipeline)"
         },
@@ -52,10 +52,10 @@
     "deploy": {
       "type": "object",
       "description": "Deployment configurations (Docker, docker-compose)",
-      "required": ["stream-infrastructure", "sts-service"],
+      "required": ["media-service", "sts-service"],
       "additionalProperties": false,
       "properties": {
-        "stream-infrastructure": {
+        "media-service": {
           "$ref": "#/definitions/deployDirectory",
           "description": "Stream infrastructure deployment configs"
         },

@@ -83,14 +83,14 @@ This feature creates the monorepo structure itself. All paths are relative to re
 - [X] T011 [P] [US1] Create libs/ directory at repository root
 - [X] T012 [P] [US1] Create tests/e2e/ directory at repository root
 - [X] T013 [P] [US1] Create deploy/ directory at repository root
-- [X] T014 [P] [US1] Create apps/stream-infrastructure/ directory with subdirectories (src/, tests/)
+- [X] T014 [P] [US1] Create apps/media-service/ directory with subdirectories (src/, tests/)
 - [X] T015 [P] [US1] Create apps/sts-service/ directory with subdirectories (src/, tests/)
 - [X] T016 [P] [US1] Create libs/common/ directory with subdirectories (src/, tests/)
 - [X] T017 [P] [US1] Create libs/contracts/ directory with subdirectories (src/, tests/)
-- [X] T018 [P] [US1] Create apps/stream-infrastructure/src/stream_infrastructure/ Python package directory
-- [X] T019 [P] [US1] Create apps/stream-infrastructure/src/stream_infrastructure/pipelines/ module subdirectory
-- [X] T020 [P] [US1] Create apps/stream-infrastructure/tests/unit/ test directory
-- [X] T021 [P] [US1] Create apps/stream-infrastructure/tests/integration/ test directory
+- [X] T018 [P] [US1] Create apps/media-service/src/media_service/ Python package directory
+- [X] T019 [P] [US1] Create apps/media-service/src/media_service/pipelines/ module subdirectory
+- [X] T020 [P] [US1] Create apps/media-service/tests/unit/ test directory
+- [X] T021 [P] [US1] Create apps/media-service/tests/integration/ test directory
 - [X] T022 [P] [US1] Create apps/sts-service/src/sts_service/ Python package directory
 - [X] T023 [P] [US1] Create apps/sts-service/src/sts_service/asr/ module subdirectory
 - [X] T024 [P] [US1] Create apps/sts-service/src/sts_service/translation/ module subdirectory
@@ -101,7 +101,7 @@ This feature creates the monorepo structure itself. All paths are relative to re
 - [X] T029 [P] [US1] Create libs/common/tests/unit/ test directory
 - [X] T030 [P] [US1] Create libs/contracts/src/dubbing_contracts/ Python package directory
 - [X] T031 [P] [US1] Create libs/contracts/tests/unit/ test directory
-- [X] T032 [P] [US1] Create deploy/stream-infrastructure/ deployment config directory
+- [X] T032 [P] [US1] Create deploy/media-service/ deployment config directory
 - [X] T033 [P] [US1] Create deploy/sts-service/ deployment config directory
 - [X] T034 [US1] Verify all directories created successfully (run tests from T007-T009)
 
@@ -129,8 +129,8 @@ This feature creates the monorepo structure itself. All paths are relative to re
   - `test_pyproject_toml_error_invalid_package_name()` - Test invalid package name rejection
 
 - [ ] T036 [P] [US2] **Contract test** for package names in `tests/contract/test_package_names.py`
-  - `test_package_names_match_architectural_spec()` - Validate stream-infrastructure, sts-service, dubbing-common, dubbing-contracts
-  - `test_python_names_use_snake_case()` - Validate stream_infrastructure, sts_service, dubbing_common, dubbing_contracts
+  - `test_package_names_match_architectural_spec()` - Validate media-service, sts-service, dubbing-common, dubbing-contracts
+  - `test_python_names_use_snake_case()` - Validate media_service, sts_service, dubbing_common, dubbing_contracts
   - `test_package_versions_match_spec()` - Verify all versions are "0.1.0"
 
 - [ ] T037 [US2] **Integration test** for package installation in `tests/integration/test_package_installation.py`
@@ -142,9 +142,9 @@ This feature creates the monorepo structure itself. All paths are relative to re
 
 ### Implementation for User Story 2
 
-- [X] T038 [P] [US2] Create apps/stream-infrastructure/pyproject.toml with service metadata (name: stream-infrastructure, requires-python: >=3.10,<3.11)
-- [X] T039 [P] [US2] Create apps/stream-infrastructure/requirements.txt (empty placeholder for locked dependencies)
-- [X] T040 [P] [US2] Create apps/stream-infrastructure/requirements-dev.txt (pytest, mypy, ruff dependencies)
+- [X] T038 [P] [US2] Create apps/media-service/pyproject.toml with service metadata (name: media-service, requires-python: >=3.10,<3.11)
+- [X] T039 [P] [US2] Create apps/media-service/requirements.txt (empty placeholder for locked dependencies)
+- [X] T040 [P] [US2] Create apps/media-service/requirements-dev.txt (pytest, mypy, ruff dependencies)
 - [X] T041 [P] [US2] Create apps/sts-service/pyproject.toml with service metadata (name: sts-service, requires-python: >=3.10,<3.11)
 - [X] T042 [P] [US2] Create apps/sts-service/requirements.txt (empty placeholder)
 - [X] T043 [P] [US2] Create apps/sts-service/requirements-dev.txt (pytest, mypy, ruff dependencies)
@@ -175,25 +175,25 @@ This feature creates the monorepo structure itself. All paths are relative to re
   - `test_init_file_missing_error_imports_fail()` - Test import failure when __init__.py missing
 
 - [ ] T048 [P] [US3] **Contract test** for package imports in `tests/contract/test_package_imports.py`
-  - `test_import_stream_infrastructure_succeeds()` - Import stream_infrastructure module
+  - `test_import_media_service_succeeds()` - Import media_service module
   - `test_import_sts_service_succeeds()` - Import sts_service module
   - `test_import_dubbing_common_succeeds()` - Import dubbing_common module
   - `test_import_dubbing_contracts_succeeds()` - Import dubbing_contracts module
   - `test_service_cannot_import_service()` - Verify cross-service imports fail (design constraint)
 
 - [ ] T049 [US3] **Integration test** for cross-package imports in `tests/integration/test_cross_package_imports.py`
-  - `test_services_can_import_shared_libraries()` - Verify stream_infrastructure can import dubbing_common
+  - `test_services_can_import_shared_libraries()` - Verify media_service can import dubbing_common
   - `test_library_imports_library()` - Verify dubbing_common can import dubbing_contracts (if needed)
-  - `test_module_subdirectories_importable()` - Verify stream_infrastructure.pipelines can be imported
+  - `test_module_subdirectories_importable()` - Verify media_service.pipelines can be imported
 
 **Verification**: Run `pytest tests/ -v` - ALL tests MUST FAIL with "ModuleNotFoundError"
 
 ### Implementation for User Story 3
 
-- [X] T050 [P] [US3] Create apps/stream-infrastructure/src/stream_infrastructure/__init__.py (package init, UTF-8)
-- [X] T051 [P] [US3] Create apps/stream-infrastructure/src/stream_infrastructure/pipelines/__init__.py (subpackage init)
-- [X] T052 [P] [US3] Create apps/stream-infrastructure/tests/unit/__init__.py (test package init)
-- [X] T053 [P] [US3] Create apps/stream-infrastructure/tests/integration/__init__.py (test package init)
+- [X] T050 [P] [US3] Create apps/media-service/src/media_service/__init__.py (package init, UTF-8)
+- [X] T051 [P] [US3] Create apps/media-service/src/media_service/pipelines/__init__.py (subpackage init)
+- [X] T052 [P] [US3] Create apps/media-service/tests/unit/__init__.py (test package init)
+- [X] T053 [P] [US3] Create apps/media-service/tests/integration/__init__.py (test package init)
 - [X] T054 [P] [US3] Create apps/sts-service/src/sts_service/__init__.py (package init, UTF-8)
 - [X] T055 [P] [US3] Create apps/sts-service/src/sts_service/asr/__init__.py (subpackage init)
 - [X] T056 [P] [US3] Create apps/sts-service/src/sts_service/translation/__init__.py (subpackage init)
@@ -251,10 +251,10 @@ This feature creates the monorepo structure itself. All paths are relative to re
 - [X] T070 [P] [US4] Add mypy configuration to root pyproject.toml ([tool.mypy] section with strict = true, python_version = "3.10")
 - [X] T071 [P] [US4] Create .gitignore at repository root (exclude .venv-stream, .venv-sts, __pycache__, .mypy_cache, .ruff_cache, build/, dist/, *.egg-info)
 - [X] T072 [P] [US4] Create Makefile at repository root with help target (display available commands)
-- [X] T073 [P] [US4] Add setup-stream target to Makefile (python3.10 -m venv .venv-stream && pip install -e libs/common -e libs/contracts -e "apps/stream-infrastructure[dev]")
+- [X] T073 [P] [US4] Add setup-stream target to Makefile (python3.10 -m venv .venv-stream && pip install -e libs/common -e libs/contracts -e "apps/media-service[dev]")
 - [X] T074 [P] [US4] Add setup-sts target to Makefile (python3.10 -m venv .venv-sts && pip install -e libs/common -e libs/contracts -e "apps/sts-service[dev]")
 - [X] T075 [P] [US4] Add test-all target to Makefile (run pytest for all packages)
-- [X] T076 [P] [US4] Add lint target to Makefile (ruff check apps/ libs/ && mypy apps/stream-infrastructure/src apps/sts-service/src libs/common/src libs/contracts/src)
+- [X] T076 [P] [US4] Add lint target to Makefile (ruff check apps/ libs/ && mypy apps/media-service/src apps/sts-service/src libs/common/src libs/contracts/src)
 - [X] T077 [P] [US4] Add format target to Makefile (ruff format apps/ libs/)
 - [X] T078 [P] [US4] Add clean target to Makefile (remove __pycache__, .mypy_cache, .ruff_cache, build/, dist/)
 - [X] T079 [US4] Validate all tools execute successfully (run tests from T066-T068)
@@ -276,7 +276,7 @@ This feature creates the monorepo structure itself. All paths are relative to re
 **Coverage Target for US5**: 100% (deterministic README generation)
 
 - [ ] T080 [P] [US5] **Unit test** for README files in `tests/unit/test_readme_files.py`
-  - `test_readme_files_exist_in_all_packages()` - Verify README.md in apps/stream-infrastructure/, apps/sts-service/, libs/common/, libs/contracts/
+  - `test_readme_files_exist_in_all_packages()` - Verify README.md in apps/media-service/, apps/sts-service/, libs/common/, libs/contracts/
   - `test_readme_files_utf8_encoding()` - Verify UTF-8 encoding per FR-011
   - `test_readme_markdown_syntax_valid()` - Basic markdown validation (headers, lists)
 
@@ -294,7 +294,7 @@ This feature creates the monorepo structure itself. All paths are relative to re
 
 ### Implementation for User Story 5
 
-- [X] T083 [P] [US5] Create apps/stream-infrastructure/README.md (service description, prerequisites, setup instructions, running tests, development workflow)
+- [X] T083 [P] [US5] Create apps/media-service/README.md (service description, prerequisites, setup instructions, running tests, development workflow)
 - [X] T084 [P] [US5] Create apps/sts-service/README.md (service description, GPU requirements, setup instructions, running tests in CPU fallback mode)
 - [X] T085 [P] [US5] Create libs/common/README.md (library description, installation for other packages, usage examples, development setup)
 - [X] T086 [P] [US5] Create libs/contracts/README.md (library description, contract definitions, usage in services, development setup)
@@ -315,7 +315,7 @@ This feature creates the monorepo structure itself. All paths are relative to re
 - [X] T092 [P] Run make setup-stream in clean environment to verify workflow
 - [X] T093 [P] Run make setup-sts in clean environment to verify workflow
 - [X] T094 [P] Test package installation in both venvs (pip install -e for all packages)
-- [X] T095 [P] Test cross-package imports work (import dubbing_common from stream_infrastructure)
+- [X] T095 [P] Test cross-package imports work (import dubbing_common from media_service)
 - [X] T096 [P] Test linting and formatting commands work (make lint, make format)
 - [X] T097 [P] Verify git ignores build artifacts (create .venv-stream, check git status)
 - [X] T098 [P] Verify service isolation (activate .venv-stream, deactivate, activate .venv-sts)
@@ -422,7 +422,7 @@ T018-T033: Create all subdirectories
 These tasks can run simultaneously (all create different files):
 ```bash
 # Terminal 1
-T038: Create apps/stream-infrastructure/pyproject.toml
+T038: Create apps/media-service/pyproject.toml
 
 # Terminal 2
 T041: Create apps/sts-service/pyproject.toml
@@ -437,7 +437,7 @@ T045: Create libs/contracts/pyproject.toml
 These tasks can run simultaneously (all create different __init__.py files):
 ```bash
 # Terminal 1
-T050-T053: Create stream-infrastructure __init__.py files
+T050-T053: Create media-service __init__.py files
 
 # Terminal 2
 T054-T059: Create sts-service __init__.py files
@@ -465,7 +465,7 @@ T072-T078: Create Makefile with all targets
 These tasks can run simultaneously (all create different README files):
 ```bash
 # Terminal 1
-T083: Create apps/stream-infrastructure/README.md
+T083: Create apps/media-service/README.md
 
 # Terminal 2
 T084: Create apps/sts-service/README.md
