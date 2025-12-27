@@ -1,4 +1,4 @@
-.PHONY: dev down logs ps fmt lint typecheck test help setup
+.PHONY: dev down logs ps fmt lint typecheck test help setup-stream setup-sts api-status metrics
 
 PYTHON := python3.10
 VENV := .venv
@@ -16,6 +16,10 @@ help:
 	@echo "  make down            - Stop Docker services"
 	@echo "  make logs            - View Docker logs"
 	@echo "  make ps              - List Docker containers"
+	@echo ""
+	@echo "Observability:"
+	@echo "  make api-status      - Query MediaMTX Control API for active streams"
+	@echo "  make metrics         - Query Prometheus metrics endpoint"
 	@echo ""
 	@echo "Code Quality:"
 	@echo "  make fmt             - Format code with ruff"
@@ -54,6 +58,15 @@ logs:
 
 ps:
 	docker compose -f deploy/docker-compose.yml ps
+
+# Observability targets (T070, T071)
+api-status:
+	@echo "Querying MediaMTX Control API for active streams..."
+	@curl -s -u admin:admin http://localhost:9997/v3/paths/list | python3 -m json.tool || echo "Error: MediaMTX may not be running. Try 'make dev' first."
+
+metrics:
+	@echo "Querying Prometheus metrics endpoint..."
+	@curl -s -u admin:admin http://localhost:9998/metrics || echo "Error: MediaMTX may not be running. Try 'make dev' first."
 
 fmt:
 	$(VENV_PYTHON) -m ruff format .
