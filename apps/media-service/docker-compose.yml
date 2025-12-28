@@ -1,0 +1,80 @@
+version: '3.8'
+
+# Media Service - Local Development Environment
+# Purpose: Single-command startup of MediaMTX and media-service
+# Usage: make dev (from project root) or docker compose up (from this directory)
+
+services:
+  # MediaMTX Media Server (FR-002 through FR-010)
+  mediamtx:
+    image: bluenviron/mediamtx:latest-ffmpeg
+    container_name: mediamtx
+    restart: unless-stopped
+
+    # Port Mappings
+    ports:
+      - "1935:1935"     # RTMP ingest (FR-002)
+      - "8554:8554"     # RTSP read (FR-003)
+      - "9997:9997"     # Control API (FR-008)
+      - "9998:9998"     # Prometheus metrics (FR-009)
+      - "9996:9996"     # Playback server (FR-010)
+
+    # Volume Mounts
+    volumes:
+      - ./deploy/mediamtx/mediamtx.yml:/mediamtx.yml:ro
+      - ./deploy/mediamtx/hooks:/hooks:ro
+
+    # Environment Variables (FR-006a)
+    environment:
+      - ORCHESTRATOR_URL=http://media-service:8080
+
+    # Networking
+    networks:
+      - dubbing-network
+
+    # Health Check
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:9997/v3/paths/list"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  # Media Service (FR-011, FR-011a)
+  media-service:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile
+    container_name: media-service
+    restart: unless-stopped
+
+    # Port Mappings (FR-011a)
+    ports:
+      - "8080:8080"     # HTTP API
+
+    # Environment Variables
+    environment:
+      - PORT=8080
+      - LOG_LEVEL=INFO
+
+    # Networking
+    networks:
+      - dubbing-network
+
+    # Health Check
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+    # Depends On
+    depends_on:
+      mediamtx:
+        condition: service_started
+
+# Custom Network for Service Discovery (FR-006a, T020)
+networks:
+  dubbing-network:
+    driver: bridge

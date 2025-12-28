@@ -4,7 +4,7 @@
   "title": "Python Monorepo Directory Structure Schema",
   "description": "JSON Schema validating the Python monorepo structure for live-broadcast-dubbing-cloud with 2 services and 2 shared libraries",
   "type": "object",
-  "required": ["apps", "libs", "tests", "deploy"],
+  "required": ["apps", "libs", "tests"],
   "properties": {
     "apps": {
       "type": "object",
@@ -40,28 +40,12 @@
     },
     "tests": {
       "type": "object",
-      "description": "End-to-end integration tests",
+      "description": "Cross-service E2E tests only (spanning multiple services)",
       "required": ["e2e"],
       "properties": {
         "e2e": {
           "$ref": "#/definitions/testDirectory",
-          "description": "Full pipeline E2E tests"
-        }
-      }
-    },
-    "deploy": {
-      "type": "object",
-      "description": "Deployment configurations (Docker, docker-compose)",
-      "required": ["media-service", "sts-service"],
-      "additionalProperties": false,
-      "properties": {
-        "media-service": {
-          "$ref": "#/definitions/deployDirectory",
-          "description": "Stream infrastructure deployment configs"
-        },
-        "sts-service": {
-          "$ref": "#/definitions/deployDirectory",
-          "description": "STS service deployment configs"
+          "description": "E2E tests spanning multiple services (media-service + sts-service). Single-service integration tests belong in apps/<service>/tests/integration/"
         }
       }
     },
@@ -122,7 +106,7 @@
         "tests": {
           "type": "object",
           "description": "Test directory",
-          "required": ["unit", "integration"],
+          "required": ["unit"],
           "properties": {
             "unit": {
               "$ref": "#/definitions/testDirectory",
@@ -130,9 +114,17 @@
             },
             "integration": {
               "$ref": "#/definitions/testDirectory",
-              "description": "Integration tests (service internals + mocked externals)"
+              "description": "Integration tests (service + external dependencies like MediaMTX)"
             }
           }
+        },
+        "deploy": {
+          "$ref": "#/definitions/deployDirectory",
+          "description": "Service deployment configurations (Dockerfile, dependency configs)"
+        },
+        "docker-compose.yml": {
+          "$ref": "#/definitions/textFile",
+          "description": "Local development environment (service + dependencies)"
         },
         "README.md": {
           "$ref": "#/definitions/markdownFile",
