@@ -1,5 +1,5 @@
 """
-E2E tests for MediaMTX service startup and health.
+Integration tests for MediaMTX service startup and health.
 
 Tests verify that MediaMTX starts successfully via Docker Compose and
 all endpoints (Control API, Metrics, RTMP, RTSP) are accessible.
@@ -9,7 +9,7 @@ import httpx
 import pytest
 
 
-@pytest.mark.e2e
+@pytest.mark.integration
 class TestMediaMTXStartup:
     """Test MediaMTX service startup and basic health checks."""
 
@@ -29,11 +29,11 @@ class TestMediaMTXStartup:
     def test_mediamtx_control_api_accessible(
         self,
         docker_services: None,
-        http_client_with_auth: httpx.Client,
+        http_client: httpx.Client,
         mediamtx_control_api_url: str,
     ) -> None:
         """Test MediaMTX Control API is accessible on port 9997 (FR-008)."""
-        response = http_client_with_auth.get(f"{mediamtx_control_api_url}/v3/paths/list")
+        response = http_client.get(f"{mediamtx_control_api_url}/v3/paths/list")
 
         assert response.status_code == 200
         assert "application/json" in response.headers["content-type"]
@@ -41,11 +41,11 @@ class TestMediaMTXStartup:
     def test_mediamtx_control_api_returns_valid_json(
         self,
         docker_services: None,
-        http_client_with_auth: httpx.Client,
+        http_client: httpx.Client,
         mediamtx_control_api_url: str,
     ) -> None:
         """Test MediaMTX Control API returns valid JSON structure (FR-008)."""
-        response = http_client_with_auth.get(f"{mediamtx_control_api_url}/v3/paths/list")
+        response = http_client.get(f"{mediamtx_control_api_url}/v3/paths/list")
         data = response.json()
 
         assert "items" in data, "Response should contain 'items' field"
@@ -54,11 +54,11 @@ class TestMediaMTXStartup:
     def test_mediamtx_prometheus_metrics_accessible(
         self,
         docker_services: None,
-        http_client_with_auth: httpx.Client,
+        http_client: httpx.Client,
         mediamtx_metrics_url: str,
     ) -> None:
         """Test MediaMTX Prometheus metrics endpoint is accessible on port 9998 (FR-009)."""
-        response = http_client_with_auth.get(f"{mediamtx_metrics_url}/metrics")
+        response = http_client.get(f"{mediamtx_metrics_url}/metrics")
 
         assert response.status_code == 200
         assert "text/plain" in response.headers["content-type"]
@@ -66,11 +66,11 @@ class TestMediaMTXStartup:
     def test_mediamtx_prometheus_metrics_contain_expected_metrics(
         self,
         docker_services: None,
-        http_client_with_auth: httpx.Client,
+        http_client: httpx.Client,
         mediamtx_metrics_url: str,
     ) -> None:
         """Test MediaMTX Prometheus metrics contain expected metrics (FR-009)."""
-        response = http_client_with_auth.get(f"{mediamtx_metrics_url}/metrics")
+        response = http_client.get(f"{mediamtx_metrics_url}/metrics")
         metrics_text = response.text
 
         # Check for key metrics (case-insensitive)
@@ -81,14 +81,14 @@ class TestMediaMTXStartup:
     def test_mediamtx_control_api_response_time(
         self,
         docker_services: None,
-        http_client_with_auth: httpx.Client,
+        http_client: httpx.Client,
         mediamtx_control_api_url: str,
     ) -> None:
         """Test MediaMTX Control API responds within 100ms (SC-006)."""
         import time
 
         start = time.time()
-        response = http_client_with_auth.get(f"{mediamtx_control_api_url}/v3/paths/list")
+        response = http_client.get(f"{mediamtx_control_api_url}/v3/paths/list")
         duration_ms = (time.time() - start) * 1000
 
         assert response.status_code == 200
@@ -97,21 +97,21 @@ class TestMediaMTXStartup:
     def test_mediamtx_metrics_response_time(
         self,
         docker_services: None,
-        http_client_with_auth: httpx.Client,
+        http_client: httpx.Client,
         mediamtx_metrics_url: str,
     ) -> None:
         """Test MediaMTX Prometheus metrics respond within 100ms (SC-007)."""
         import time
 
         start = time.time()
-        response = http_client_with_auth.get(f"{mediamtx_metrics_url}/metrics")
+        response = http_client.get(f"{mediamtx_metrics_url}/metrics")
         duration_ms = (time.time() - start) * 1000
 
         assert response.status_code == 200
         assert duration_ms < 100, f"Metrics should respond in <100ms, took {duration_ms:.2f}ms"
 
 
-@pytest.mark.e2e
+@pytest.mark.integration
 @pytest.mark.slow
 class TestMediaMTXPorts:
     """Test that all MediaMTX ports are properly exposed."""

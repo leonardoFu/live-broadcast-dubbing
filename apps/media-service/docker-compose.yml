@@ -1,8 +1,8 @@
 version: '3.8'
 
-# MediaMTX Integration - Local Development Environment
+# Media Service - Local Development Environment
 # Purpose: Single-command startup of MediaMTX and media-service
-# Usage: make dev
+# Usage: make dev (from project root) or docker compose up (from this directory)
 
 services:
   # MediaMTX Media Server (FR-002 through FR-010)
@@ -21,8 +21,8 @@ services:
 
     # Volume Mounts
     volumes:
-      - ./mediamtx/mediamtx.yml:/mediamtx.yml:ro
-      - ./mediamtx/hooks:/hooks:ro
+      - ./deploy/mediamtx/mediamtx.yml:/mediamtx.yml:ro
+      - ./deploy/mediamtx/hooks:/hooks:ro
 
     # Environment Variables (FR-006a)
     environment:
@@ -43,8 +43,8 @@ services:
   # Media Service (FR-011, FR-011a)
   media-service:
     build:
-      context: ..
-      dockerfile: deploy/media-service/Dockerfile
+      context: .
+      dockerfile: deploy/Dockerfile
     container_name: media-service
     restart: unless-stopped
 

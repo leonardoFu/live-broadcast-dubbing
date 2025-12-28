@@ -23,8 +23,14 @@ live-broadcast-dubbing-cloud/
 │   │   ├── tests/
 │   │   │   ├── unit/              # Unit tests (mocked dependencies)
 │   │   │   │   └── __init__.py
-│   │   │   └── integration/       # Integration tests (service + mocked externals)
+│   │   │   └── integration/       # Integration tests (media-service + MediaMTX)
 │   │   │       └── __init__.py
+│   │   ├── deploy/                # Deployment configurations
+│   │   │   ├── Dockerfile         # Container image definition
+│   │   │   └── mediamtx/          # MediaMTX configuration (dependency)
+│   │   │       ├── mediamtx.yml   # MediaMTX server config
+│   │   │       └── hooks/         # Hook scripts
+│   │   ├── docker-compose.yml     # Local dev (media-service + MediaMTX)
 │   │   └── README.md
 │   │
 │   └── sts-service/               # RunPod GPU service (speech-to-speech processing)
@@ -38,10 +44,11 @@ live-broadcast-dubbing-cloud/
 │       │       ├── translation/   # Translation engine
 │       │       └── tts/           # Text-to-Speech
 │       ├── tests/
-│       │   ├── unit/
-│       │   │   └── __init__.py
-│       │   └── integration/
+│       │   └── unit/
 │       │       └── __init__.py
+│       ├── deploy/                # Deployment configurations
+│       │   └── Dockerfile         # Container image definition
+│       ├── docker-compose.yml     # Local dev environment
 │       └── README.md
 │
 ├── libs/                          # Shared libraries
@@ -65,17 +72,9 @@ live-broadcast-dubbing-cloud/
 │       │       └── __init__.py
 │       └── README.md
 │
-├── tests/                         # Cross-service tests
-│   └── e2e/                       # Full pipeline E2E tests
-│       └── __init__.py
-│
-├── deploy/                        # Deployment configurations
-│   ├── media-service/             # Stream infrastructure deployment configs
-│   │   ├── Dockerfile
-│   │   └── docker-compose.yml
-│   └── sts-service/               # STS service deployment configs
-│       ├── Dockerfile
-│       └── docker-compose.yml
+├── tests/                         # Cross-service E2E tests only
+│   └── e2e/                       # E2E tests spanning multiple services (media + STS)
+│       └── __init__.py            # Reserved for full dubbing pipeline tests
 │
 ├── pyproject.toml                 # Root tooling configuration (ruff, mypy)
 ├── .gitignore                     # Git exclusion patterns
@@ -96,11 +95,35 @@ live-broadcast-dubbing-cloud/
 
 ## Build, Test, and Development Commands
 
-This repository currently contains specifications and templates only; build/test scripts may be added as implementation lands. When adding a runnable component, provide a minimal local workflow and document it here (examples):
+### Setup
 
-- `make dev`: Run the service locally (preferred entrypoint if you add a Makefile).
-- `docker compose up`: Start dependent services (e.g., MediaMTX) for local integration.
-- `make test` / `npm test` / `pytest`: Run the module’s test suite.
+- `make setup` - Create root venv and install all services
+- `make media-setup` - Setup media-service venv only
+
+### Docker (Media Service)
+
+- `make media-dev` - Start media-service with Docker Compose
+- `make media-down` - Stop media-service Docker services
+- `make media-logs` - View media-service Docker logs
+- `make media-ps` - List media-service Docker containers
+
+### Code Quality
+
+- `make fmt` - Format code with ruff
+- `make lint` - Lint code with ruff
+- `make typecheck` - Type check with mypy
+- `make clean` - Remove build artifacts and caches
+
+### Testing (Media Service)
+
+- `make media-test` - Run all media-service tests (unit + integration)
+- `make media-test-unit` - Run media-service unit tests only
+- `make media-test-integration` - Run media-service integration tests (requires Docker)
+- `make media-test-coverage` - Run media-service tests with coverage report
+
+### Testing (E2E - Cross-Service)
+
+- `make e2e-test` - Run E2E tests spanning multiple services (media + STS)
 
 ## Coding Style & Naming Conventions
 
@@ -127,17 +150,17 @@ See [TDD Quick Start Guide](docs/tdd-quickstart.md) for complete workflow.
 
 ### Test Organization
 
-- **Unit tests**: `apps/<module>/tests/unit/` - Fast, isolated, mocked dependencies
-- **Contract tests**: `apps/<module>/tests/contract/` - API/event schema validation
-- **Integration tests**: `tests/integration/` - Cross-service workflows with mocks
-- **E2E tests**: `tests/e2e/` - Optional, full pipeline validation
+- **Unit tests**: `apps/<service>/tests/unit/` - Fast, isolated, mocked dependencies
+- **Integration tests**: `apps/<service>/tests/integration/` - Service + dependencies (e.g., media-service + MediaMTX)
+- **E2E tests**: `tests/e2e/` - Cross-service tests spanning multiple services (media-service + sts-service)
 
 ### Key Commands
 
-- `make test` - Run all tests
-- `make test-coverage` - Run tests with coverage report (80% required)
+- `make media-test` - Run all media-service tests (unit + integration)
+- `make media-test-unit` - Run media-service unit tests only
+- `make media-test-integration` - Run media-service integration tests (requires Docker)
+- `make media-test-coverage` - Run tests with coverage report (80% required)
 - `make install-hooks` - Install pre-commit hooks (enforces TDD)
-- `make pre-implement` - Verify tests exist and fail before implementing
 
 ### Mock Fixtures
 

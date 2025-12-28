@@ -1,6 +1,6 @@
-# End-to-End Tests
+# Integration Tests
 
-End-to-end tests for verifying Docker Compose service startup and inter-service communication.
+Integration tests for verifying media-service with MediaMTX via Docker Compose.
 
 ## Overview
 
@@ -8,37 +8,44 @@ These tests verify:
 - **MediaMTX startup**: Control API, metrics, RTMP/RTSP ports
 - **media-service startup**: FastAPI health, hook endpoints
 - **Service communication**: Docker network connectivity, environment variables
-- **Complete workflows**: Simulated hook event delivery
+- **Complete workflows**: Simulated hook event delivery, RTMP publish/playback
 
 ## Prerequisites
 
 1. **Docker and Docker Compose** installed
 2. **Python 3.10+**
-3. **Test dependencies** installed:
+3. **FFmpeg** installed (for stream tests)
+4. **Test dependencies** installed:
    ```bash
-   pip install -r tests/e2e/requirements.txt
+   cd apps/media-service
+   pip install -r requirements-dev.txt
    ```
 
-## Running E2E Tests
+## Running Integration Tests
 
-### Run all e2e tests:
+### From project root:
+
 ```bash
-pytest tests/e2e/ -m e2e
+# Run all integration tests
+make media-test-integration
+
+# Or directly with pytest
+pytest apps/media-service/tests/integration/ -m integration
 ```
 
 ### Run specific test file:
 ```bash
-pytest tests/e2e/test_mediamtx_startup.py -v
+pytest apps/media-service/tests/integration/test_mediamtx_startup.py -v
 ```
 
 ### Run excluding slow tests:
 ```bash
-pytest tests/e2e/ -m "e2e and not slow"
+pytest apps/media-service/tests/integration/ -m "integration and not slow"
 ```
 
 ### Run with detailed output:
 ```bash
-pytest tests/e2e/ -v -s
+pytest apps/media-service/tests/integration/ -v -s
 ```
 
 ## Test Structure
@@ -47,6 +54,9 @@ pytest tests/e2e/ -v -s
 - `test_mediamtx_startup.py` - MediaMTX service verification
 - `test_media_service_startup.py` - FastAPI service verification
 - `test_service_communication.py` - Inter-service communication
+- `test_rtmp_publish_hook.py` - RTMP publish → hook delivery flow
+- `test_observability.py` - Control API & Prometheus metrics
+- `test_publish_and_playback.py` - Stream publish and RTSP playback
 
 ## How It Works
 
@@ -77,7 +87,10 @@ Based on spec requirements:
 ### Services fail to start
 ```bash
 # Check Docker logs
-docker compose -f deploy/docker-compose.yml logs
+docker compose -f apps/media-service/docker-compose.yml logs
+
+# Or from apps/media-service directory:
+docker compose logs
 
 # Verify Docker is running
 docker ps
@@ -89,23 +102,13 @@ docker ps
 
 ### Cleanup stuck containers
 ```bash
-docker compose -f deploy/docker-compose.yml down -v
+docker compose -f apps/media-service/docker-compose.yml down -v
 docker system prune -f
-```
-
-## CI/CD Integration
-
-Add to your CI pipeline:
-```yaml
-- name: Run E2E Tests
-  run: |
-    pip install -r tests/e2e/requirements.txt
-    pytest tests/e2e/ -m e2e --tb=short
 ```
 
 ## Test Coverage
 
-Current e2e test coverage:
+Current integration test coverage:
 - ✅ MediaMTX startup and health
 - ✅ MediaMTX ports accessibility
 - ✅ MediaMTX Control API response time
@@ -114,3 +117,7 @@ Current e2e test coverage:
 - ✅ Service-to-service Docker network communication
 - ✅ Environment variable configuration
 - ✅ Service restart and reconnection
+- ✅ RTMP publish triggers ready hook
+- ✅ RTMP disconnect triggers not-ready hook
+- ✅ Stream observability via Control API and metrics
+- ✅ RTSP playback verification

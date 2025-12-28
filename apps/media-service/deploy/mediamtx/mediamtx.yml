@@ -7,18 +7,17 @@ logLevel: info
 logDestinations: [stdout]
 
 # Authentication Configuration
-# Simple internal auth for local development
+# Allow anonymous access for local development
 authMethod: internal
 authInternalUsers:
-  - user: admin
-    pass: admin
+  - user: any
+    pass:
     permissions:
-      - action: api
-      - action: metrics
-      - action: pprof
       - action: publish
       - action: read
       - action: playback
+      - action: api
+      - action: metrics
 
 # RTMP Server Configuration (FR-002)
 rtmp: true

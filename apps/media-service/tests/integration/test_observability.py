@@ -1,5 +1,5 @@
 """
-E2E tests for User Story 4: Observability and Debugging.
+Integration tests for User Story 4: Observability and Debugging.
 
 Tests verify that operators can monitor system health, troubleshoot issues,
 and understand stream processing status using Control API, Prometheus metrics,
@@ -66,14 +66,14 @@ def ffmpeg_test_stream() -> Generator[subprocess.Popen, None, None]:
         process.wait()
 
 
-@pytest.mark.e2e
+@pytest.mark.integration
 class TestControlAPIObservability:
     """Test Control API observability features (T060, T061)."""
 
     def test_control_api_response_schema_validation(
         self,
         docker_services: None,
-        http_client_with_auth: httpx.Client,
+        http_client: httpx.Client,
         mediamtx_control_api_url: str,
     ) -> None:
         """
@@ -81,7 +81,7 @@ class TestControlAPIObservability:
 
         Validates required fields and data types for contract compliance.
         """
-        response = http_client_with_auth.get(f"{mediamtx_control_api_url}/v3/paths/list")
+        response = http_client.get(f"{mediamtx_control_api_url}/v3/paths/list")
 
         assert response.status_code == 200
         data = response.json()
@@ -105,7 +105,7 @@ class TestControlAPIObservability:
     def test_control_api_shows_active_stream_after_publish(
         self,
         docker_services: None,
-        http_client_with_auth: httpx.Client,
+        http_client: httpx.Client,
         mediamtx_control_api_url: str,
         ffmpeg_test_stream: subprocess.Popen,
     ) -> None:
@@ -115,7 +115,7 @@ class TestControlAPIObservability:
         Verifies that published streams appear in the paths list with correct state.
         """
         # Query Control API
-        response = http_client_with_auth.get(f"{mediamtx_control_api_url}/v3/paths/list")
+        response = http_client.get(f"{mediamtx_control_api_url}/v3/paths/list")
 
         assert response.status_code == 200
         data = response.json()
@@ -140,7 +140,7 @@ class TestControlAPIObservability:
     def test_control_api_shows_stream_state_accurately(
         self,
         docker_services: None,
-        http_client_with_auth: httpx.Client,
+        http_client: httpx.Client,
         mediamtx_control_api_url: str,
         ffmpeg_test_stream: subprocess.Popen,
     ) -> None:
@@ -152,7 +152,7 @@ class TestControlAPIObservability:
         stream_path = "live/e2e-test-stream/in"
 
         # First, verify stream is ready
-        response = http_client_with_auth.get(f"{mediamtx_control_api_url}/v3/paths/list")
+        response = http_client.get(f"{mediamtx_control_api_url}/v3/paths/list")
         data = response.json()
         paths = [item["name"] for item in data["items"]]
         assert stream_path in paths, "Stream should be active"
@@ -165,7 +165,7 @@ class TestControlAPIObservability:
         time.sleep(2)
 
         # Verify stream is no longer listed or marked as not ready
-        response = http_client_with_auth.get(f"{mediamtx_control_api_url}/v3/paths/list")
+        response = http_client.get(f"{mediamtx_control_api_url}/v3/paths/list")
         data = response.json()
 
         # Stream might be removed or marked as not ready
@@ -177,14 +177,14 @@ class TestControlAPIObservability:
         # Otherwise it's been removed, which is also acceptable
 
 
-@pytest.mark.e2e
+@pytest.mark.integration
 class TestPrometheusMetricsObservability:
     """Test Prometheus metrics observability features (T062)."""
 
     def test_metrics_endpoint_returns_prometheus_format(
         self,
         docker_services: None,
-        http_client_with_auth: httpx.Client,
+        http_client: httpx.Client,
         mediamtx_metrics_url: str,
     ) -> None:
         """
@@ -192,7 +192,7 @@ class TestPrometheusMetricsObservability:
 
         Validates text/plain content type and basic metric structure.
         """
-        response = http_client_with_auth.get(f"{mediamtx_metrics_url}/metrics")
+        response = http_client.get(f"{mediamtx_metrics_url}/metrics")
 
         assert response.status_code == 200
         assert "text/plain" in response.headers["content-type"]
@@ -210,7 +210,7 @@ class TestPrometheusMetricsObservability:
     def test_metrics_include_path_counts(
         self,
         docker_services: None,
-        http_client_with_auth: httpx.Client,
+        http_client: httpx.Client,
         mediamtx_metrics_url: str,
         ffmpeg_test_stream: subprocess.Popen,
     ) -> None:
@@ -219,7 +219,7 @@ class TestPrometheusMetricsObservability:
 
         Verifies that metrics show path-related counters.
         """
-        response = http_client_with_auth.get(f"{mediamtx_metrics_url}/metrics")
+        response = http_client.get(f"{mediamtx_metrics_url}/metrics")
 
         assert response.status_code == 200
         metrics_text = response.text.lower()
@@ -230,7 +230,7 @@ class TestPrometheusMetricsObservability:
     def test_metrics_include_byte_counters(
         self,
         docker_services: None,
-        http_client_with_auth: httpx.Client,
+        http_client: httpx.Client,
         mediamtx_metrics_url: str,
         ffmpeg_test_stream: subprocess.Popen,
     ) -> None:
@@ -242,7 +242,7 @@ class TestPrometheusMetricsObservability:
         # Wait a moment for stream to generate some traffic
         time.sleep(2)
 
-        response = http_client_with_auth.get(f"{mediamtx_metrics_url}/metrics")
+        response = http_client.get(f"{mediamtx_metrics_url}/metrics")
 
         assert response.status_code == 200
         metrics_text = response.text.lower()
@@ -253,7 +253,7 @@ class TestPrometheusMetricsObservability:
         assert has_byte_metrics, "Metrics should include byte counters"
 
 
-@pytest.mark.e2e
+@pytest.mark.integration
 @pytest.mark.slow
 class TestEndToEndObservability:
     """Test end-to-end observability workflow (T063)."""
@@ -261,7 +261,7 @@ class TestEndToEndObservability:
     def test_metrics_update_when_stream_starts(
         self,
         docker_services: None,
-        http_client_with_auth: httpx.Client,
+        http_client: httpx.Client,
         mediamtx_control_api_url: str,
         mediamtx_metrics_url: str,
     ) -> None:
@@ -273,7 +273,7 @@ class TestEndToEndObservability:
         stream_path = "live/e2e-observability-test/in"
 
         # Get baseline state before stream
-        response_before = http_client_with_auth.get(
+        response_before = http_client.get(
             f"{mediamtx_control_api_url}/v3/paths/list"
         )
         paths_before = [item["name"] for item in response_before.json()["items"]]
@@ -302,7 +302,7 @@ class TestEndToEndObservability:
             time.sleep(3)
 
             # Verify Control API shows the new stream
-            response_after = http_client_with_auth.get(
+            response_after = http_client.get(
                 f"{mediamtx_control_api_url}/v3/paths/list"
             )
             paths_after = [item["name"] for item in response_after.json()["items"]]
@@ -311,7 +311,7 @@ class TestEndToEndObservability:
             assert stream_path not in paths_before, "Stream should be new"
 
             # Verify metrics reflect the active stream
-            metrics_response = http_client_with_auth.get(f"{mediamtx_metrics_url}/metrics")
+            metrics_response = http_client.get(f"{mediamtx_metrics_url}/metrics")
             assert metrics_response.status_code == 200
 
         finally:
@@ -326,7 +326,7 @@ class TestEndToEndObservability:
     def test_metrics_update_when_stream_stops(
         self,
         docker_services: None,
-        http_client_with_auth: httpx.Client,
+        http_client: httpx.Client,
         mediamtx_control_api_url: str,
     ) -> None:
         """
@@ -359,7 +359,7 @@ class TestEndToEndObservability:
             time.sleep(3)
 
             # Verify stream is active
-            response = http_client_with_auth.get(
+            response = http_client.get(
                 f"{mediamtx_control_api_url}/v3/paths/list"
             )
             paths = [item["name"] for item in response.json()["items"]]
@@ -373,7 +373,7 @@ class TestEndToEndObservability:
             time.sleep(2)
 
             # Verify Control API reflects the change
-            response_after = http_client_with_auth.get(
+            response_after = http_client.get(
                 f"{mediamtx_control_api_url}/v3/paths/list"
             )
             data_after = response_after.json()
@@ -395,7 +395,7 @@ class TestEndToEndObservability:
     def test_multiple_streams_observable_independently(
         self,
         docker_services: None,
-        http_client_with_auth: httpx.Client,
+        http_client: httpx.Client,
         mediamtx_control_api_url: str,
     ) -> None:
         """
@@ -434,7 +434,7 @@ class TestEndToEndObservability:
             time.sleep(4)
 
             # Query Control API
-            response = http_client_with_auth.get(
+            response = http_client.get(
                 f"{mediamtx_control_api_url}/v3/paths/list"
             )
 

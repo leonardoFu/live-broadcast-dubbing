@@ -1,7 +1,7 @@
 """
-E2E test fixtures for Docker Compose service testing.
+Integration test fixtures for Docker Compose service testing.
 
-Manages Docker Compose lifecycle for end-to-end testing of MediaMTX and media-service.
+Manages Docker Compose lifecycle for integration testing of MediaMTX and media-service.
 """
 
 import subprocess
@@ -14,14 +14,14 @@ import pytest
 
 @pytest.fixture(scope="session")
 def docker_compose_file() -> str:
-    """Path to docker-compose.yml file."""
-    return "deploy/docker-compose.yml"
+    """Path to docker-compose.yml file (relative to project root)."""
+    return "apps/media-service/docker-compose.yml"
 
 
 @pytest.fixture(scope="session")
 def docker_services(docker_compose_file: str) -> Generator[None, None, None]:
     """
-    Start Docker Compose services for e2e tests.
+    Start Docker Compose services for integration tests.
 
     Yields control after services are healthy, then tears down on test completion.
     """
@@ -58,12 +58,9 @@ def docker_services(docker_compose_file: str) -> Generator[None, None, None]:
 
                 # Verify health endpoints are responding
                 try:
-                    # Check MediaMTX Control API (with basic auth)
+                    # Check MediaMTX Control API (no auth for local dev)
                     with httpx.Client(timeout=5.0) as client:
-                        resp = client.get(
-                            "http://localhost:9997/v3/paths/list",
-                            auth=("admin", "admin")
-                        )
+                        resp = client.get("http://localhost:9997/v3/paths/list")
                         resp.raise_for_status()
 
                     # Check media-service health
@@ -98,13 +95,6 @@ def docker_services(docker_compose_file: str) -> Generator[None, None, None]:
 def http_client() -> Generator[httpx.Client, None, None]:
     """HTTP client for making requests to services."""
     with httpx.Client(timeout=10.0) as client:
-        yield client
-
-
-@pytest.fixture
-def http_client_with_auth() -> Generator[httpx.Client, None, None]:
-    """HTTP client with MediaMTX basic auth for Control API requests."""
-    with httpx.Client(timeout=10.0, auth=("admin", "admin")) as client:
         yield client
 
 

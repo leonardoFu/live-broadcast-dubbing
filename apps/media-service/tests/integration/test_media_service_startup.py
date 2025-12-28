@@ -1,5 +1,5 @@
 """
-E2E tests for media-service FastAPI startup and health.
+Integration tests for media-service FastAPI startup and health.
 
 Tests verify that the media-service FastAPI application starts successfully
 via Docker Compose and all endpoints are accessible.
@@ -9,7 +9,7 @@ import httpx
 import pytest
 
 
-@pytest.mark.e2e
+@pytest.mark.integration
 class TestMediaServiceStartup:
     """Test media-service FastAPI startup and basic health checks."""
 
@@ -90,7 +90,7 @@ class TestMediaServiceStartup:
         assert result == 0, "media-service port 8080 should be listening"
 
 
-@pytest.mark.e2e
+@pytest.mark.integration
 class TestMediaServiceHookEndpoints:
     """Test media-service hook receiver endpoints are accessible."""
 
@@ -183,7 +183,7 @@ class TestMediaServiceHookEndpoints:
         assert data["status"] == "received"
 
 
-@pytest.mark.e2e
+@pytest.mark.integration
 class TestMediaServiceStartupTime:
     """Test media-service startup performance meets requirements."""
 

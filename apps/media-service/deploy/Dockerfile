@@ -10,9 +10,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy application source (using context from repository root)
-COPY apps/media-service/pyproject.toml ./
-COPY apps/media-service/src ./src
+# Copy application source
+COPY pyproject.toml ./
+COPY src ./src
 
 # Install dependencies
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \

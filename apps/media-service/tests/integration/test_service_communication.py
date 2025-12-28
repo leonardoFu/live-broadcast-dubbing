@@ -1,5 +1,5 @@
 """
-E2E tests for service-to-service communication.
+Integration tests for service-to-service communication.
 
 Tests verify that MediaMTX and media-service can communicate with each other
 through the Docker network.
@@ -11,7 +11,7 @@ import httpx
 import pytest
 
 
-@pytest.mark.e2e
+@pytest.mark.integration
 class TestServiceCommunication:
     """Test communication between MediaMTX and media-service."""
 
@@ -82,8 +82,6 @@ class TestServiceCommunication:
                 "-q",
                 "-O",
                 "-",
-                "--user=admin",
-                "--password=admin",
                 "http://mediamtx:9997/v3/paths/list",
             ],
             capture_output=True,
@@ -133,7 +131,7 @@ class TestServiceCommunication:
             "Services should be on dubbing-network"
 
 
-@pytest.mark.e2e
+@pytest.mark.integration
 class TestEnvironmentVariables:
     """Test that environment variables are correctly configured."""
 
@@ -167,7 +165,7 @@ class TestEnvironmentVariables:
         assert port == "8080", f"PORT should be 8080, got {port}"
 
 
-@pytest.mark.e2e
+@pytest.mark.integration
 @pytest.mark.slow
 class TestEndToEndWorkflow:
     """Test complete end-to-end workflow simulation."""
