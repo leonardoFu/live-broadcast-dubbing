@@ -32,7 +32,7 @@ def session_store():
 @pytest.fixture
 def sample_audio_base64():
     """Generate sample base64 audio data."""
-    # 1 second of silence at 48kHz mono (96000 bytes of PCM s16le)
+    # Test audio data (for M4A format testing)
     audio_bytes = b"\x00" * 96000
     return base64.b64encode(audio_bytes).decode("ascii")
 
@@ -50,7 +50,7 @@ def make_fragment_payload(
         "sequence_number": sequence_number,
         "timestamp": 1703750400000,
         "audio": {
-            "format": "pcm_s16le",
+            "format": "m4a",
             "sample_rate_hz": 48000,
             "channels": 1,
             "duration_ms": 1000,

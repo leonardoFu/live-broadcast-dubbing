@@ -128,7 +128,7 @@ class TestBackpressure:
                         "sequence_number": seq,
                         "timestamp": 1703750400000 + seq * 100,
                         "audio": {
-                            "format": "pcm_s16le",
+                            "format": "m4a",
                             "sample_rate_hz": 48000,
                             "channels": 1,
                             "duration_ms": 100,
@@ -200,7 +200,7 @@ class TestBackpressure:
                         "sequence_number": seq,
                         "timestamp": 1703750400000,
                         "audio": {
-                            "format": "pcm_s16le",
+                            "format": "m4a",
                             "sample_rate_hz": 48000,
                             "channels": 1,
                             "duration_ms": 100,

@@ -48,7 +48,7 @@ class StreamSession:
     chunk_duration_ms: int = 1000
     sample_rate_hz: int = 48000
     channels: int = 1
-    format: str = "pcm_s16le"
+    format: str = "m4a"
     max_inflight: int = 3
     timeout_ms: int = 8000
 
@@ -128,7 +128,7 @@ from typing import Optional, Any
 
 class AudioData(BaseModel):
     """Audio data within a fragment."""
-    format: str = Field(description="Audio format, e.g., pcm_s16le")
+    format: str = Field(description="Audio format (m4a = AAC audio in MP4 container)")
     sample_rate_hz: int = Field(ge=8000, le=96000, description="Sample rate in Hz")
     channels: int = Field(ge=1, le=2, description="Number of audio channels")
     duration_ms: int = Field(ge=0, le=60000, description="Fragment duration in ms")
@@ -318,7 +318,7 @@ class StreamConfigPayload(BaseModel):
     chunk_duration_ms: int = Field(default=1000, ge=100, le=5000)
     sample_rate_hz: int = Field(default=48000)
     channels: int = Field(default=1, ge=1, le=2)
-    format: str = Field(default="pcm_s16le")
+    format: str = Field(default="m4a")
 
 class StreamInitPayload(BaseModel):
     """stream:init event payload (spec 016 section 5.1)."""

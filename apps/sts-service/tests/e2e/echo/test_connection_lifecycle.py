@@ -105,7 +105,7 @@ class TestConnectionLifecycle:
                         "chunk_duration_ms": 1000,
                         "sample_rate_hz": 48000,
                         "channels": 1,
-                        "format": "pcm_s16le",
+                        "format": "m4a",
                     },
                     "max_inflight": 3,
                     "timeout_ms": 8000,

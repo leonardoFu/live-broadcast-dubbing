@@ -13,21 +13,22 @@ class AudioData(BaseModel):
     """Audio data within a fragment.
 
     Matches spec 016 section 5.1 audio field structure.
+    Uses M4A (AAC in MP4 container) as the default audio format.
     """
 
     format: str = Field(
-        default="pcm_s16le",
-        description="Audio format identifier",
+        default="m4a",
+        description="Audio format identifier (m4a = AAC audio in MP4 container)",
     )
     sample_rate_hz: int = Field(
         ge=8000,
         le=96000,
-        description="Sample rate in Hz",
+        description="Sample rate in Hz (embedded in M4A container)",
     )
     channels: int = Field(
         ge=1,
         le=2,
-        description="Number of audio channels (1=mono, 2=stereo)",
+        description="Number of audio channels (1=mono, 2=stereo, embedded in M4A)",
     )
     duration_ms: int = Field(
         ge=0,
@@ -35,7 +36,7 @@ class AudioData(BaseModel):
         description="Fragment duration in milliseconds",
     )
     data_base64: str = Field(
-        description="Base64-encoded audio data",
+        description="Base64-encoded M4A audio data",
     )
 
     @field_validator("data_base64")

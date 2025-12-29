@@ -42,9 +42,8 @@
         },
         "format": {
           "type": "string",
-          "enum": ["pcm_s16le", "pcm_f32le"],
-          "description": "Audio format",
-          "default": "pcm_s16le"
+          "description": "Audio format identifier (m4a = AAC audio in MP4 container)",
+          "default": "m4a"
         }
       },
       "required": ["source_language", "target_language"]

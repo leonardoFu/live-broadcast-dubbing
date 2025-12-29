@@ -32,7 +32,7 @@ This feature follows the monorepo structure:
 - [X] T004 Update `apps/sts-service/pyproject.toml` to add python-socketio>=5.0, uvicorn>=0.24.0, pydantic>=2.0 dependencies
 - [X] T005 [P] Create unit test package at `apps/sts-service/tests/unit/echo/__init__.py`
 - [X] T006 [P] Create integration test package at `apps/sts-service/tests/integration/echo/__init__.py`
-- [X] T007 Create shared test fixtures at `apps/sts-service/tests/conftest.py` with sample PCM audio data
+- [X] T007 Create shared test fixtures at `apps/sts-service/tests/conftest.py` with sample M4A audio data
 
 ---
 

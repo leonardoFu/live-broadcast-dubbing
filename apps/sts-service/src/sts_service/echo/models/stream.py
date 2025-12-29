@@ -43,8 +43,8 @@ class StreamConfigPayload(BaseModel):
         description="Audio channels (1=mono, 2=stereo)",
     )
     format: str = Field(
-        default="pcm_s16le",
-        description="Audio format identifier",
+        default="m4a",
+        description="Audio format identifier (m4a = AAC audio in MP4 container)",
     )
 
 

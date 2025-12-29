@@ -144,7 +144,7 @@ async def main():
             'chunk_duration_ms': 1000,
             'sample_rate_hz': 48000,
             'channels': 1,
-            'format': 'pcm_s16le'
+            'format': 'm4a'
         },
         'max_inflight': 3
     })
@@ -156,14 +156,14 @@ async def main():
     import base64
     import time
 
-    audio_data = b'\x00' * 96000  # 1 second of silence at 48kHz mono 16-bit
+    audio_data = b'\x00' * 96000  # Simulated M4A audio data (binary content for testing)
     await sio.emit('fragment:data', {
         'fragment_id': 'frag-001',
         'stream_id': 'test-stream-001',
         'sequence_number': 0,
         'timestamp': int(time.time() * 1000),
         'audio': {
-            'format': 'pcm_s16le',
+            'format': 'm4a',
             'sample_rate_hz': 48000,
             'channels': 1,
             'duration_ms': 1000,

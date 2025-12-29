@@ -46,7 +46,7 @@ class TestStreamInitPayload:
                 chunk_duration_ms=1000,
                 sample_rate_hz=48000,
                 channels=1,
-                format="pcm_s16le",
+                format="m4a",
             ),
             max_inflight=3,
             timeout_ms=8000,
@@ -155,7 +155,7 @@ class TestFragmentDataPayload:
             sequence_number=0,
             timestamp=1703750400000,
             audio=AudioData(
-                format="pcm_s16le",
+                format="m4a",
                 sample_rate_hz=48000,
                 channels=1,
                 duration_ms=1000,
@@ -173,7 +173,7 @@ class TestFragmentDataPayload:
         # Valid small audio
         small_audio = base64.b64encode(b"\x00" * 100).decode("ascii")
         audio = AudioData(
-            format="pcm_s16le",
+            format="m4a",
             sample_rate_hz=48000,
             channels=1,
             duration_ms=10,
@@ -190,7 +190,7 @@ class TestFragmentDataPayload:
                 sequence_number=-1,
                 timestamp=0,
                 audio=AudioData(
-                    format="pcm_s16le",
+                    format="m4a",
                     sample_rate_hz=48000,
                     channels=1,
                     duration_ms=1000,
@@ -212,7 +212,7 @@ class TestFragmentProcessedPayload:
             sequence_number=0,
             status="success",
             dubbed_audio=AudioData(
-                format="pcm_s16le",
+                format="m4a",
                 sample_rate_hz=48000,
                 channels=1,
                 duration_ms=1000,

@@ -142,7 +142,7 @@ apps/sts-service/
 - Target: All Socket.IO event payloads match spec 016 schemas
 - Tools: pytest with Pydantic model validation
 - Coverage: 100% of all event types
-- Fixtures: Deterministic audio fragments (base64-encoded PCM)
+- Fixtures: Deterministic audio fragments (base64-encoded M4A)
 - Location: `apps/sts-service/tests/unit/echo/test_models.py`
 
 **Integration Tests** (required):
@@ -164,7 +164,7 @@ apps/sts-service/
 - Mock `sio.enter_room()` / `sio.leave_room()` for room management
 
 **Fragment Mocks** (from spec 016):
-- `fragment:data` with deterministic 1-second PCM audio (48kHz, mono)
+- `fragment:data` with deterministic 1-second M4A audio (48kHz, mono)
 - `fragment:processed` with echoed audio + mock transcript
 - Error simulation payloads for timeout, model error, etc.
 

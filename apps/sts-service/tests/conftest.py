@@ -1,7 +1,7 @@
 """Shared test fixtures for STS Service tests.
 
 Provides common fixtures for both unit and integration tests,
-including sample PCM audio data and mock session objects.
+including sample M4A audio data and mock session objects.
 """
 
 import base64
@@ -17,14 +17,18 @@ import pytest
 # =============================================================================
 
 
-def generate_sine_wave_pcm(
+def generate_test_audio(
     frequency_hz: float = 440.0,
     duration_ms: int = 1000,
     sample_rate_hz: int = 48000,
     channels: int = 1,
     amplitude: float = 0.5,
 ) -> bytes:
-    """Generate a sine wave as raw PCM s16le audio data.
+    """Generate test audio data for M4A format testing.
+
+    Note: This generates raw audio bytes for testing purposes. In the
+    echo service context, the actual binary content is echoed back
+    unchanged, so we use simple sine wave data as test input.
 
     Args:
         frequency_hz: Frequency of the sine wave in Hz.
@@ -34,7 +38,7 @@ def generate_sine_wave_pcm(
         amplitude: Amplitude of the wave (0.0 to 1.0).
 
     Returns:
-        Raw PCM s16le audio data as bytes.
+        Test audio data as bytes (for M4A format testing).
     """
     import math
 
@@ -57,9 +61,9 @@ def generate_sine_wave_pcm(
 
 
 @pytest.fixture
-def sample_pcm_audio_1s() -> bytes:
-    """1 second of 440Hz sine wave at 48kHz mono."""
-    return generate_sine_wave_pcm(
+def sample_audio_1s() -> bytes:
+    """1 second of test audio at 48kHz mono (M4A format testing)."""
+    return generate_test_audio(
         frequency_hz=440.0,
         duration_ms=1000,
         sample_rate_hz=48000,
@@ -68,9 +72,9 @@ def sample_pcm_audio_1s() -> bytes:
 
 
 @pytest.fixture
-def sample_pcm_audio_500ms() -> bytes:
-    """500ms of 440Hz sine wave at 48kHz mono."""
-    return generate_sine_wave_pcm(
+def sample_audio_500ms() -> bytes:
+    """500ms of test audio at 48kHz mono (M4A format testing)."""
+    return generate_test_audio(
         frequency_hz=440.0,
         duration_ms=500,
         sample_rate_hz=48000,
@@ -79,9 +83,9 @@ def sample_pcm_audio_500ms() -> bytes:
 
 
 @pytest.fixture
-def sample_pcm_audio_stereo() -> bytes:
-    """1 second of 440Hz sine wave at 48kHz stereo."""
-    return generate_sine_wave_pcm(
+def sample_audio_stereo() -> bytes:
+    """1 second of test audio at 48kHz stereo (M4A format testing)."""
+    return generate_test_audio(
         frequency_hz=440.0,
         duration_ms=1000,
         sample_rate_hz=48000,
@@ -90,15 +94,15 @@ def sample_pcm_audio_stereo() -> bytes:
 
 
 @pytest.fixture
-def sample_pcm_base64(sample_pcm_audio_1s: bytes) -> str:
-    """Base64-encoded 1 second PCM audio."""
-    return base64.b64encode(sample_pcm_audio_1s).decode("ascii")
+def sample_audio_base64(sample_audio_1s: bytes) -> str:
+    """Base64-encoded 1 second test audio (M4A format)."""
+    return base64.b64encode(sample_audio_1s).decode("ascii")
 
 
 @pytest.fixture
-def sample_pcm_base64_500ms(sample_pcm_audio_500ms: bytes) -> str:
-    """Base64-encoded 500ms PCM audio."""
-    return base64.b64encode(sample_pcm_audio_500ms).decode("ascii")
+def sample_audio_base64_500ms(sample_audio_500ms: bytes) -> str:
+    """Base64-encoded 500ms test audio (M4A format)."""
+    return base64.b64encode(sample_audio_500ms).decode("ascii")
 
 
 # =============================================================================
@@ -128,7 +132,7 @@ def valid_worker_id() -> str:
 def sample_fragment_data(
     valid_fragment_id: str,
     valid_stream_id: str,
-    sample_pcm_base64: str,
+    sample_audio_base64: str,
 ) -> dict[str, Any]:
     """Sample fragment:data payload matching spec 016."""
     return {
@@ -137,11 +141,11 @@ def sample_fragment_data(
         "sequence_number": 0,
         "timestamp": int(datetime.utcnow().timestamp() * 1000),
         "audio": {
-            "format": "pcm_s16le",
+            "format": "m4a",
             "sample_rate_hz": 48000,
             "channels": 1,
             "duration_ms": 1000,
-            "data_base64": sample_pcm_base64,
+            "data_base64": sample_audio_base64,
         },
         "metadata": {
             "pts_ns": 0,
@@ -166,7 +170,7 @@ def sample_stream_init(
             "chunk_duration_ms": 1000,
             "sample_rate_hz": 48000,
             "channels": 1,
-            "format": "pcm_s16le",
+            "format": "m4a",
         },
         "max_inflight": 3,
         "timeout_ms": 8000,

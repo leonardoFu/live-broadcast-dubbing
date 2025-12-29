@@ -95,7 +95,7 @@ class StreamSession:
     chunk_duration_ms: int = 1000
     sample_rate_hz: int = 48000
     channels: int = 1
-    format: str = "pcm_s16le"
+    format: str = "m4a"
     max_inflight: int = 3
     timeout_ms: int = 8000
 

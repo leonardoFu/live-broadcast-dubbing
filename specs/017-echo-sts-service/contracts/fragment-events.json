@@ -8,8 +8,8 @@
       "properties": {
         "format": {
           "type": "string",
-          "enum": ["pcm_s16le", "pcm_f32le"],
-          "description": "Audio format"
+          "description": "Audio format identifier (m4a = AAC audio in MP4 container)",
+          "default": "m4a"
         },
         "sample_rate_hz": {
           "type": "integer",
