@@ -26,8 +26,6 @@ def test_config():
     config = EchoConfig(
         host="127.0.0.1",
         port=8766,
-        api_key="test-api-key",
-        require_auth=True,
         processing_delay_ms=0,
         auto_disconnect_delay=5,
     )
@@ -103,7 +101,6 @@ class TestFragmentRoundTrip:
             await client.connect(
                 f"http://{test_config.host}:{test_config.port}",
                 socketio_path="/ws/sts",
-                auth={"token": test_config.api_key},
             )
 
             await client.emit(
@@ -175,7 +172,6 @@ class TestFragmentRoundTrip:
             await client.connect(
                 f"http://{test_config.host}:{test_config.port}",
                 socketio_path="/ws/sts",
-                auth={"token": test_config.api_key},
             )
 
             await client.emit(
@@ -250,7 +246,6 @@ class TestFragmentRoundTrip:
             await client.connect(
                 f"http://{test_config.host}:{test_config.port}",
                 socketio_path="/ws/sts",
-                auth={"token": test_config.api_key},
             )
 
             await client.emit(

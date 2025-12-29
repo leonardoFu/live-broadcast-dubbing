@@ -25,8 +25,6 @@ def test_config():
     config = EchoConfig(
         host="127.0.0.1",
         port=8765,
-        api_key="test-api-key",
-        require_auth=True,
         processing_delay_ms=0,
         auto_disconnect_delay=1,  # Short for testing
     )
@@ -85,11 +83,10 @@ class TestConnectionLifecycle:
             ready_event.set()
 
         try:
-            # Connect with valid API key
+            # Connect (no authentication required)
             await client.connect(
                 f"http://{test_config.host}:{test_config.port}",
                 socketio_path="/ws/sts",
-                auth={"token": test_config.api_key},
                 wait_timeout=5,
             )
 
@@ -130,28 +127,6 @@ class TestConnectionLifecycle:
 
     @pytest.mark.asyncio
     @pytest.mark.e2e
-    async def test_worker_connection_rejected_invalid_key(self, echo_server, test_config):
-        """Rejection with real transport for invalid key."""
-        client = socketio.AsyncClient()
-
-        try:
-            # Connect with invalid API key - should fail
-            with pytest.raises(socketio.exceptions.ConnectionError):
-                await client.connect(
-                    f"http://{test_config.host}:{test_config.port}",
-                    socketio_path="/ws/sts",
-                    auth={"token": "invalid-key"},
-                    wait_timeout=5,
-                )
-
-            assert not client.connected
-
-        finally:
-            if client.connected:
-                await client.disconnect()
-
-    @pytest.mark.asyncio
-    @pytest.mark.e2e
     async def test_multiple_concurrent_sessions(self, echo_server, test_config):
         """10 concurrent sessions handled correctly."""
         num_clients = 10
@@ -171,7 +146,6 @@ class TestConnectionLifecycle:
                 await client.connect(
                     f"http://{test_config.host}:{test_config.port}",
                     socketio_path="/ws/sts",
-                    auth={"token": test_config.api_key},
                     wait_timeout=5,
                 )
 
@@ -228,11 +202,10 @@ class TestLifecycleFlow:
             events_received.append(("stream:complete", data))
 
         try:
-            # Connect
+            # Connect (no authentication required)
             await client.connect(
                 f"http://{test_config.host}:{test_config.port}",
                 socketio_path="/ws/sts",
-                auth={"token": test_config.api_key},
                 wait_timeout=5,
             )
 
@@ -293,11 +266,10 @@ class TestLifecycleFlow:
             pass
 
         try:
-            # Connect and initialize
+            # Connect and initialize (no authentication required)
             await client.connect(
                 f"http://{test_config.host}:{test_config.port}",
                 socketio_path="/ws/sts",
-                auth={"token": test_config.api_key},
             )
 
             await client.emit(

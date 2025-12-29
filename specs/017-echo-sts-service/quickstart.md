@@ -31,15 +31,15 @@ The pyproject.toml includes the required `python-socketio[asyncio]>=5.0` depende
 make sts-echo
 
 # Or with environment variables
-export STS_API_KEY="test-api-key"
-export WS_PORT=8000
-export REQUIRE_AUTH=true
+export ECHO_PORT=8000
 .venv/bin/python -m sts_service.echo
 
 # Or activate venv first
 source .venv/bin/activate
 python -m sts_service.echo
 ```
+
+**Note**: No authentication is required. The service accepts all connections without API keys or tokens.
 
 Or with uvicorn directly:
 
@@ -72,10 +72,8 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - WS_PORT=8000
-      - STS_API_KEY=test-api-key
-      - REQUIRE_AUTH=true
-      - PROCESSING_DELAY_MS=0
+      - ECHO_PORT=8000
+      - ECHO_PROCESSING_DELAY_MS=0
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 5s
@@ -126,10 +124,9 @@ async def main():
     async def disconnect():
         print("Disconnected")
 
-    # Connect with authentication
+    # Connect (no authentication required)
     await sio.connect(
         'http://localhost:8000',
-        auth={'token': 'test-api-key'},
         headers={
             'X-Stream-ID': 'test-stream-001',
             'X-Worker-ID': 'worker-001'
@@ -233,7 +230,7 @@ async def on_error_sim_ack(data):
 | `GPU_OOM` | Yes | Test OOM handling |
 | `QUEUE_FULL` | Yes | Test backpressure response |
 | `INVALID_SEQUENCE` | No | Test sequence validation |
-| `AUTH_FAILED` | No | Test connection rejection |
+| `STREAM_NOT_FOUND` | No | Test missing stream handling |
 
 ---
 
@@ -332,14 +329,15 @@ make sts-test-coverage
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `WS_PORT` | 8000 | WebSocket server port |
-| `STS_API_KEY` | test-api-key | API key for authentication |
-| `REQUIRE_AUTH` | true | Enable/disable authentication |
-| `PROCESSING_DELAY_MS` | 0 | Default processing delay |
-| `MAX_CONNECTIONS` | 10 | Max concurrent connections |
-| `MAX_BUFFER_SIZE` | 52428800 | Max message size (50MB) |
-| `PING_INTERVAL` | 25 | Socket.IO ping interval (seconds) |
-| `PING_TIMEOUT` | 10 | Socket.IO ping timeout (seconds) |
+| `ECHO_HOST` | 0.0.0.0 | Server bind address |
+| `ECHO_PORT` | 8000 | WebSocket server port |
+| `ECHO_PROCESSING_DELAY_MS` | 0 | Default processing delay |
+| `WS_MAX_CONNECTIONS` | 10 | Max concurrent connections |
+| `WS_MAX_BUFFER_SIZE` | 52428800 | Max message size (50MB) |
+| `WS_PING_INTERVAL` | 25 | Socket.IO ping interval (seconds) |
+| `WS_PING_TIMEOUT` | 10 | Socket.IO ping timeout (seconds) |
+
+**Note**: No authentication-related environment variables are needed as the service accepts all connections.
 
 ---
 
@@ -352,14 +350,6 @@ socketio.exceptions.ConnectionError: Connection refused
 ```
 
 **Solution**: Ensure the echo service is running and accessible on the configured port.
-
-### Authentication Failed
-
-```
-{"code": "AUTH_FAILED", "message": "Invalid API key"}
-```
-
-**Solution**: Check that `auth.token` matches `STS_API_KEY` environment variable.
 
 ### Stream Not Found
 

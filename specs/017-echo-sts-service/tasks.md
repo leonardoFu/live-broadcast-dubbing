@@ -55,46 +55,42 @@ This feature follows the monorepo structure:
 
 ## Phase 3: User Story 1 - Stream Worker Connects and Initializes Stream (Priority: P1)
 
-**Goal**: Worker can connect with API key authentication and initialize a streaming session with stream:init/stream:ready exchange
+**Goal**: Worker can connect and initialize a streaming session with stream:init/stream:ready exchange
 
-**Independent Test**: Attempt connections with valid/invalid API keys, send stream:init with various configurations
+**Note**: No authentication required - service accepts all connections.
+
+**Independent Test**: Connect and send stream:init with various configurations
 
 ### Tests for User Story 1 (MANDATORY - Test-First)
 
 > **CRITICAL: These tests MUST be written FIRST and MUST FAIL before implementation begins**
 
-**Coverage Target for US1**: 95% (critical path - connection/authentication)
+**Coverage Target for US1**: 95% (critical path - connection/initialization)
 
-- [X] T014 [P] [US1] **Unit tests** for authentication in `apps/sts-service/tests/unit/echo/test_auth.py`
-  - `test_authentication_valid_key()` - valid API key accepts connection
-  - `test_authentication_invalid_key()` - invalid key rejects with AUTH_FAILED
-  - `test_authentication_missing_key()` - missing key rejects connection
-- [X] T015 [P] [US1] **Unit tests** for stream models in `apps/sts-service/tests/unit/echo/test_models.py`
+- [X] T014 [P] [US1] **Unit tests** for stream models in `apps/sts-service/tests/unit/echo/test_models.py`
   - `test_stream_init_payload_schema()` - validates stream:init structure matches spec 016
   - `test_stream_ready_payload_schema()` - validates stream:ready response structure
   - `test_stream_config_validation()` - validates config field constraints
-- [X] T016 [P] [US1] **Unit tests** for session management in `apps/sts-service/tests/unit/echo/test_session.py`
+- [X] T015 [P] [US1] **Unit tests** for session management in `apps/sts-service/tests/unit/echo/test_session.py`
   - `test_session_create()` - session created with correct initial state
   - `test_session_state_transition_to_active()` - initializing -> active on stream:ready
   - `test_session_store_get_by_sid()` - retrieve session by Socket.IO ID
   - `test_session_store_get_by_stream_id()` - retrieve session by stream ID
-- [X] T017 [P] [US1] **Unit tests** for stream handlers in `apps/sts-service/tests/unit/echo/test_handlers_stream.py`
+- [X] T016 [P] [US1] **Unit tests** for stream handlers in `apps/sts-service/tests/unit/echo/test_handlers_stream.py`
   - `test_stream_init_happy_path()` - valid init returns stream:ready
   - `test_stream_init_error_invalid_config()` - invalid config returns INVALID_CONFIG error
   - `test_stream_init_error_missing_required_fields()` - missing fields rejected
-- [X] T018 [US1] **Integration tests** for connection lifecycle in `apps/sts-service/tests/integration/echo/test_connection_lifecycle.py`
+- [X] T017 [US1] **Integration tests** for connection lifecycle in `apps/sts-service/tests/e2e/echo/test_connection_lifecycle.py`
   - `test_worker_connects_and_initializes()` - full connection flow with Socket.IO client
-  - `test_worker_connection_rejected_invalid_key()` - rejection with real transport
   - `test_multiple_concurrent_sessions()` - 10 concurrent sessions
 
-**Verification**: Run `pytest apps/sts-service/tests/unit/echo/test_auth.py apps/sts-service/tests/unit/echo/test_handlers_stream.py -v` - ALL tests MUST FAIL
+**Verification**: Run `pytest apps/sts-service/tests/unit/echo/test_handlers_stream.py -v` - ALL tests MUST FAIL
 
 ### Implementation for User Story 1
 
-- [X] T019 [US1] Implement API key authentication middleware in `apps/sts-service/src/sts_service/echo/auth.py`
-- [X] T020 [US1] Implement stream:init handler in `apps/sts-service/src/sts_service/echo/handlers/stream.py`
-- [X] T021 [US1] Implement Socket.IO AsyncServer setup with ASGI app in `apps/sts-service/src/sts_service/echo/server.py`
-- [X] T022 [US1] Wire authentication to connect event and stream:init handler to server in `apps/sts-service/src/sts_service/echo/server.py`
+- [X] T018 [US1] Implement stream:init handler in `apps/sts-service/src/sts_service/echo/handlers/stream.py`
+- [X] T019 [US1] Implement Socket.IO AsyncServer setup with ASGI app in `apps/sts-service/src/sts_service/echo/server.py`
+- [X] T020 [US1] Wire connect event and stream:init handler to server in `apps/sts-service/src/sts_service/echo/server.py`
 
 **Checkpoint**: User Story 1 fully functional - workers can connect and initialize streams (run automated tests, continue automatically)
 

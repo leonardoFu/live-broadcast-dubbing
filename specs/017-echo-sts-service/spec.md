@@ -26,21 +26,21 @@ The service must fully implement the WebSocket Audio Fragment Protocol as define
 
 ### User Story 1 - Stream Worker Connects and Initializes Stream (Priority: P1)
 
-An E2E test scenario where the media-service stream worker establishes a WebSocket connection to the Echo STS Service and initializes a streaming session. The worker authenticates with an API key and sends stream configuration. The Echo STS Service validates the connection and responds with session confirmation.
+An E2E test scenario where the media-service stream worker establishes a WebSocket connection to the Echo STS Service and initializes a streaming session. The worker sends stream configuration and the Echo STS Service validates the connection and responds with session confirmation.
 
 **Why this priority**: Connection establishment is the foundation of all protocol interactions. Without successful connection and initialization, no audio processing can occur. This is the critical path that must work first.
 
-**Independent Test**: This can be tested by attempting to connect with valid and invalid API keys, and sending stream:init with various configurations.
-- **Unit test**: `test_authentication_valid_key()` validates API key acceptance; `test_authentication_invalid_key()` validates rejection
+**Note**: No authentication is required. The service accepts all connections without API keys, JWT tokens, or any auth headers. This design decision applies to both the echo service and the future real STS service.
+
+**Independent Test**: This can be tested by connecting and sending stream:init with various configurations.
 - **Contract test**: `test_stream_init_payload_schema()` validates stream:init message structure matches spec 016
 - **Integration test**: `test_worker_connects_and_initializes()` validates full connection flow from worker to echo service
-- **Success criteria**: Valid API key accepts connection, invalid key rejects with AUTH_FAILED error, stream:ready response matches protocol schema
+- **Success criteria**: Connection accepted without auth, stream:ready response matches protocol schema
 
 **Acceptance Scenarios**:
 
-1. **Given** a configured Echo STS Service running with API key authentication enabled, **When** a worker connects with a valid API key and sends stream:init with valid configuration, **Then** the service responds with stream:ready containing session_id, max_inflight, and capabilities
-2. **Given** a configured Echo STS Service running, **When** a worker connects with an invalid API key, **Then** the connection is rejected immediately with AUTH_FAILED error
-3. **Given** a configured Echo STS Service running, **When** a worker sends stream:init with invalid configuration (missing required fields), **Then** the service responds with INVALID_CONFIG error
+1. **Given** a configured Echo STS Service running, **When** a worker connects and sends stream:init with valid configuration, **Then** the service responds with stream:ready containing session_id, max_inflight, and capabilities
+2. **Given** a configured Echo STS Service running, **When** a worker sends stream:init with invalid configuration (missing required fields), **Then** the service responds with INVALID_CONFIG error
 
 ---
 
@@ -120,7 +120,6 @@ An E2E test scenario where the Echo STS Service can be configured to simulate va
 
 1. **Given** an initialized stream with error simulation configured for fragment N, **When** fragment N is received, **Then** the service responds with fragment:processed status "failed" and appropriate error details
 2. **Given** error simulation configured for TIMEOUT error, **When** the error is returned, **Then** the retryable flag is set to true
-3. **Given** error simulation configured for AUTH_FAILED, **When** a connection attempt is made, **Then** the connection is rejected with AUTH_FAILED error
 
 ---
 
@@ -139,47 +138,46 @@ An E2E test scenario where the Echo STS Service can be configured to simulate va
 
 ### Functional Requirements
 
-#### Connection & Authentication
+#### Connection
 - **FR-001**: Service MUST act as a Socket.IO server accepting WebSocket connections on a configurable port
-- **FR-002**: Service MUST validate API key authentication on connection handshake using the `auth.token` field
-- **FR-003**: Service MUST reject unauthorized connections immediately with AUTH_FAILED error
-- **FR-004**: Service MUST support `X-Stream-ID` and `X-Worker-ID` extra headers for connection identification
-- **FR-005**: Service MUST implement Socket.IO ping/pong with 25s interval and 10s timeout
+- **FR-002**: Service MUST accept all connections without authentication (no API keys, JWT tokens, or auth headers required)
+- **FR-003**: Service MUST support `X-Stream-ID` and `X-Worker-ID` extra headers for connection identification
+- **FR-004**: Service MUST implement Socket.IO ping/pong with 25s interval and 10s timeout
 
 #### Stream Initialization
-- **FR-006**: Service MUST respond to stream:init with stream:ready containing session_id, max_inflight, and capabilities
-- **FR-007**: Service MUST validate stream:init configuration and respond with INVALID_CONFIG error for invalid payloads
-- **FR-008**: Service MUST support all stream:init configuration fields: source_language, target_language, voice_profile, chunk_duration_ms, sample_rate_hz, channels, format
+- **FR-005**: Service MUST respond to stream:init with stream:ready containing session_id, max_inflight, and capabilities
+- **FR-006**: Service MUST validate stream:init configuration and respond with INVALID_CONFIG error for invalid payloads
+- **FR-007**: Service MUST support all stream:init configuration fields: source_language, target_language, voice_profile, chunk_duration_ms, sample_rate_hz, channels, format
 
 #### Fragment Processing (Echo)
-- **FR-009**: Service MUST respond to fragment:data with immediate fragment:ack (status: queued)
-- **FR-010**: Service MUST echo received audio back in fragment:processed with dubbed_audio containing the original audio data
-- **FR-011**: Service MUST emit fragment:processed events in sequence_number order (in-order delivery)
-- **FR-012**: Service MUST populate processing_time_ms in fragment:processed (actual echo processing time)
-- **FR-013**: Service MUST include mock transcript and translated_text fields in fragment:processed (e.g., "[ECHO] Original audio")
-- **FR-014**: Service MUST accept fragment:ack from worker confirming receipt of processed fragments
+- **FR-008**: Service MUST respond to fragment:data with immediate fragment:ack (status: queued)
+- **FR-009**: Service MUST echo received audio back in fragment:processed with dubbed_audio containing the original audio data
+- **FR-010**: Service MUST emit fragment:processed events in sequence_number order (in-order delivery)
+- **FR-011**: Service MUST populate processing_time_ms in fragment:processed (actual echo processing time)
+- **FR-012**: Service MUST include mock transcript and translated_text fields in fragment:processed (e.g., "[ECHO] Original audio")
+- **FR-013**: Service MUST accept fragment:ack from worker confirming receipt of processed fragments
 
 #### Stream Lifecycle
-- **FR-015**: Service MUST handle stream:pause by completing in-flight fragments and rejecting new ones
-- **FR-016**: Service MUST handle stream:resume by accepting new fragments again
-- **FR-017**: Service MUST respond to stream:end with stream:complete containing accurate statistics
-- **FR-018**: Service MUST auto-close connection 5 seconds after stream:complete
+- **FR-014**: Service MUST handle stream:pause by completing in-flight fragments and rejecting new ones
+- **FR-015**: Service MUST handle stream:resume by accepting new fragments again
+- **FR-016**: Service MUST respond to stream:end with stream:complete containing accurate statistics
+- **FR-017**: Service MUST auto-close connection 5 seconds after stream:complete
 
 #### Flow Control
-- **FR-019**: Service MUST support configurable backpressure simulation (threshold, severity, action)
-- **FR-020**: Service MUST emit backpressure events when configured thresholds are exceeded
-- **FR-021**: Service MUST respect max_inflight configuration from stream:init
+- **FR-018**: Service MUST support configurable backpressure simulation (threshold, severity, action)
+- **FR-019**: Service MUST emit backpressure events when configured thresholds are exceeded
+- **FR-020**: Service MUST respect max_inflight configuration from stream:init
 
 #### Error Handling
-- **FR-022**: Service MUST support error simulation configured via `config:error_simulation` Socket.IO event, allowing tests to dynamically configure which errors to trigger (by sequence_number or fragment_id) without service restart
-- **FR-023**: Service MUST emit error events with proper structure (error_id, code, message, severity, retryable)
-- **FR-024**: Service MUST reject fragments exceeding 10MB (base64-encoded) with FRAGMENT_TOO_LARGE error
-- **FR-025**: Service MUST reject fragments received before stream:init with STREAM_NOT_FOUND error
-- **FR-026**: Service MUST emit disconnect event with reason on connection close
+- **FR-021**: Service MUST support error simulation configured via `config:error_simulation` Socket.IO event, allowing tests to dynamically configure which errors to trigger (by sequence_number or fragment_id) without service restart
+- **FR-022**: Service MUST emit error events with proper structure (error_id, code, message, severity, retryable)
+- **FR-023**: Service MUST reject fragments exceeding 10MB (base64-encoded) with FRAGMENT_TOO_LARGE error
+- **FR-024**: Service MUST reject fragments received before stream:init with STREAM_NOT_FOUND error
+- **FR-025**: Service MUST emit disconnect event with reason on connection close
 
 #### Configuration
-- **FR-027**: Service MUST be configurable via environment variables (port, API key, simulation settings)
-- **FR-028**: Service MUST support a configurable processing delay to simulate real STS latency
+- **FR-026**: Service MUST be configurable via environment variables (port, simulation settings)
+- **FR-027**: Service MUST support a configurable processing delay to simulate real STS latency
 
 ### Key Entities *(include if feature involves data)*
 

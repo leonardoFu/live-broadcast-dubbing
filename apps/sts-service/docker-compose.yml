@@ -19,10 +19,8 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - STS_API_KEY=${STS_API_KEY:-test-api-key}
       - ECHO_HOST=0.0.0.0
       - ECHO_PORT=8000
-      - REQUIRE_AUTH=true
       - LOG_LEVEL=INFO
       - BACKPRESSURE_ENABLED=false
       - ECHO_PROCESSING_DELAY_MS=0
@@ -43,7 +41,7 @@ services:
   #   ports:
   #     - "8001:8000"
   #   environment:
-  #     - STS_API_KEY=${STS_API_KEY:-test-api-key}
+  #     - ECHO_PORT=8000
   #   deploy:
   #     resources:
   #       reservations:

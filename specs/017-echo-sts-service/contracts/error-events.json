@@ -6,7 +6,6 @@
     "ErrorCode": {
       "type": "string",
       "enum": [
-        "AUTH_FAILED",
         "STREAM_NOT_FOUND",
         "INVALID_CONFIG",
         "FRAGMENT_TOO_LARGE",
@@ -17,7 +16,7 @@
         "INVALID_SEQUENCE",
         "RATE_LIMIT"
       ],
-      "description": "Error codes defined in spec 016 section 8.1"
+      "description": "Error codes defined in spec 016 section 8.1 (AUTH_FAILED not used - service has no authentication)"
     },
     "ErrorSeverity": {
       "type": "string",
@@ -183,11 +182,6 @@
     }
   },
   "error_code_reference": {
-    "AUTH_FAILED": {
-      "severity": "fatal",
-      "retryable": false,
-      "description": "Invalid API key"
-    },
     "STREAM_NOT_FOUND": {
       "severity": "error",
       "retryable": false,

@@ -98,7 +98,6 @@ apps/sts-service/
 │       │   │   ├── fragment.py       # FragmentDataPayload, FragmentProcessedPayload
 │       │   │   └── error.py          # ErrorPayload, ErrorSimulationConfig
 │       │   ├── session.py            # StreamSession state management
-│       │   ├── auth.py               # API key authentication
 │       │   └── config.py             # Environment-based configuration
 │       ├── asr/                      # Existing ASR module
 │       ├── translation/              # Existing translation module
@@ -107,7 +106,6 @@ apps/sts-service/
 │   ├── unit/
 │   │   └── echo/                     # NEW: Unit tests for echo service
 │   │       ├── __init__.py
-│   │       ├── test_auth.py
 │   │       ├── test_session.py
 │   │       ├── test_handlers_stream.py
 │   │       ├── test_handlers_fragment.py
@@ -134,7 +132,7 @@ apps/sts-service/
 ### Test Levels for This Feature
 
 **Unit Tests** (mandatory):
-- Target: Authentication, session management, event handlers, model validation
+- Target: Session management, event handlers, model validation
 - Tools: pytest, pytest-asyncio, pytest-mock
 - Coverage: 80% minimum (95% for fragment processing)
 - Mocking: Socket.IO sid, emit callbacks, session store
@@ -164,7 +162,6 @@ apps/sts-service/
 **Socket.IO Server Mocks**:
 - Mock `sio.emit()` to capture outgoing events
 - Mock `sio.enter_room()` / `sio.leave_room()` for room management
-- Mock authentication middleware for testing auth bypass
 
 **Fragment Mocks** (from spec 016):
 - `fragment:data` with deterministic 1-second PCM audio (48kHz, mono)
@@ -179,12 +176,10 @@ apps/sts-service/
 
 **Pre-commit**: Run `pytest --cov=sts_service.echo --cov-fail-under=80`
 **CI**: Block merge if coverage < 80%
-**Critical paths**: Fragment echo processing, authentication, session lifecycle → 95% minimum
+**Critical paths**: Fragment echo processing, session lifecycle → 95% minimum
 
 ### Test Naming Conventions
 
-- `test_authentication_valid_key()` - Authentication success
-- `test_authentication_invalid_key()` - Authentication rejection
 - `test_stream_init_happy_path()` - Normal stream initialization
 - `test_stream_init_error_invalid_config()` - Config validation error
 - `test_fragment_echo_preserves_audio()` - Fragment data integrity

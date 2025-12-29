@@ -216,14 +216,14 @@ docker compose up echo-sts
 
 # Using Docker build
 docker build -f deploy/Dockerfile.echo -t echo-sts-service .
-docker run -p 8000:8000 -e STS_API_KEY=your-key echo-sts-service
+docker run -p 8000:8000 echo-sts-service
 ```
 
 ### Features
 
 - Full WebSocket Audio Fragment Protocol (spec 016) compliance
 - Socket.IO AsyncServer with ASGI support
-- API key authentication
+- No authentication required (accepts all connections)
 - In-order fragment delivery
 - Backpressure simulation
 - Error injection for testing error handling
@@ -233,14 +233,14 @@ docker run -p 8000:8000 -e STS_API_KEY=your-key echo-sts-service
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `STS_API_KEY` | `test-api-key` | API key for authentication |
 | `ECHO_HOST` | `0.0.0.0` | Host to bind to |
 | `ECHO_PORT` | `8000` | Port to listen on |
-| `REQUIRE_AUTH` | `true` | Enable API key authentication |
 | `LOG_LEVEL` | `INFO` | Logging level |
 | `ECHO_PROCESSING_DELAY_MS` | `0` | Simulated processing delay |
 | `BACKPRESSURE_ENABLED` | `false` | Enable backpressure simulation |
 | `AUTO_DISCONNECT_DELAY` | `5` | Seconds after stream:complete before disconnect |
+
+**Note**: No authentication-related environment variables are needed as the service accepts all connections.
 
 ### Running Tests
 

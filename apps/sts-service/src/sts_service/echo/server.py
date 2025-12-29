@@ -7,7 +7,6 @@ import logging
 
 import socketio
 
-from sts_service.echo.auth import AuthenticationError, authenticate_connection
 from sts_service.echo.config import EchoConfig, get_config
 from sts_service.echo.session import SessionStore
 
@@ -89,29 +88,18 @@ class EchoServer:
 
         @self.sio.event
         async def connect(sid: str, environ: dict, auth: dict | None = None) -> bool:
-            """Handle new connection with authentication.
+            """Handle new connection (no authentication required).
 
             Args:
                 sid: Socket.IO session ID.
                 environ: ASGI environ dict.
-                auth: Authentication payload.
+                auth: Authentication payload (ignored - no auth required).
 
             Returns:
-                True to accept connection, False to reject.
+                True to accept connection.
             """
-            try:
-                # Authenticate the connection
-                authenticate_connection(auth)
-
-                logger.info(f"Client connected: sid={sid}")
-                return True
-
-            except AuthenticationError as e:
-                logger.warning(f"Authentication failed: {e.message}, sid={sid}")
-
-                # Return False to reject the connection
-                # Note: Socket.IO will automatically disconnect
-                return False
+            logger.info(f"Client connected: sid={sid}")
+            return True
 
         @self.sio.event
         async def disconnect(sid: str) -> None:

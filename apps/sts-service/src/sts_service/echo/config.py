@@ -18,12 +18,6 @@ class EchoConfig:
     host: str = field(default_factory=lambda: os.getenv("ECHO_HOST", "0.0.0.0"))
     port: int = field(default_factory=lambda: int(os.getenv("ECHO_PORT", "8000")))
 
-    # Authentication
-    api_key: str = field(default_factory=lambda: os.getenv("STS_API_KEY", "test-api-key"))
-    require_auth: bool = field(
-        default_factory=lambda: os.getenv("REQUIRE_AUTH", "true").lower() == "true"
-    )
-
     # Processing simulation
     processing_delay_ms: int = field(
         default_factory=lambda: int(os.getenv("ECHO_PROCESSING_DELAY_MS", "0"))

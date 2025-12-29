@@ -26,8 +26,6 @@ def test_config():
     config = EchoConfig(
         host="127.0.0.1",
         port=8767,
-        api_key="test-api-key",
-        require_auth=True,
         processing_delay_ms=100,  # Add delay to keep fragments in-flight
         backpressure_enabled=True,
         backpressure_threshold_low=0.5,
@@ -107,7 +105,6 @@ class TestBackpressure:
             await client.connect(
                 f"http://{test_config.host}:{test_config.port}",
                 socketio_path="/ws/sts",
-                auth={"token": test_config.api_key},
             )
 
             await client.emit(
@@ -180,7 +177,6 @@ class TestBackpressure:
             await client.connect(
                 f"http://{test_config.host}:{test_config.port}",
                 socketio_path="/ws/sts",
-                auth={"token": test_config.api_key},
             )
 
             await client.emit(

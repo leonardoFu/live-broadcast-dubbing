@@ -255,7 +255,6 @@ class ErrorSimulationConfig(BaseModel):
 
 | Code | Retryable | Description |
 |------|-----------|-------------|
-| AUTH_FAILED | No | Invalid API key (connection-level) |
 | STREAM_NOT_FOUND | No | Unknown stream_id |
 | INVALID_CONFIG | No | Invalid stream:init config |
 | FRAGMENT_TOO_LARGE | No | Fragment exceeds 10MB |
@@ -265,6 +264,8 @@ class ErrorSimulationConfig(BaseModel):
 | QUEUE_FULL | Yes | Processing queue full |
 | INVALID_SEQUENCE | No | Sequence number gap |
 | RATE_LIMIT | Yes | Too many requests |
+
+**Note**: AUTH_FAILED is not used as the service does not require authentication.
 
 ---
 
