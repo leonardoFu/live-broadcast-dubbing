@@ -6,11 +6,14 @@ This demonstrates:
 - Mock fixture usage
 - Contract testing patterns
 """
+
 import sys
 from pathlib import Path
 
 # Add .specify/templates/test-fixtures to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / ".specify" / "templates" / "test-fixtures"))
+sys.path.insert(
+    0, str(Path(__file__).parent.parent.parent / ".specify" / "templates" / "test-fixtures")
+)
 
 from sts_events import (
     mock_fragment_data_event,
@@ -33,8 +36,14 @@ def validate_fragment_data_schema(event: dict) -> bool:
     - channels: int
     """
     required_fields = [
-        "event", "fragment_id", "stream_id", "sequence_number",
-        "audio_data", "duration_ms", "sample_rate", "channels"
+        "event",
+        "fragment_id",
+        "stream_id",
+        "sequence_number",
+        "audio_data",
+        "duration_ms",
+        "sample_rate",
+        "channels",
     ]
 
     for field in required_fields:
@@ -47,9 +56,7 @@ def validate_fragment_data_schema(event: dict) -> bool:
 def test_sts_fragment_data_schema():
     """Test fragment:data event matches expected schema."""
     event = mock_fragment_data_event(
-        fragment_id="test-001",
-        stream_id="stream-123",
-        sequence_number=1
+        fragment_id="test-001", stream_id="stream-123", sequence_number=1
     )
 
     assert validate_fragment_data_schema(event)
@@ -63,9 +70,7 @@ def test_sts_fragment_data_schema():
 def test_sts_fragment_processed_schema():
     """Test fragment:processed event matches expected schema."""
     event = mock_fragment_processed_event(
-        fragment_id="test-001",
-        transcription="Hello world",
-        translation="Hola mundo"
+        fragment_id="test-001", transcription="Hello world", translation="Hola mundo"
     )
 
     assert event["event"] == "fragment:processed"

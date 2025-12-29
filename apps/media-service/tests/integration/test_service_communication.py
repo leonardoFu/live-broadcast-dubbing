@@ -34,13 +34,12 @@ class TestServiceCommunication:
             check=False,
         )
 
-        assert result.returncode == 0, \
+        assert result.returncode == 0, (
             f"MediaMTX should be able to reach media-service. Error: {result.stderr}"
+        )
         assert "ok" in result.stdout.lower(), "Should receive valid health response"
 
-    def test_mediamtx_can_reach_media_service_hook_endpoint(
-        self, docker_services: None
-    ) -> None:
+    def test_mediamtx_can_reach_media_service_hook_endpoint(self, docker_services: None) -> None:
         """Test MediaMTX can reach media-service hook endpoint (FR-007)."""
         # Test the ready endpoint that MediaMTX hooks will use
         test_payload = '{"path":"live/test/in","sourceType":"rtmp","sourceId":"test"}'
@@ -63,14 +62,12 @@ class TestServiceCommunication:
             check=False,
         )
 
-        assert result.returncode == 0, \
+        assert result.returncode == 0, (
             f"MediaMTX should be able to POST to hook endpoint. Error: {result.stderr}"
-        assert "received" in result.stdout.lower(), \
-            "Should receive hook event acknowledgment"
+        )
+        assert "received" in result.stdout.lower(), "Should receive hook event acknowledgment"
 
-    def test_media_service_can_reach_mediamtx_control_api(
-        self, docker_services: None
-    ) -> None:
+    def test_media_service_can_reach_mediamtx_control_api(self, docker_services: None) -> None:
         """Test media-service can reach MediaMTX Control API via Docker network."""
         # Execute curl from inside media-service container to MediaMTX
         result = subprocess.run(
@@ -89,8 +86,9 @@ class TestServiceCommunication:
             check=False,
         )
 
-        assert result.returncode == 0, \
+        assert result.returncode == 0, (
             f"media-service should be able to reach MediaMTX. Error: {result.stderr}"
+        )
         assert "items" in result.stdout, "Should receive valid Control API response"
 
     def test_services_on_same_docker_network(self, docker_services: None) -> None:
@@ -125,19 +123,17 @@ class TestServiceCommunication:
         )
         media_service_network = result.stdout.strip()
 
-        assert mediamtx_network == media_service_network, \
+        assert mediamtx_network == media_service_network, (
             "Services should be on the same Docker network"
-        assert "dubbing-network" in mediamtx_network, \
-            "Services should be on dubbing-network"
+        )
+        assert "dubbing-network" in mediamtx_network, "Services should be on dubbing-network"
 
 
 @pytest.mark.integration
 class TestEnvironmentVariables:
     """Test that environment variables are correctly configured."""
 
-    def test_mediamtx_has_orchestrator_url_env_var(
-        self, docker_services: None
-    ) -> None:
+    def test_mediamtx_has_orchestrator_url_env_var(self, docker_services: None) -> None:
         """Test MediaMTX container has ORCHESTRATOR_URL environment variable (FR-006a)."""
         result = subprocess.run(
             ["docker", "exec", "mediamtx", "printenv", "ORCHESTRATOR_URL"],
@@ -147,12 +143,11 @@ class TestEnvironmentVariables:
         )
 
         orchestrator_url = result.stdout.strip()
-        assert orchestrator_url == "http://media-service:8080", \
+        assert orchestrator_url == "http://media-service:8080", (
             f"ORCHESTRATOR_URL should be http://media-service:8080, got {orchestrator_url}"
+        )
 
-    def test_media_service_has_correct_port_env_var(
-        self, docker_services: None
-    ) -> None:
+    def test_media_service_has_correct_port_env_var(self, docker_services: None) -> None:
         """Test media-service has correct PORT environment variable."""
         result = subprocess.run(
             ["docker", "exec", "media-service", "printenv", "PORT"],
@@ -260,5 +255,6 @@ class TestEndToEndWorkflow:
             check=True,
         )
 
-        assert "ok" in result.stdout.lower(), \
+        assert "ok" in result.stdout.lower(), (
             "MediaMTX should still be able to reach media-service after restart"
+        )

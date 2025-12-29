@@ -14,7 +14,7 @@ Test Coverage:
 
 import subprocess
 import time
-from typing import Generator
+from collections.abc import Generator
 
 import httpx
 import pytest
@@ -31,17 +31,28 @@ def ffmpeg_test_stream() -> Generator[subprocess.Popen, None, None]:
     cmd = [
         "ffmpeg",
         "-re",  # Real-time mode
-        "-f", "lavfi",
-        "-i", "testsrc=size=640x480:rate=15",  # Video test pattern
-        "-f", "lavfi",
-        "-i", "sine=frequency=1000:sample_rate=48000",  # Audio test tone
-        "-c:v", "libx264",
-        "-preset", "ultrafast",
-        "-tune", "zerolatency",
-        "-b:v", "500k",
-        "-c:a", "aac",
-        "-b:a", "64k",
-        "-f", "flv",
+        "-f",
+        "lavfi",
+        "-i",
+        "testsrc=size=640x480:rate=15",  # Video test pattern
+        "-f",
+        "lavfi",
+        "-i",
+        "sine=frequency=1000:sample_rate=48000",  # Audio test tone
+        "-c:v",
+        "libx264",
+        "-preset",
+        "ultrafast",
+        "-tune",
+        "zerolatency",
+        "-b:v",
+        "500k",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "64k",
+        "-f",
+        "flv",
         "rtmp://localhost:1935/live/e2e-test-stream/in",
     ]
 
@@ -273,21 +284,33 @@ class TestEndToEndObservability:
         stream_path = "live/e2e-observability-test/in"
 
         # Get baseline state before stream
-        response_before = http_client.get(
-            f"{mediamtx_control_api_url}/v3/paths/list"
-        )
+        response_before = http_client.get(f"{mediamtx_control_api_url}/v3/paths/list")
         paths_before = [item["name"] for item in response_before.json()["items"]]
 
         # Start a test stream
         ffmpeg_cmd = [
             "ffmpeg",
             "-re",
-            "-f", "lavfi", "-i", "testsrc=size=320x240:rate=10",
-            "-f", "lavfi", "-i", "sine=frequency=1000:sample_rate=48000",
-            "-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency",
-            "-c:a", "aac",
-            "-t", "10",  # 10 second test
-            "-f", "flv",
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc=size=320x240:rate=10",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=1000:sample_rate=48000",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "ultrafast",
+            "-tune",
+            "zerolatency",
+            "-c:a",
+            "aac",
+            "-t",
+            "10",  # 10 second test
+            "-f",
+            "flv",
             f"rtmp://localhost:1935/{stream_path}",
         ]
 
@@ -302,9 +325,7 @@ class TestEndToEndObservability:
             time.sleep(3)
 
             # Verify Control API shows the new stream
-            response_after = http_client.get(
-                f"{mediamtx_control_api_url}/v3/paths/list"
-            )
+            response_after = http_client.get(f"{mediamtx_control_api_url}/v3/paths/list")
             paths_after = [item["name"] for item in response_after.json()["items"]]
 
             assert stream_path in paths_after, "New stream should appear in Control API"
@@ -340,11 +361,22 @@ class TestEndToEndObservability:
         ffmpeg_cmd = [
             "ffmpeg",
             "-re",
-            "-f", "lavfi", "-i", "testsrc=size=320x240:rate=10",
-            "-f", "lavfi", "-i", "sine=frequency=1000:sample_rate=48000",
-            "-c:v", "libx264", "-preset", "ultrafast",
-            "-c:a", "aac",
-            "-f", "flv",
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc=size=320x240:rate=10",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=1000:sample_rate=48000",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "ultrafast",
+            "-c:a",
+            "aac",
+            "-f",
+            "flv",
             f"rtmp://localhost:1935/{stream_path}",
         ]
 
@@ -359,9 +391,7 @@ class TestEndToEndObservability:
             time.sleep(3)
 
             # Verify stream is active
-            response = http_client.get(
-                f"{mediamtx_control_api_url}/v3/paths/list"
-            )
+            response = http_client.get(f"{mediamtx_control_api_url}/v3/paths/list")
             paths = [item["name"] for item in response.json()["items"]]
             assert stream_path in paths, "Stream should be active"
 
@@ -373,9 +403,7 @@ class TestEndToEndObservability:
             time.sleep(2)
 
             # Verify Control API reflects the change
-            response_after = http_client.get(
-                f"{mediamtx_control_api_url}/v3/paths/list"
-            )
+            response_after = http_client.get(f"{mediamtx_control_api_url}/v3/paths/list")
             data_after = response_after.json()
 
             # Stream should be removed or marked as not ready
@@ -383,7 +411,9 @@ class TestEndToEndObservability:
 
             if stream_items:
                 # Still listed but should be not ready
-                assert stream_items[0].get("ready") is False, "Stream should be not ready after disconnect"
+                assert stream_items[0].get("ready") is False, (
+                    "Stream should be not ready after disconnect"
+                )
             # Otherwise removed, which is acceptable
 
         finally:
@@ -415,11 +445,22 @@ class TestEndToEndObservability:
                 ffmpeg_cmd = [
                     "ffmpeg",
                     "-re",
-                    "-f", "lavfi", "-i", "testsrc=size=320x240:rate=10",
-                    "-f", "lavfi", "-i", "sine=frequency=1000:sample_rate=48000",
-                    "-c:v", "libx264", "-preset", "ultrafast",
-                    "-c:a", "aac",
-                    "-f", "flv",
+                    "-f",
+                    "lavfi",
+                    "-i",
+                    "testsrc=size=320x240:rate=10",
+                    "-f",
+                    "lavfi",
+                    "-i",
+                    "sine=frequency=1000:sample_rate=48000",
+                    "-c:v",
+                    "libx264",
+                    "-preset",
+                    "ultrafast",
+                    "-c:a",
+                    "aac",
+                    "-f",
+                    "flv",
                     f"rtmp://localhost:1935/{stream_path}",
                 ]
 
@@ -434,9 +475,7 @@ class TestEndToEndObservability:
             time.sleep(4)
 
             # Query Control API
-            response = http_client.get(
-                f"{mediamtx_control_api_url}/v3/paths/list"
-            )
+            response = http_client.get(f"{mediamtx_control_api_url}/v3/paths/list")
 
             assert response.status_code == 200
             data = response.json()
@@ -444,13 +483,13 @@ class TestEndToEndObservability:
 
             # Verify all streams are visible
             for stream_path in stream_paths:
-                assert stream_path in active_paths, f"Stream {stream_path} should be visible in Control API"
+                assert stream_path in active_paths, (
+                    f"Stream {stream_path} should be visible in Control API"
+                )
 
             # Verify each stream has independent state
             stream_items = {
-                item["name"]: item
-                for item in data["items"]
-                if item["name"] in stream_paths
+                item["name"]: item for item in data["items"] if item["name"] in stream_paths
             }
 
             assert len(stream_items) >= 2, "Should see multiple independent streams"

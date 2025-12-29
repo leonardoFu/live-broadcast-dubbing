@@ -19,6 +19,8 @@ dependencies = [
     # API server
     "fastapi>=0.104.0",
     "uvicorn[standard]>=0.24.0",
+    # Socket.IO for Echo STS Service
+    "python-socketio[asyncio]>=5.0",
     # Shared internal packages
     "dubbing-common",
     "dubbing-contracts",
@@ -32,6 +34,7 @@ dev = [
     "mypy>=1.0",
     "ruff>=0.1.0",
     "httpx",  # For API testing
+    "python-socketio[asyncio_client]>=5.0",  # For Socket.IO client testing
 ]
 
 [build-system]

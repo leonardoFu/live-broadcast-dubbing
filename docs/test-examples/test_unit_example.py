@@ -38,7 +38,7 @@ def chunk_audio(pcm_data: bytes, chunk_duration_ms: int, sample_rate: int) -> li
 
     chunks = []
     for i in range(0, len(pcm_data), bytes_per_chunk):
-        chunk = pcm_data[i:i + bytes_per_chunk]
+        chunk = pcm_data[i : i + bytes_per_chunk]
         if len(chunk) > 0:
             chunks.append(chunk)
 
@@ -49,7 +49,7 @@ def chunk_audio(pcm_data: bytes, chunk_duration_ms: int, sample_rate: int) -> li
 @pytest.fixture
 def sample_pcm_audio():
     """Provide 1 second of silence at 16kHz, S16LE."""
-    return b'\x00\x00' * 16000
+    return b"\x00\x00" * 16000
 
 
 # Happy path test
@@ -79,7 +79,7 @@ def test_chunk_audio_error_invalid_duration(sample_pcm_audio):
 # Edge case: zero-length input
 def test_chunk_audio_edge_empty_input():
     """Test chunking empty audio returns empty list."""
-    chunks = chunk_audio(b'', chunk_duration_ms=1000, sample_rate=16000)
+    chunks = chunk_audio(b"", chunk_duration_ms=1000, sample_rate=16000)
     assert chunks == []
 
 
@@ -87,7 +87,7 @@ def test_chunk_audio_edge_empty_input():
 def test_chunk_audio_edge_partial_chunk():
     """Test chunking handles partial final chunk."""
     # 1.5 seconds of audio
-    pcm_data = b'\x00\x00' * 24000
+    pcm_data = b"\x00\x00" * 24000
     chunks = chunk_audio(pcm_data, chunk_duration_ms=1000, sample_rate=16000)
 
     assert len(chunks) == 2

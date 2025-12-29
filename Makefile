@@ -40,6 +40,13 @@ help:
 	@echo "  make media-test-integration - Run media-service integration tests (requires Docker)"
 	@echo "  make media-test-coverage - Run media-service tests with coverage"
 	@echo ""
+	@echo "STS Service:"
+	@echo "  make sts-echo           - Start Echo STS Service (for E2E testing)"
+	@echo "  make sts-test           - Run all sts-service tests"
+	@echo "  make sts-test-unit      - Run sts-service unit tests"
+	@echo "  make sts-test-e2e       - Run sts-service E2E tests"
+	@echo "  make sts-test-coverage  - Run sts-service tests with coverage"
+	@echo ""
 	@echo "Testing (E2E - Cross-Service):"
 	@echo "  make e2e-test           - Run E2E tests spanning multiple services"
 	@echo ""
@@ -141,6 +148,29 @@ media-test-integration:
 
 media-test-coverage:
 	$(MEDIA_PYTHON) -m pytest $(MEDIA_SERVICE)/tests/ --cov=$(MEDIA_SERVICE)/src --cov-report=html --cov-report=term
+
+# =============================================================================
+# STS Service
+# =============================================================================
+STS_SERVICE := apps/sts-service
+
+.PHONY: sts-test sts-test-unit sts-test-e2e sts-test-coverage sts-echo
+
+sts-test:
+	$(VENV_PYTHON) -m pytest $(STS_SERVICE)/tests/ -v
+
+sts-test-unit:
+	$(VENV_PYTHON) -m pytest $(STS_SERVICE)/tests/unit/ -v
+
+sts-test-e2e:
+	$(VENV_PYTHON) -m pytest $(STS_SERVICE)/tests/e2e/ -v -m e2e
+
+sts-test-coverage:
+	$(VENV_PYTHON) -m pytest $(STS_SERVICE)/tests/ --cov=sts_service --cov-report=html --cov-report=term --cov-fail-under=80
+
+sts-echo:
+	@echo "Starting Echo STS Service..."
+	$(VENV_PYTHON) -m sts_service.echo
 
 # =============================================================================
 # E2E Testing (Cross-Service)

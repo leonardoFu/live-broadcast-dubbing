@@ -48,7 +48,8 @@ def docker_services(docker_compose_file: str) -> Generator[None, None, None]:
         if result.returncode == 0:
             # Check if all services are running
             import json
-            services = [json.loads(line) for line in result.stdout.strip().split('\n') if line]
+
+            services = [json.loads(line) for line in result.stdout.strip().split("\n") if line]
 
             if all(svc.get("State") == "running" for svc in services):
                 print("✅ All services running, checking health endpoints...")

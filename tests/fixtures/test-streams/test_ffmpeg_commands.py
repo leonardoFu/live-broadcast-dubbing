@@ -94,30 +94,34 @@ class FFmpegTestCommandBuilder:
         cmd = ["ffmpeg", "-re"]
 
         # Video input (testsrc)
-        cmd.extend([
-            "-f", "lavfi",
-            "-i", f"testsrc=size={video_size}:rate={video_rate}"
-        ])
+        cmd.extend(["-f", "lavfi", "-i", f"testsrc=size={video_size}:rate={video_rate}"])
 
         # Audio input (sine wave)
-        cmd.extend([
-            "-f", "lavfi",
-            "-i", f"sine=frequency={audio_freq}:sample_rate={self.DEFAULT_AUDIO_RATE}"
-        ])
+        cmd.extend(
+            [
+                "-f",
+                "lavfi",
+                "-i",
+                f"sine=frequency={audio_freq}:sample_rate={self.DEFAULT_AUDIO_RATE}",
+            ]
+        )
 
         # Video codec (H.264)
-        cmd.extend([
-            "-c:v", "libx264",
-            "-preset", "veryfast",
-            "-tune", "zerolatency",
-            "-b:v", video_bitrate
-        ])
+        cmd.extend(
+            [
+                "-c:v",
+                "libx264",
+                "-preset",
+                "veryfast",
+                "-tune",
+                "zerolatency",
+                "-b:v",
+                video_bitrate,
+            ]
+        )
 
         # Audio codec (AAC)
-        cmd.extend([
-            "-c:a", "aac",
-            "-b:a", audio_bitrate
-        ])
+        cmd.extend(["-c:a", "aac", "-b:a", audio_bitrate])
 
         # Duration (if specified)
         if duration is not None:
@@ -128,11 +132,7 @@ class FFmpegTestCommandBuilder:
 
         return cmd
 
-    def build_publish_command_string(
-        self,
-        stream_id: str,
-        **kwargs
-    ) -> str:
+    def build_publish_command_string(self, stream_id: str, **kwargs) -> str:
         """Build FFmpeg command as a shell-escaped string.
 
         Args:
@@ -145,11 +145,7 @@ class FFmpegTestCommandBuilder:
         cmd = self.build_publish_command(stream_id, **kwargs)
         return " ".join(shlex.quote(arg) for arg in cmd)
 
-    def _build_rtmp_url(
-        self,
-        stream_id: str,
-        query_params: str | None = None
-    ) -> str:
+    def _build_rtmp_url(self, stream_id: str, query_params: str | None = None) -> str:
         """Build RTMP URL for stream publishing.
 
         Args:
@@ -170,7 +166,8 @@ class FFmpegTestCommandBuilder:
         Valid characters: alphanumeric, hyphens, underscores
         """
         import re
-        return bool(re.match(r'^[a-zA-Z0-9_-]+$', stream_id))
+
+        return bool(re.match(r"^[a-zA-Z0-9_-]+$", stream_id))
 
 
 class GStreamerTestCommandBuilder:
@@ -275,17 +272,13 @@ class GStreamerTestCommandBuilder:
             f"videotestsrc pattern={video_pattern} ! "
             f"video/x-raw,width={width},height={height},framerate={video_rate}/1 ! "
             f"x264enc tune=zerolatency bitrate={video_bitrate} ! h264parse ! "
-            f"flvmux name=mux ! rtmpsink location=\"{rtmp_url}\" "
+            f'flvmux name=mux ! rtmpsink location="{rtmp_url}" '
             f"audiotestsrc wave=sine freq={audio_freq} ! "
             f"audio/x-raw,rate={self.DEFAULT_AUDIO_RATE},channels=2 ! "
             f"voaacenc bitrate={audio_bitrate} ! aacparse ! mux."
         )
 
-    def _build_rtmp_url(
-        self,
-        stream_id: str,
-        query_params: str | None = None
-    ) -> str:
+    def _build_rtmp_url(self, stream_id: str, query_params: str | None = None) -> str:
         """Build RTMP URL for stream publishing."""
         base_url = f"rtmp://{self.rtmp_host}:{self.rtmp_port}/live/{stream_id}/in"
         if query_params:
@@ -295,7 +288,8 @@ class GStreamerTestCommandBuilder:
     def _is_valid_stream_id(self, stream_id: str) -> bool:
         """Check if stream ID contains only valid characters."""
         import re
-        return bool(re.match(r'^[a-zA-Z0-9_-]+$', stream_id))
+
+        return bool(re.match(r"^[a-zA-Z0-9_-]+$", stream_id))
 
 
 # =============================================================================
@@ -336,8 +330,7 @@ class TestFFmpegCommandBuilderRTMPURL:
         """Test RTMP URL with complex query parameters."""
         builder = FFmpegTestCommandBuilder()
         cmd = builder.build_publish_command(
-            "test-stream",
-            query_params="lang=es&bitrate=high&user=test123"
+            "test-stream", query_params="lang=es&bitrate=high&user=test123"
         )
 
         rtmp_url = cmd[-1]
@@ -480,7 +473,7 @@ class TestFFmpegCommandBuilderSources:
         assert "frequency=1000" in cmd_str
         # Default bitrates
         assert "2000k" in cmd_str  # video bitrate
-        assert "128k" in cmd_str   # audio bitrate
+        assert "128k" in cmd_str  # audio bitrate
 
 
 class TestFFmpegCommandBuilderDuration:
@@ -580,7 +573,7 @@ class TestFFmpegCommandBuilderStringOutput:
             video_size="1920x1080",
             video_rate=60,
             audio_freq=880,
-            query_params="lang=en"
+            query_params="lang=en",
         )
 
         # Check all options are present

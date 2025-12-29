@@ -114,8 +114,9 @@ class TestMediaServiceHookEndpoints:
         )
 
         # Should return 200 (success) or 422 (validation error), not 404
-        assert response.status_code in [200, 422], \
+        assert response.status_code in [200, 422], (
             f"Endpoint should exist, got {response.status_code}"
+        )
 
     def test_hook_not_ready_endpoint_exists(
         self,
@@ -137,8 +138,9 @@ class TestMediaServiceHookEndpoints:
         )
 
         # Should return 200 (success) or 422 (validation error), not 404
-        assert response.status_code in [200, 422], \
+        assert response.status_code in [200, 422], (
             f"Endpoint should exist, got {response.status_code}"
+        )
 
     def test_hook_ready_endpoint_validates_payload(
         self,
@@ -187,9 +189,7 @@ class TestMediaServiceHookEndpoints:
 class TestMediaServiceStartupTime:
     """Test media-service startup performance meets requirements."""
 
-    def test_media_service_starts_within_30_seconds(
-        self, docker_services: None
-    ) -> None:
+    def test_media_service_starts_within_30_seconds(self, docker_services: None) -> None:
         """
         Test all services start within 30 seconds (SC-001).
 
@@ -214,5 +214,6 @@ class TestMediaServiceStartupTime:
         duration_ms = (time.time() - start) * 1000
 
         assert response.status_code == 200
-        assert duration_ms < 1000, \
+        assert duration_ms < 1000, (
             f"Service should respond quickly after startup, took {duration_ms:.2f}ms"
+        )

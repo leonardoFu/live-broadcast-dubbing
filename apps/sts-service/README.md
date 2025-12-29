@@ -119,12 +119,32 @@ apps/sts-service/
 │       │   └── __init__.py
 │       ├── translation/        # Text translation
 │       │   └── __init__.py
-│       └── tts/                # Text-to-Speech synthesis
-│           └── __init__.py
+│       ├── tts/                # Text-to-Speech synthesis
+│       │   └── __init__.py
+│       └── echo/               # Echo service for E2E testing
+│           ├── __init__.py
+│           ├── __main__.py     # Standalone entrypoint
+│           ├── server.py       # Socket.IO AsyncServer
+│           ├── session.py      # Session management
+│           ├── auth.py         # API key authentication
+│           ├── config.py       # Environment configuration
+│           ├── handlers/       # Socket.IO event handlers
+│           │   ├── stream.py   # stream:init, pause, resume, end
+│           │   ├── fragment.py # fragment:data, fragment:ack
+│           │   └── config.py   # config:error_simulation
+│           └── models/         # Pydantic models
+│               ├── stream.py   # Stream lifecycle payloads
+│               ├── fragment.py # Audio fragment payloads
+│               └── error.py    # Error and simulation models
 ├── tests/
 │   ├── unit/                   # Fast, mocked model tests
+│   │   └── echo/               # Echo service unit tests
 │   ├── integration/            # Real model loading tests
+│   │   └── echo/               # Echo service integration tests
 │   └── conftest.py             # Shared test fixtures
+├── deploy/
+│   └── Dockerfile.echo         # Lightweight Docker image for echo service
+├── docker-compose.yml          # Local development compose
 ├── pyproject.toml              # Package metadata and dependencies
 └── README.md                   # This file
 ```
@@ -178,6 +198,87 @@ REST API endpoints (to be implemented):
 - `POST /translate` - Text translation
 - `POST /tts/synthesize` - Text to speech
 - `POST /sts/process` - End-to-end STS pipeline
+
+## Echo STS Service (E2E Testing)
+
+The Echo STS Service is a protocol-compliant mock implementation of the STS Service
+designed for end-to-end testing. It echoes received audio fragments back to the caller
+without requiring GPU resources or ML models.
+
+### Quick Start
+
+```bash
+# Using Python directly
+python -m sts_service.echo --port 8000
+
+# Using Docker
+docker compose up echo-sts
+
+# Using Docker build
+docker build -f deploy/Dockerfile.echo -t echo-sts-service .
+docker run -p 8000:8000 echo-sts-service
+```
+
+### Features
+
+- Full WebSocket Audio Fragment Protocol (spec 016) compliance
+- Socket.IO AsyncServer with ASGI support
+- No authentication required (accepts all connections)
+- In-order fragment delivery
+- Backpressure simulation
+- Error injection for testing error handling
+- Mock transcript and translation text
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ECHO_HOST` | `0.0.0.0` | Host to bind to |
+| `ECHO_PORT` | `8000` | Port to listen on |
+| `LOG_LEVEL` | `INFO` | Logging level |
+| `ECHO_PROCESSING_DELAY_MS` | `0` | Simulated processing delay |
+| `BACKPRESSURE_ENABLED` | `false` | Enable backpressure simulation |
+| `AUTO_DISCONNECT_DELAY` | `5` | Seconds after stream:complete before disconnect |
+
+**Note**: No authentication-related environment variables are needed as the service accepts all connections.
+
+### Running Tests
+
+```bash
+# Run all echo service tests
+pytest apps/sts-service/tests/unit/echo/ -v
+
+# Run integration tests (requires uvicorn)
+pytest apps/sts-service/tests/integration/echo/ -v -m integration
+
+# Run with coverage
+pytest apps/sts-service/tests/ --cov=sts_service.echo --cov-fail-under=80
+```
+
+### Error Simulation
+
+Configure error injection at runtime via Socket.IO:
+
+```python
+# Send config:error_simulation event
+await client.emit("config:error_simulation", {
+    "enabled": True,
+    "rules": [
+        {
+            "trigger": "sequence_number",
+            "value": 5,
+            "error_code": "TIMEOUT",
+            "retryable": True
+        },
+        {
+            "trigger": "nth_fragment",
+            "value": 10,
+            "error_code": "MODEL_ERROR",
+            "stage": "tts"
+        }
+    ]
+})
+```
 
 ## Related Services
 

@@ -57,26 +57,35 @@ class TestRTMPPublishTriggerReadyEvent:
         ffmpeg_cmd = [
             "ffmpeg",
             "-re",
-            "-f", "lavfi",
-            "-i", "testsrc=size=640x480:rate=30",
-            "-f", "lavfi",
-            "-i", "sine=frequency=440:sample_rate=44100",
-            "-c:v", "libx264",
-            "-preset", "veryfast",
-            "-tune", "zerolatency",
-            "-c:a", "aac",
-            "-ar", "44100",
-            "-f", "flv",
-            "-t", "5",  # 5 seconds only
-            f"{MEDIAMTX_RTMP_URL}/{stream_path}"
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc=size=640x480:rate=30",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=440:sample_rate=44100",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "veryfast",
+            "-tune",
+            "zerolatency",
+            "-c:a",
+            "aac",
+            "-ar",
+            "44100",
+            "-f",
+            "flv",
+            "-t",
+            "5",  # 5 seconds only
+            f"{MEDIAMTX_RTMP_URL}/{stream_path}",
         ]
 
         # Start FFmpeg in background
         start_time = time.time()
         ffmpeg_process = subprocess.Popen(
-            ffmpeg_cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
+            ffmpeg_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
 
         try:
@@ -100,7 +109,9 @@ class TestRTMPPublishTriggerReadyEvent:
                 time.sleep(poll_interval)
 
             # Assert: Stream became ready
-            assert ready_time is not None, f"Stream {stream_path} did not become ready within {max_wait}s"
+            assert ready_time is not None, (
+                f"Stream {stream_path} did not become ready within {max_wait}s"
+            )
 
             # Assert: Hook delivery latency <1s (SC-002)
             assert ready_time < 1.0, f"Hook delivery took {ready_time:.2f}s (expected <1s)"
@@ -128,22 +139,29 @@ class TestRTMPPublishTriggerReadyEvent:
         ffmpeg_cmd = [
             "ffmpeg",
             "-re",
-            "-f", "lavfi",
-            "-i", "testsrc=size=640x480:rate=30",
-            "-f", "lavfi",
-            "-i", "sine=frequency=440:sample_rate=44100",
-            "-c:v", "libx264",
-            "-preset", "veryfast",
-            "-c:a", "aac",
-            "-f", "flv",
-            "-t", "5",
-            f"{MEDIAMTX_RTMP_URL}/{stream_path}"
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc=size=640x480:rate=30",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=440:sample_rate=44100",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "veryfast",
+            "-c:a",
+            "aac",
+            "-f",
+            "flv",
+            "-t",
+            "5",
+            f"{MEDIAMTX_RTMP_URL}/{stream_path}",
         ]
 
         ffmpeg_process = subprocess.Popen(
-            ffmpeg_cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
+            ffmpeg_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
 
         try:
@@ -175,22 +193,29 @@ class TestRTMPPublishTriggerReadyEvent:
         ffmpeg_cmd = [
             "ffmpeg",
             "-re",
-            "-f", "lavfi",
-            "-i", "testsrc=size=640x480:rate=30",
-            "-f", "lavfi",
-            "-i", "sine=frequency=440:sample_rate=44100",
-            "-c:v", "libx264",
-            "-preset", "veryfast",
-            "-c:a", "aac",
-            "-f", "flv",
-            "-t", "5",
-            f"{MEDIAMTX_RTMP_URL}/{stream_path}?{query_string}"
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc=size=640x480:rate=30",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=440:sample_rate=44100",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "veryfast",
+            "-c:a",
+            "aac",
+            "-f",
+            "flv",
+            "-t",
+            "5",
+            f"{MEDIAMTX_RTMP_URL}/{stream_path}?{query_string}",
         ]
 
         ffmpeg_process = subprocess.Popen(
-            ffmpeg_cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
+            ffmpeg_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
 
         try:
@@ -228,22 +253,29 @@ class TestRTMPDisconnectTriggerNotReadyEvent:
         ffmpeg_cmd = [
             "ffmpeg",
             "-re",
-            "-f", "lavfi",
-            "-i", "testsrc=size=640x480:rate=30",
-            "-f", "lavfi",
-            "-i", "sine=frequency=440:sample_rate=44100",
-            "-c:v", "libx264",
-            "-preset", "veryfast",
-            "-c:a", "aac",
-            "-f", "flv",
-            "-t", "3",  # Short duration
-            f"{MEDIAMTX_RTMP_URL}/{stream_path}"
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc=size=640x480:rate=30",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=440:sample_rate=44100",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "veryfast",
+            "-c:a",
+            "aac",
+            "-f",
+            "flv",
+            "-t",
+            "3",  # Short duration
+            f"{MEDIAMTX_RTMP_URL}/{stream_path}",
         ]
 
         ffmpeg_process = subprocess.Popen(
-            ffmpeg_cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
+            ffmpeg_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
 
         # Wait for stream to become ready
@@ -280,10 +312,14 @@ class TestRTMPDisconnectTriggerNotReadyEvent:
             time.sleep(poll_interval)
 
         # Assert: Stream became not ready
-        assert not_ready_time is not None, f"Stream {stream_path} did not become not-ready within {max_wait}s"
+        assert not_ready_time is not None, (
+            f"Stream {stream_path} did not become not-ready within {max_wait}s"
+        )
 
         # Assert: Hook delivery latency <1s (SC-003)
-        assert not_ready_time < 1.0, f"Not-ready hook delivery took {not_ready_time:.2f}s (expected <1s)"
+        assert not_ready_time < 1.0, (
+            f"Not-ready hook delivery took {not_ready_time:.2f}s (expected <1s)"
+        )
 
 
 @pytest.mark.integration
