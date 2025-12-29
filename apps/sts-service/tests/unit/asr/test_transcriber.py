@@ -349,3 +349,128 @@ class TestModelCache:
         # This test would require checking internal state
         # Simplified version just ensures no exceptions
         pass
+
+
+class TestArtifactEmission:
+    """Tests for debug artifact emission (transcript output to files)."""
+
+    @pytest.fixture(autouse=True)
+    def clear_model_cache(self):
+        """Clear model cache before each test."""
+        from sts_service.asr import transcriber
+        transcriber._MODEL_CACHE.clear()
+        yield
+        transcriber._MODEL_CACHE.clear()
+
+    @pytest.fixture
+    def mock_whisper_model(self):
+        """Fixture providing a mocked WhisperModel."""
+        with patch("sts_service.asr.transcriber.WhisperModel") as mock_class:
+            mock_model = MagicMock()
+            mock_class.return_value = mock_model
+
+            mock_model.transcribe.return_value = (
+                [create_mock_segment("Hello world from ASR", 0.0, 1.0)],
+                create_mock_info(),
+            )
+
+            yield mock_model
+
+    @pytest.fixture
+    def artifacts_dir(self, tmp_path, monkeypatch):
+        """Create temp artifacts directory and patch working directory."""
+        artifacts_path = tmp_path / ".artifacts" / "asr"
+        monkeypatch.chdir(tmp_path)
+        return artifacts_path
+
+    def test_emit_transcript_artifact_when_enabled(
+        self, mock_whisper_model, sample_audio_bytes, artifacts_dir
+    ):
+        """Test that transcript file is created when debug_artifacts=True."""
+        from sts_service.asr.models import ASRConfig
+        from sts_service.asr.transcriber import FasterWhisperASR
+
+        config = ASRConfig(debug_artifacts=True)
+        asr = FasterWhisperASR(config=config)
+
+        result = asr.transcribe(
+            audio_data=sample_audio_bytes,
+            stream_id="test-stream",
+            sequence_number=42,
+            start_time_ms=0,
+            end_time_ms=1000,
+        )
+
+        # Verify artifact file was created
+        expected_file = artifacts_dir / "test-stream" / "transcript_000042.txt"
+        assert expected_file.exists(), f"Expected artifact file at {expected_file}"
+        assert expected_file.read_text() == result.total_text
+
+    def test_no_artifact_when_disabled(
+        self, mock_whisper_model, sample_audio_bytes, artifacts_dir
+    ):
+        """Test that no artifact is created when debug_artifacts=False."""
+        from sts_service.asr.models import ASRConfig
+        from sts_service.asr.transcriber import FasterWhisperASR
+
+        config = ASRConfig(debug_artifacts=False)
+        asr = FasterWhisperASR(config=config)
+
+        asr.transcribe(
+            audio_data=sample_audio_bytes,
+            stream_id="test-stream",
+            sequence_number=0,
+            start_time_ms=0,
+            end_time_ms=1000,
+        )
+
+        # Verify no artifact directory was created
+        assert not artifacts_dir.exists(), "Artifacts dir should not exist when disabled"
+
+    def test_artifact_file_path_format(
+        self, mock_whisper_model, sample_audio_bytes, artifacts_dir
+    ):
+        """Test that artifact file uses correct naming convention."""
+        from sts_service.asr.models import ASRConfig
+        from sts_service.asr.transcriber import FasterWhisperASR
+
+        config = ASRConfig(debug_artifacts=True)
+        asr = FasterWhisperASR(config=config)
+
+        # Test with various sequence numbers
+        for seq_num in [0, 1, 123, 999999]:
+            asr.transcribe(
+                audio_data=sample_audio_bytes,
+                stream_id="my-stream-id",
+                sequence_number=seq_num,
+                start_time_ms=0,
+                end_time_ms=1000,
+            )
+
+            expected_file = artifacts_dir / "my-stream-id" / f"transcript_{seq_num:06d}.txt"
+            assert expected_file.exists(), f"Expected file: {expected_file}"
+
+    def test_artifact_contains_no_speech_message_for_silence(
+        self, mock_whisper_model, sample_audio_bytes, artifacts_dir
+    ):
+        """Test that artifact contains placeholder when no speech detected."""
+        from sts_service.asr.models import ASRConfig
+        from sts_service.asr.transcriber import FasterWhisperASR
+
+        # Return empty segments (silence)
+        mock_whisper_model.transcribe.return_value = ([], create_mock_info())
+
+        config = ASRConfig(debug_artifacts=True)
+        asr = FasterWhisperASR(config=config)
+
+        asr.transcribe(
+            audio_data=sample_audio_bytes,
+            stream_id="silent-stream",
+            sequence_number=0,
+            start_time_ms=0,
+            end_time_ms=1000,
+        )
+
+        expected_file = artifacts_dir / "silent-stream" / "transcript_000000.txt"
+        assert expected_file.exists()
+        assert expected_file.read_text() == "(no speech detected)"

@@ -38,6 +38,9 @@ coverage/
 *.cover
 .tox/
 
+# Debug artifacts (ASR transcripts, intermediate assets)
+.artifacts/
+
 # IDE
 .vscode/
 .idea/

@@ -1,4 +1,4 @@
-.PHONY: fmt lint typecheck test help setup api-status metrics clean install-hooks
+.PHONY: fmt lint typecheck test help setup api-status metrics clean clean-artifacts install-hooks
 .PHONY: media-dev media-down media-logs media-ps
 
 PYTHON := python3.10
@@ -33,6 +33,7 @@ help:
 	@echo "  make lint               - Lint code with ruff"
 	@echo "  make typecheck          - Type check with mypy"
 	@echo "  make clean              - Remove build artifacts and caches"
+	@echo "  make clean-artifacts    - Remove debug artifacts (.artifacts/)"
 	@echo ""
 	@echo "Testing (Media Service):"
 	@echo "  make media-test         - Run all media-service tests (unit + integration)"
@@ -127,6 +128,11 @@ clean:
 	find . -type d -name "*.egg-info" -not -path "./.venv*" -exec rm -rf {} + 2>/dev/null || true
 	rm -rf coverage htmlcov .coverage
 	@echo "✓ Build artifacts cleaned!"
+
+clean-artifacts:
+	@echo "Cleaning debug artifacts..."
+	rm -rf .artifacts/
+	@echo "✓ Debug artifacts cleaned!"
 
 install-hooks:
 	$(VENV_PYTHON) -m pre_commit install

@@ -5,6 +5,7 @@ Provides CPU-friendly Whisper transcription with model caching.
 """
 
 import time
+from pathlib import Path
 from typing import Any
 
 from faster_whisper import WhisperModel
@@ -187,7 +188,7 @@ class FasterWhisperASR(BaseASRComponent):
 
             processing_time_ms = int((time.time() - start_time) * 1000)
 
-            return TranscriptAsset(
+            result = TranscriptAsset(
                 stream_id=stream_id,
                 sequence_number=sequence_number,
                 component_instance=self.component_instance,
@@ -198,12 +199,14 @@ class FasterWhisperASR(BaseASRComponent):
                 processing_time_ms=processing_time_ms,
                 model_info=self.component_instance,
             )
+            self._emit_transcript_artifact(result)
+            return result
 
         except Exception as e:
             processing_time_ms = int((time.time() - start_time) * 1000)
             error = create_asr_error(e)
 
-            return TranscriptAsset(
+            result = TranscriptAsset(
                 stream_id=stream_id,
                 sequence_number=sequence_number,
                 component_instance=self.component_instance,
@@ -214,6 +217,8 @@ class FasterWhisperASR(BaseASRComponent):
                 processing_time_ms=processing_time_ms,
                 model_info=self.component_instance,
             )
+            self._emit_transcript_artifact(result)
+            return result
 
     def _convert_segments(
         self,
@@ -324,6 +329,22 @@ class FasterWhisperASR(BaseASRComponent):
             )
 
         return result
+
+    def _emit_transcript_artifact(self, result: TranscriptAsset) -> None:
+        """Write transcript text to artifact file when debug_artifacts is enabled.
+
+        Args:
+            result: The transcript asset to emit
+        """
+        if not self._config.debug_artifacts:
+            return
+
+        output_dir = Path(".artifacts/asr") / result.stream_id
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        output_file = output_dir / f"transcript_{result.sequence_number:06d}.txt"
+        content = result.total_text if result.total_text else "(no speech detected)"
+        output_file.write_text(content)
 
     def shutdown(self) -> None:
         """Release model resources."""
