@@ -182,6 +182,8 @@ Prefer deterministic tests; avoid requiring live RTMP endpoints. Mock STS events
 ## Active Technologies
 - Python 3.10.x (as specified in constitution and architecture spec) + setuptools>=68.0 (build system), ruff>=0.1.0 (linting), mypy>=1.0 (type checking), pytest>=7.0 (testing) (001-python-monorepo-setup)
 - File system (directory and file creation only) (001-python-monorepo-setup)
+- Python 3.10.x (per constitution and pyproject.toml requirement `>=3.10,<3.11`) + python-socketio>=5.0, uvicorn>=0.24.0, pydantic>=2.0 (017-echo-sts-service)
+- N/A (stateless, in-memory session state only) (017-echo-sts-service)
 
 ## Recent Changes
 - 001-python-monorepo-setup: Added Python 3.10.x (as specified in constitution and architecture spec) + setuptools>=68.0 (build system), ruff>=0.1.0 (linting), mypy>=1.0 (type checking), pytest>=7.0 (testing)

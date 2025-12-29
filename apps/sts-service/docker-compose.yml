@@ -1,0 +1,57 @@
+version: "3.8"
+
+# Docker Compose for STS Service development
+#
+# Services:
+#   - sts-service: Full GPU-enabled STS service (requires NVIDIA runtime)
+#   - echo-sts: Lightweight echo service for E2E testing (no GPU required)
+#
+# Usage:
+#   docker compose up echo-sts    # Start echo service only
+#   docker compose up              # Start all services
+
+services:
+  # Echo STS Service - for E2E testing without GPU
+  echo-sts:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.echo
+    ports:
+      - "8000:8000"
+    environment:
+      - STS_API_KEY=${STS_API_KEY:-test-api-key}
+      - ECHO_HOST=0.0.0.0
+      - ECHO_PORT=8000
+      - REQUIRE_AUTH=true
+      - LOG_LEVEL=INFO
+      - BACKPRESSURE_ENABLED=false
+      - ECHO_PROCESSING_DELAY_MS=0
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/socket.io/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
+
+  # Full STS Service - requires NVIDIA GPU runtime
+  # Uncomment when GPU support is needed
+  # sts-service:
+  #   build:
+  #     context: .
+  #     dockerfile: deploy/Dockerfile
+  #   ports:
+  #     - "8001:8000"
+  #   environment:
+  #     - STS_API_KEY=${STS_API_KEY:-test-api-key}
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: 1
+  #             capabilities: [gpu]
+
+networks:
+  default:
+    name: sts-network

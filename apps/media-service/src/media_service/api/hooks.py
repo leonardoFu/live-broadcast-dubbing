@@ -69,9 +69,7 @@ async def handle_ready_event(event: HookEvent) -> JSONResponse:
 
     except ValueError as e:
         logger.error(f"Invalid hook event: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
-        ) from e
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)) from e
     except Exception as e:
         logger.exception("Unexpected error processing ready event")
         raise HTTPException(
@@ -134,9 +132,7 @@ async def handle_not_ready_event(event: HookEvent) -> JSONResponse:
 
     except ValueError as e:
         logger.error(f"Invalid hook event: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
-        ) from e
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)) from e
     except Exception as e:
         logger.exception("Unexpected error processing not-ready event")
         raise HTTPException(

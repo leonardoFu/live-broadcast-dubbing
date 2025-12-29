@@ -27,12 +27,15 @@ class TestMTXHookEnvironmentParsing:
 
     def test_parse_mtx_env_happy_path(self) -> None:
         """Test happy path: valid environment variables → JSON payload."""
-        with mock.patch.dict(os.environ, {
-            "MTX_PATH": "live/test-stream/in",
-            "MTX_QUERY": "lang=es",
-            "MTX_SOURCE_TYPE": "rtmp",
-            "MTX_SOURCE_ID": "1",
-        }):
+        with mock.patch.dict(
+            os.environ,
+            {
+                "MTX_PATH": "live/test-stream/in",
+                "MTX_QUERY": "lang=es",
+                "MTX_SOURCE_TYPE": "rtmp",
+                "MTX_SOURCE_ID": "1",
+            },
+        ):
             payload = mtx_hook.parse_env_vars()
 
             assert payload["path"] == "live/test-stream/in"
@@ -42,12 +45,16 @@ class TestMTXHookEnvironmentParsing:
 
     def test_parse_mtx_env_no_query(self) -> None:
         """Test edge case: empty MTX_QUERY → excluded from payload."""
-        with mock.patch.dict(os.environ, {
-            "MTX_PATH": "live/test-stream/in",
-            "MTX_QUERY": "",
-            "MTX_SOURCE_TYPE": "rtmp",
-            "MTX_SOURCE_ID": "1",
-        }, clear=True):
+        with mock.patch.dict(
+            os.environ,
+            {
+                "MTX_PATH": "live/test-stream/in",
+                "MTX_QUERY": "",
+                "MTX_SOURCE_TYPE": "rtmp",
+                "MTX_SOURCE_ID": "1",
+            },
+            clear=True,
+        ):
             payload = mtx_hook.parse_env_vars()
 
             assert payload["path"] == "live/test-stream/in"
@@ -57,29 +64,43 @@ class TestMTXHookEnvironmentParsing:
 
     def test_parse_mtx_env_missing_path(self) -> None:
         """Test error case: missing MTX_PATH → error with clear message."""
-        with mock.patch.dict(os.environ, {
-            "MTX_QUERY": "",
-            "MTX_SOURCE_TYPE": "rtmp",
-            "MTX_SOURCE_ID": "1",
-        }, clear=True):
+        with mock.patch.dict(
+            os.environ,
+            {
+                "MTX_QUERY": "",
+                "MTX_SOURCE_TYPE": "rtmp",
+                "MTX_SOURCE_ID": "1",
+            },
+            clear=True,
+        ):
             with pytest.raises(ValueError, match="MTX_PATH environment variable is required"):
                 mtx_hook.parse_env_vars()
 
     def test_parse_mtx_env_missing_source_type(self) -> None:
         """Test error case: missing MTX_SOURCE_TYPE → error."""
-        with mock.patch.dict(os.environ, {
-            "MTX_PATH": "live/test/in",
-            "MTX_SOURCE_ID": "1",
-        }, clear=True):
-            with pytest.raises(ValueError, match="MTX_SOURCE_TYPE environment variable is required"):
+        with mock.patch.dict(
+            os.environ,
+            {
+                "MTX_PATH": "live/test/in",
+                "MTX_SOURCE_ID": "1",
+            },
+            clear=True,
+        ):
+            with pytest.raises(
+                ValueError, match="MTX_SOURCE_TYPE environment variable is required"
+            ):
                 mtx_hook.parse_env_vars()
 
     def test_parse_mtx_env_missing_source_id(self) -> None:
         """Test error case: missing MTX_SOURCE_ID → error."""
-        with mock.patch.dict(os.environ, {
-            "MTX_PATH": "live/test/in",
-            "MTX_SOURCE_TYPE": "rtmp",
-        }, clear=True):
+        with mock.patch.dict(
+            os.environ,
+            {
+                "MTX_PATH": "live/test/in",
+                "MTX_SOURCE_TYPE": "rtmp",
+            },
+            clear=True,
+        ):
             with pytest.raises(ValueError, match="MTX_SOURCE_ID environment variable is required"):
                 mtx_hook.parse_env_vars()
 
@@ -90,25 +111,34 @@ class TestMTXHookURLConstruction:
 
     def test_construct_url_ready_event(self) -> None:
         """Test URL construction for ready event."""
-        with mock.patch.dict(os.environ, {
-            "ORCHESTRATOR_URL": "http://stream-orchestration:8080",
-        }):
+        with mock.patch.dict(
+            os.environ,
+            {
+                "ORCHESTRATOR_URL": "http://stream-orchestration:8080",
+            },
+        ):
             url = mtx_hook.construct_endpoint_url("ready")
             assert url == "http://stream-orchestration:8080/v1/mediamtx/events/ready"
 
     def test_construct_url_not_ready_event(self) -> None:
         """Test URL construction for not-ready event."""
-        with mock.patch.dict(os.environ, {
-            "ORCHESTRATOR_URL": "http://stream-orchestration:8080",
-        }):
+        with mock.patch.dict(
+            os.environ,
+            {
+                "ORCHESTRATOR_URL": "http://stream-orchestration:8080",
+            },
+        ):
             url = mtx_hook.construct_endpoint_url("not-ready")
             assert url == "http://stream-orchestration:8080/v1/mediamtx/events/not-ready"
 
     def test_construct_url_trailing_slash(self) -> None:
         """Test URL construction handles trailing slash."""
-        with mock.patch.dict(os.environ, {
-            "ORCHESTRATOR_URL": "http://stream-orchestration:8080/",
-        }):
+        with mock.patch.dict(
+            os.environ,
+            {
+                "ORCHESTRATOR_URL": "http://stream-orchestration:8080/",
+            },
+        ):
             url = mtx_hook.construct_endpoint_url("ready")
             assert url == "http://stream-orchestration:8080/v1/mediamtx/events/ready"
             assert "//" not in url.replace("http://", "")
@@ -116,7 +146,9 @@ class TestMTXHookURLConstruction:
     def test_construct_url_missing_orchestrator_url(self) -> None:
         """Test error case: missing ORCHESTRATOR_URL → error."""
         with mock.patch.dict(os.environ, {}, clear=True):
-            with pytest.raises(ValueError, match="ORCHESTRATOR_URL environment variable is required"):
+            with pytest.raises(
+                ValueError, match="ORCHESTRATOR_URL environment variable is required"
+            ):
                 mtx_hook.construct_endpoint_url("ready")
 
 
@@ -150,6 +182,7 @@ class TestMTXHookHTTPClient:
 
         # Mock HTTP 500 error
         import urllib.error
+
         with mock.patch("urllib.request.urlopen") as mock_urlopen:
             mock_urlopen.side_effect = urllib.error.HTTPError(
                 url=endpoint_url,
@@ -169,6 +202,7 @@ class TestMTXHookHTTPClient:
 
         # Mock network error
         import urllib.error
+
         with mock.patch("urllib.request.urlopen") as mock_urlopen:
             mock_urlopen.side_effect = urllib.error.URLError("Connection refused")
 
@@ -182,12 +216,18 @@ class TestMTXHookMain:
 
     def test_main_success_ready_event(self) -> None:
         """Test main with ready event."""
-        with mock.patch.dict(os.environ, {
-            "MTX_PATH": "live/test/in",
-            "MTX_SOURCE_TYPE": "rtmp",
-            "MTX_SOURCE_ID": "1",
-            "ORCHESTRATOR_URL": "http://stream-orchestration:8080",
-        }), mock.patch("sys.argv", ["mtx-hook", "ready"]):
+        with (
+            mock.patch.dict(
+                os.environ,
+                {
+                    "MTX_PATH": "live/test/in",
+                    "MTX_SOURCE_TYPE": "rtmp",
+                    "MTX_SOURCE_ID": "1",
+                    "ORCHESTRATOR_URL": "http://stream-orchestration:8080",
+                },
+            ),
+            mock.patch("sys.argv", ["mtx-hook", "ready"]),
+        ):
             with mock.patch("urllib.request.urlopen") as mock_urlopen:
                 mock_response = mock.Mock()
                 mock_response.getcode.return_value = 200
@@ -219,13 +259,20 @@ class TestMTXHookMain:
 
     def test_main_http_failure(self) -> None:
         """Test main with HTTP request failure."""
-        with mock.patch.dict(os.environ, {
-            "MTX_PATH": "live/test/in",
-            "MTX_SOURCE_TYPE": "rtmp",
-            "MTX_SOURCE_ID": "1",
-            "ORCHESTRATOR_URL": "http://stream-orchestration:8080",
-        }), mock.patch("sys.argv", ["mtx-hook", "ready"]):
+        with (
+            mock.patch.dict(
+                os.environ,
+                {
+                    "MTX_PATH": "live/test/in",
+                    "MTX_SOURCE_TYPE": "rtmp",
+                    "MTX_SOURCE_ID": "1",
+                    "ORCHESTRATOR_URL": "http://stream-orchestration:8080",
+                },
+            ),
+            mock.patch("sys.argv", ["mtx-hook", "ready"]),
+        ):
             import urllib.error
+
             with mock.patch("urllib.request.urlopen") as mock_urlopen:
                 mock_urlopen.side_effect = urllib.error.HTTPError(
                     url="http://stream-orchestration:8080/v1/mediamtx/events/ready",

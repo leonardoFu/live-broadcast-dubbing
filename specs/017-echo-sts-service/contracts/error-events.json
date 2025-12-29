@@ -1,0 +1,237 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Error Events Schema",
+  "description": "Socket.IO event schemas for errors and error simulation (spec 016)",
+  "definitions": {
+    "ErrorCode": {
+      "type": "string",
+      "enum": [
+        "AUTH_FAILED",
+        "STREAM_NOT_FOUND",
+        "INVALID_CONFIG",
+        "FRAGMENT_TOO_LARGE",
+        "TIMEOUT",
+        "MODEL_ERROR",
+        "GPU_OOM",
+        "QUEUE_FULL",
+        "INVALID_SEQUENCE",
+        "RATE_LIMIT"
+      ],
+      "description": "Error codes defined in spec 016 section 8.1"
+    },
+    "ErrorSeverity": {
+      "type": "string",
+      "enum": ["warning", "error", "fatal"]
+    },
+    "ErrorSimulationTrigger": {
+      "type": "string",
+      "enum": ["sequence_number", "fragment_id", "nth_fragment"],
+      "description": "How to match fragments for error injection"
+    },
+    "ErrorSimulationRule": {
+      "type": "object",
+      "properties": {
+        "trigger": {
+          "$ref": "#/definitions/ErrorSimulationTrigger"
+        },
+        "value": {
+          "oneOf": [
+            { "type": "integer", "minimum": 0 },
+            { "type": "string" }
+          ],
+          "description": "Trigger value: sequence number, fragment ID, or N"
+        },
+        "error_code": {
+          "$ref": "#/definitions/ErrorCode"
+        },
+        "error_message": {
+          "type": "string",
+          "default": "Simulated error",
+          "description": "Human-readable error message"
+        },
+        "retryable": {
+          "type": "boolean",
+          "default": true
+        },
+        "stage": {
+          "type": "string",
+          "enum": ["asr", "translation", "tts"],
+          "description": "Processing stage that 'failed'"
+        }
+      },
+      "required": ["trigger", "value", "error_code"]
+    }
+  },
+  "events": {
+    "error": {
+      "direction": "sts_to_worker",
+      "description": "Report errors during operations",
+      "payload": {
+        "type": "object",
+        "properties": {
+          "error_id": {
+            "type": "string",
+            "description": "Unique error identifier"
+          },
+          "stream_id": {
+            "type": "string"
+          },
+          "fragment_id": {
+            "type": "string"
+          },
+          "code": {
+            "$ref": "#/definitions/ErrorCode"
+          },
+          "message": {
+            "type": "string",
+            "description": "Human-readable description"
+          },
+          "severity": {
+            "$ref": "#/definitions/ErrorSeverity",
+            "default": "error"
+          },
+          "retryable": {
+            "type": "boolean",
+            "default": false
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": ["code", "message", "severity", "retryable"]
+      }
+    },
+    "config:error_simulation": {
+      "direction": "worker_to_sts",
+      "description": "Configure error simulation for testing (Echo STS Service extension)",
+      "payload": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": false,
+            "description": "Enable error simulation"
+          },
+          "rules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/ErrorSimulationRule"
+            },
+            "description": "List of error simulation rules"
+          }
+        },
+        "required": ["enabled"]
+      }
+    },
+    "config:error_simulation:ack": {
+      "direction": "sts_to_worker",
+      "description": "Acknowledge error simulation configuration",
+      "payload": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": ["configured", "error"]
+          },
+          "rules_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "error_message": {
+            "type": "string",
+            "description": "Error message if status is 'error'"
+          }
+        },
+        "required": ["status"]
+      }
+    },
+    "disconnect": {
+      "direction": "bidirectional",
+      "description": "Connection closed (Socket.IO built-in)",
+      "payload": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "description": "Disconnect reason code"
+          },
+          "description": {
+            "type": "string"
+          }
+        },
+        "required": ["reason"]
+      },
+      "common_reasons": [
+        {
+          "reason": "io server disconnect",
+          "description": "Server-initiated shutdown"
+        },
+        {
+          "reason": "transport close",
+          "description": "Network disconnection"
+        },
+        {
+          "reason": "client namespace disconnect",
+          "description": "Worker initiated"
+        },
+        {
+          "reason": "ping timeout",
+          "description": "Connection lost (no heartbeat)"
+        }
+      ]
+    }
+  },
+  "error_code_reference": {
+    "AUTH_FAILED": {
+      "severity": "fatal",
+      "retryable": false,
+      "description": "Invalid API key"
+    },
+    "STREAM_NOT_FOUND": {
+      "severity": "error",
+      "retryable": false,
+      "description": "Unknown stream_id"
+    },
+    "INVALID_CONFIG": {
+      "severity": "error",
+      "retryable": false,
+      "description": "Invalid stream:init config"
+    },
+    "FRAGMENT_TOO_LARGE": {
+      "severity": "error",
+      "retryable": false,
+      "description": "Fragment exceeds 10MB size limit"
+    },
+    "TIMEOUT": {
+      "severity": "error",
+      "retryable": true,
+      "description": "Processing timeout"
+    },
+    "MODEL_ERROR": {
+      "severity": "error",
+      "retryable": true,
+      "description": "ASR/MT/TTS model failure"
+    },
+    "GPU_OOM": {
+      "severity": "error",
+      "retryable": true,
+      "description": "Out of GPU memory"
+    },
+    "QUEUE_FULL": {
+      "severity": "warning",
+      "retryable": true,
+      "description": "Processing queue full"
+    },
+    "INVALID_SEQUENCE": {
+      "severity": "error",
+      "retryable": false,
+      "description": "Sequence number gap detected"
+    },
+    "RATE_LIMIT": {
+      "severity": "warning",
+      "retryable": true,
+      "description": "Too many requests"
+    }
+  }
+}

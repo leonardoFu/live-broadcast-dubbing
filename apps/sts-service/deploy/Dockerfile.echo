@@ -1,0 +1,51 @@
+# Dockerfile for Echo STS Service
+#
+# This is a lightweight container for E2E testing - no GPU or ML models required.
+#
+# Build:
+#   docker build -f deploy/Dockerfile.echo -t echo-sts-service .
+#
+# Run:
+#   docker run -p 8000:8000 -e STS_API_KEY=your-key echo-sts-service
+
+FROM python:3.10-slim
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy only what's needed for pip install
+COPY pyproject.toml ./
+COPY src/ ./src/
+
+# Install the package with minimal dependencies
+# Note: We only need socketio-related deps, not ML deps
+RUN pip install --no-cache-dir \
+    python-socketio[asyncio]>=5.0 \
+    uvicorn[standard]>=0.24.0 \
+    pydantic>=2.0 \
+    && pip install --no-cache-dir -e .
+
+# Create non-root user
+RUN useradd -m -u 1000 appuser
+USER appuser
+
+# Environment variables
+ENV ECHO_HOST=0.0.0.0
+ENV ECHO_PORT=8000
+ENV REQUIRE_AUTH=true
+ENV LOG_LEVEL=INFO
+
+# Expose port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/socket.io/ || exit 1
+
+# Run the echo service
+CMD ["python", "-m", "sts_service.echo", "--host", "0.0.0.0", "--port", "8000"]

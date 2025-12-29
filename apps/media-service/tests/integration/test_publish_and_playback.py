@@ -41,26 +41,36 @@ def ffmpeg_publish_command(unique_stream_id: str) -> list[str]:
     return [
         "ffmpeg",
         "-re",
-        "-f", "lavfi",
-        "-i", "testsrc=size=640x480:rate=30",
-        "-f", "lavfi",
-        "-i", "sine=frequency=1000:sample_rate=48000",
-        "-c:v", "libx264",
-        "-preset", "veryfast",
-        "-tune", "zerolatency",
-        "-b:v", "1000k",
-        "-c:a", "aac",
-        "-b:a", "128k",
-        "-t", "10",  # 10 second stream
-        "-f", "flv",
-        f"{MEDIAMTX_RTMP_URL}/{stream_path}"
+        "-f",
+        "lavfi",
+        "-i",
+        "testsrc=size=640x480:rate=30",
+        "-f",
+        "lavfi",
+        "-i",
+        "sine=frequency=1000:sample_rate=48000",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "veryfast",
+        "-tune",
+        "zerolatency",
+        "-b:v",
+        "1000k",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "128k",
+        "-t",
+        "10",  # 10 second stream
+        "-f",
+        "flv",
+        f"{MEDIAMTX_RTMP_URL}/{stream_path}",
     ]
 
 
 def wait_for_stream_ready(
-    stream_path: str,
-    timeout: float = 5.0,
-    poll_interval: float = 0.2
+    stream_path: str, timeout: float = 5.0, poll_interval: float = 0.2
 ) -> dict | None:
     """Wait for stream to appear in Control API.
 
@@ -75,10 +85,7 @@ def wait_for_stream_ready(
     start_time = time.time()
     while time.time() - start_time < timeout:
         try:
-            response = requests.get(
-                f"{MEDIAMTX_CONTROL_API_URL}/v3/paths/list",
-                timeout=2.0
-            )
+            response = requests.get(f"{MEDIAMTX_CONTROL_API_URL}/v3/paths/list", timeout=2.0)
             if response.status_code == 200:
                 paths = response.json().get("items", [])
                 for path in paths:
@@ -91,9 +98,7 @@ def wait_for_stream_ready(
 
 
 def wait_for_stream_removed(
-    stream_path: str,
-    timeout: float = 5.0,
-    poll_interval: float = 0.2
+    stream_path: str, timeout: float = 5.0, poll_interval: float = 0.2
 ) -> bool:
     """Wait for stream to be removed from Control API.
 
@@ -108,10 +113,7 @@ def wait_for_stream_removed(
     start_time = time.time()
     while time.time() - start_time < timeout:
         try:
-            response = requests.get(
-                f"{MEDIAMTX_CONTROL_API_URL}/v3/paths/list",
-                timeout=2.0
-            )
+            response = requests.get(f"{MEDIAMTX_CONTROL_API_URL}/v3/paths/list", timeout=2.0)
             if response.status_code == 200:
                 paths = response.json().get("items", [])
                 if not any(p.get("name") == stream_path for p in paths):
@@ -127,9 +129,7 @@ class TestFFmpegPublishCreatesActiveStream:
     """Test FFmpeg publish command creates active stream."""
 
     def test_ffmpeg_publish_creates_stream(
-        self,
-        unique_stream_id: str,
-        ffmpeg_publish_command: list[str]
+        self, unique_stream_id: str, ffmpeg_publish_command: list[str]
     ) -> None:
         """Test FFmpeg publish command creates an active stream in MediaMTX.
 
@@ -142,9 +142,7 @@ class TestFFmpegPublishCreatesActiveStream:
 
         # Start FFmpeg publish process
         ffmpeg_process = subprocess.Popen(
-            ffmpeg_publish_command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
+            ffmpeg_publish_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
 
         try:
@@ -155,19 +153,14 @@ class TestFFmpegPublishCreatesActiveStream:
             assert stream_info is not None, (
                 f"Stream {stream_path} did not appear in Control API within 5 seconds"
             )
-            assert stream_info.get("ready") is True, (
-                f"Stream {stream_path} is not marked as ready"
-            )
+            assert stream_info.get("ready") is True, f"Stream {stream_path} is not marked as ready"
 
         finally:
             # Cleanup
             ffmpeg_process.terminate()
             ffmpeg_process.wait(timeout=5)
 
-    def test_ffmpeg_publish_with_query_params(
-        self,
-        unique_stream_id: str
-    ) -> None:
+    def test_ffmpeg_publish_with_query_params(self, unique_stream_id: str) -> None:
         """Test FFmpeg publish with query parameters works correctly."""
         stream_path = f"live/{unique_stream_id}/in"
         query_params = "lang=es&quality=high"
@@ -176,23 +169,31 @@ class TestFFmpegPublishCreatesActiveStream:
         ffmpeg_cmd = [
             "ffmpeg",
             "-re",
-            "-f", "lavfi",
-            "-i", "testsrc=size=640x480:rate=30",
-            "-f", "lavfi",
-            "-i", "sine=frequency=1000:sample_rate=48000",
-            "-c:v", "libx264",
-            "-preset", "veryfast",
-            "-tune", "zerolatency",
-            "-c:a", "aac",
-            "-t", "5",
-            "-f", "flv",
-            f"{MEDIAMTX_RTMP_URL}/{stream_path}?{query_params}"
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc=size=640x480:rate=30",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=1000:sample_rate=48000",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "veryfast",
+            "-tune",
+            "zerolatency",
+            "-c:a",
+            "aac",
+            "-t",
+            "5",
+            "-f",
+            "flv",
+            f"{MEDIAMTX_RTMP_URL}/{stream_path}?{query_params}",
         ]
 
         ffmpeg_process = subprocess.Popen(
-            ffmpeg_cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
+            ffmpeg_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
 
         try:
@@ -200,9 +201,7 @@ class TestFFmpegPublishCreatesActiveStream:
             stream_info = wait_for_stream_ready(stream_path, timeout=5.0)
 
             # Assert stream was created (MediaMTX accepts query params)
-            assert stream_info is not None, (
-                "Stream with query params did not appear in Control API"
-            )
+            assert stream_info is not None, "Stream with query params did not appear in Control API"
 
         finally:
             ffmpeg_process.terminate()
@@ -214,9 +213,7 @@ class TestStreamAppearsInControlAPI:
     """Test stream appears in Control API /v3/paths/list."""
 
     def test_stream_listed_in_paths_list(
-        self,
-        unique_stream_id: str,
-        ffmpeg_publish_command: list[str]
+        self, unique_stream_id: str, ffmpeg_publish_command: list[str]
     ) -> None:
         """Test published stream appears in /v3/paths/list endpoint.
 
@@ -227,9 +224,7 @@ class TestStreamAppearsInControlAPI:
         stream_path = f"live/{unique_stream_id}/in"
 
         ffmpeg_process = subprocess.Popen(
-            ffmpeg_publish_command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
+            ffmpeg_publish_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
 
         try:
@@ -237,10 +232,7 @@ class TestStreamAppearsInControlAPI:
             time.sleep(2.0)
 
             # Query Control API
-            response = requests.get(
-                f"{MEDIAMTX_CONTROL_API_URL}/v3/paths/list",
-                timeout=5.0
-            )
+            response = requests.get(f"{MEDIAMTX_CONTROL_API_URL}/v3/paths/list", timeout=5.0)
 
             # Assert API response
             assert response.status_code == 200
@@ -249,10 +241,7 @@ class TestStreamAppearsInControlAPI:
             assert isinstance(data["items"], list)
 
             # Find our stream
-            stream_info = next(
-                (p for p in data["items"] if p.get("name") == stream_path),
-                None
-            )
+            stream_info = next((p for p in data["items"] if p.get("name") == stream_path), None)
             assert stream_info is not None, (
                 f"Stream {stream_path} not found in Control API response"
             )
@@ -262,17 +251,13 @@ class TestStreamAppearsInControlAPI:
             ffmpeg_process.wait(timeout=5)
 
     def test_stream_removed_after_disconnect(
-        self,
-        unique_stream_id: str,
-        ffmpeg_publish_command: list[str]
+        self, unique_stream_id: str, ffmpeg_publish_command: list[str]
     ) -> None:
         """Test stream is removed from Control API after publisher disconnects."""
         stream_path = f"live/{unique_stream_id}/in"
 
         ffmpeg_process = subprocess.Popen(
-            ffmpeg_publish_command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
+            ffmpeg_publish_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
 
         try:
@@ -286,9 +271,7 @@ class TestStreamAppearsInControlAPI:
 
             # Wait for stream to be removed
             was_removed = wait_for_stream_removed(stream_path, timeout=5.0)
-            assert was_removed, (
-                f"Stream {stream_path} was not removed after disconnect"
-            )
+            assert was_removed, f"Stream {stream_path} was not removed after disconnect"
 
         finally:
             if ffmpeg_process.poll() is None:
@@ -301,9 +284,7 @@ class TestStreamHasExpectedTracks:
     """Test stream has expected tracks (H264, AAC)."""
 
     def test_stream_has_h264_video_track(
-        self,
-        unique_stream_id: str,
-        ffmpeg_publish_command: list[str]
+        self, unique_stream_id: str, ffmpeg_publish_command: list[str]
     ) -> None:
         """Test published stream has H264 video track.
 
@@ -313,9 +294,7 @@ class TestStreamHasExpectedTracks:
         stream_path = f"live/{unique_stream_id}/in"
 
         ffmpeg_process = subprocess.Popen(
-            ffmpeg_publish_command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
+            ffmpeg_publish_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
 
         try:
@@ -327,10 +306,11 @@ class TestStreamHasExpectedTracks:
             tracks = stream_info.get("tracks", [])
             # Note: MediaMTX may report tracks differently based on version
             # We check if any track indicates H264
-            has_h264 = any(
-                "H264" in str(track).upper() or "AVC" in str(track).upper()
-                for track in tracks
-            ) if tracks else True  # Skip if tracks not reported
+            has_h264 = (
+                any("H264" in str(track).upper() or "AVC" in str(track).upper() for track in tracks)
+                if tracks
+                else True
+            )  # Skip if tracks not reported
 
             assert has_h264 or not tracks, (
                 f"Stream does not have H264 video track. Tracks: {tracks}"
@@ -341,9 +321,7 @@ class TestStreamHasExpectedTracks:
             ffmpeg_process.wait(timeout=5)
 
     def test_stream_has_aac_audio_track(
-        self,
-        unique_stream_id: str,
-        ffmpeg_publish_command: list[str]
+        self, unique_stream_id: str, ffmpeg_publish_command: list[str]
     ) -> None:
         """Test published stream has AAC audio track.
 
@@ -353,9 +331,7 @@ class TestStreamHasExpectedTracks:
         stream_path = f"live/{unique_stream_id}/in"
 
         ffmpeg_process = subprocess.Popen(
-            ffmpeg_publish_command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
+            ffmpeg_publish_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
 
         try:
@@ -365,14 +341,16 @@ class TestStreamHasExpectedTracks:
 
             # Check tracks
             tracks = stream_info.get("tracks", [])
-            has_aac = any(
-                "AAC" in str(track).upper() or "MPEG4-GENERIC" in str(track).upper()
-                for track in tracks
-            ) if tracks else True  # Skip if tracks not reported
+            has_aac = (
+                any(
+                    "AAC" in str(track).upper() or "MPEG4-GENERIC" in str(track).upper()
+                    for track in tracks
+                )
+                if tracks
+                else True
+            )  # Skip if tracks not reported
 
-            assert has_aac or not tracks, (
-                f"Stream does not have AAC audio track. Tracks: {tracks}"
-            )
+            assert has_aac or not tracks, f"Stream does not have AAC audio track. Tracks: {tracks}"
 
         finally:
             ffmpeg_process.terminate()
@@ -384,9 +362,7 @@ class TestRTSPPlayback:
     """Test RTSP playback URL returns valid stream."""
 
     def test_rtsp_playback_url_accessible(
-        self,
-        unique_stream_id: str,
-        ffmpeg_publish_command: list[str]
+        self, unique_stream_id: str, ffmpeg_publish_command: list[str]
     ) -> None:
         """Test RTSP playback URL is accessible after stream is published.
 
@@ -399,9 +375,7 @@ class TestRTSPPlayback:
         stream_path = f"live/{unique_stream_id}/in"
 
         ffmpeg_process = subprocess.Popen(
-            ffmpeg_publish_command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
+            ffmpeg_publish_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
 
         try:
@@ -415,20 +389,20 @@ class TestRTSPPlayback:
             # Use ffprobe to check RTSP stream
             ffprobe_cmd = [
                 "ffprobe",
-                "-rtsp_transport", "tcp",
-                "-v", "error",
-                "-show_entries", "stream=codec_type,codec_name",
-                "-of", "json",
-                "-timeout", "5000000",  # 5 second timeout in microseconds
-                rtsp_url
+                "-rtsp_transport",
+                "tcp",
+                "-v",
+                "error",
+                "-show_entries",
+                "stream=codec_type,codec_name",
+                "-of",
+                "json",
+                "-timeout",
+                "5000000",  # 5 second timeout in microseconds
+                rtsp_url,
             ]
 
-            ffprobe_result = subprocess.run(
-                ffprobe_cmd,
-                capture_output=True,
-                text=True,
-                timeout=10
-            )
+            ffprobe_result = subprocess.run(ffprobe_cmd, capture_output=True, text=True, timeout=10)
 
             # Assert ffprobe succeeded
             assert ffprobe_result.returncode == 0, (
@@ -440,9 +414,7 @@ class TestRTSPPlayback:
             ffmpeg_process.wait(timeout=5)
 
     def test_rtsp_playback_contains_video_stream(
-        self,
-        unique_stream_id: str,
-        ffmpeg_publish_command: list[str]
+        self, unique_stream_id: str, ffmpeg_publish_command: list[str]
     ) -> None:
         """Test RTSP playback contains video stream.
 
@@ -451,9 +423,7 @@ class TestRTSPPlayback:
         stream_path = f"live/{unique_stream_id}/in"
 
         ffmpeg_process = subprocess.Popen(
-            ffmpeg_publish_command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
+            ffmpeg_publish_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
 
         try:
@@ -466,36 +436,33 @@ class TestRTSPPlayback:
             # Probe for video stream
             ffprobe_cmd = [
                 "ffprobe",
-                "-rtsp_transport", "tcp",
-                "-v", "error",
-                "-select_streams", "v:0",
-                "-show_entries", "stream=codec_name",
-                "-of", "default=noprint_wrappers=1:nokey=1",
-                "-timeout", "5000000",
-                rtsp_url
+                "-rtsp_transport",
+                "tcp",
+                "-v",
+                "error",
+                "-select_streams",
+                "v:0",
+                "-show_entries",
+                "stream=codec_name",
+                "-of",
+                "default=noprint_wrappers=1:nokey=1",
+                "-timeout",
+                "5000000",
+                rtsp_url,
             ]
 
-            ffprobe_result = subprocess.run(
-                ffprobe_cmd,
-                capture_output=True,
-                text=True,
-                timeout=10
-            )
+            ffprobe_result = subprocess.run(ffprobe_cmd, capture_output=True, text=True, timeout=10)
 
             # Assert video codec is h264
             video_codec = ffprobe_result.stdout.strip()
-            assert "h264" in video_codec.lower(), (
-                f"Expected H264 video codec, got: {video_codec}"
-            )
+            assert "h264" in video_codec.lower(), f"Expected H264 video codec, got: {video_codec}"
 
         finally:
             ffmpeg_process.terminate()
             ffmpeg_process.wait(timeout=5)
 
     def test_rtsp_playback_contains_audio_stream(
-        self,
-        unique_stream_id: str,
-        ffmpeg_publish_command: list[str]
+        self, unique_stream_id: str, ffmpeg_publish_command: list[str]
     ) -> None:
         """Test RTSP playback contains audio stream.
 
@@ -504,9 +471,7 @@ class TestRTSPPlayback:
         stream_path = f"live/{unique_stream_id}/in"
 
         ffmpeg_process = subprocess.Popen(
-            ffmpeg_publish_command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
+            ffmpeg_publish_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
 
         try:
@@ -519,36 +484,33 @@ class TestRTSPPlayback:
             # Probe for audio stream
             ffprobe_cmd = [
                 "ffprobe",
-                "-rtsp_transport", "tcp",
-                "-v", "error",
-                "-select_streams", "a:0",
-                "-show_entries", "stream=codec_name",
-                "-of", "default=noprint_wrappers=1:nokey=1",
-                "-timeout", "5000000",
-                rtsp_url
+                "-rtsp_transport",
+                "tcp",
+                "-v",
+                "error",
+                "-select_streams",
+                "a:0",
+                "-show_entries",
+                "stream=codec_name",
+                "-of",
+                "default=noprint_wrappers=1:nokey=1",
+                "-timeout",
+                "5000000",
+                rtsp_url,
             ]
 
-            ffprobe_result = subprocess.run(
-                ffprobe_cmd,
-                capture_output=True,
-                text=True,
-                timeout=10
-            )
+            ffprobe_result = subprocess.run(ffprobe_cmd, capture_output=True, text=True, timeout=10)
 
             # Assert audio codec is aac
             audio_codec = ffprobe_result.stdout.strip()
-            assert "aac" in audio_codec.lower(), (
-                f"Expected AAC audio codec, got: {audio_codec}"
-            )
+            assert "aac" in audio_codec.lower(), f"Expected AAC audio codec, got: {audio_codec}"
 
         finally:
             ffmpeg_process.terminate()
             ffmpeg_process.wait(timeout=5)
 
     def test_rtsp_over_tcp_transport(
-        self,
-        unique_stream_id: str,
-        ffmpeg_publish_command: list[str]
+        self, unique_stream_id: str, ffmpeg_publish_command: list[str]
     ) -> None:
         """Test RTSP playback over TCP transport (avoids UDP packet loss).
 
@@ -559,9 +521,7 @@ class TestRTSPPlayback:
         stream_path = f"live/{unique_stream_id}/in"
 
         ffmpeg_process = subprocess.Popen(
-            ffmpeg_publish_command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
+            ffmpeg_publish_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
 
         try:
@@ -574,18 +534,19 @@ class TestRTSPPlayback:
             # Read a few frames using TCP transport
             ffmpeg_read_cmd = [
                 "ffmpeg",
-                "-rtsp_transport", "tcp",
-                "-i", rtsp_url,
-                "-frames:v", "10",  # Read 10 video frames
-                "-f", "null",
-                "-"  # Discard output
+                "-rtsp_transport",
+                "tcp",
+                "-i",
+                rtsp_url,
+                "-frames:v",
+                "10",  # Read 10 video frames
+                "-f",
+                "null",
+                "-",  # Discard output
             ]
 
             read_result = subprocess.run(
-                ffmpeg_read_cmd,
-                capture_output=True,
-                text=True,
-                timeout=15
+                ffmpeg_read_cmd, capture_output=True, text=True, timeout=15
             )
 
             # Assert read succeeded (returncode 0 means success)

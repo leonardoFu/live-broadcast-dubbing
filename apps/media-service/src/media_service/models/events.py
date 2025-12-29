@@ -52,9 +52,7 @@ class HookEvent(BaseModel):
 
         pattern = r"^live/[a-zA-Z0-9_-]+/(in|out)$"
         if not re.match(pattern, v):
-            raise ValueError(
-                f"path must match pattern 'live/<streamId>/(in|out)', got {v}"
-            )
+            raise ValueError(f"path must match pattern 'live/<streamId>/(in|out)', got {v}")
         return v
 
     def extract_stream_id(self) -> str:
