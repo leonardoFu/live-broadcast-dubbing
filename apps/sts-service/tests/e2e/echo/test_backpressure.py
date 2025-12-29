@@ -86,7 +86,7 @@ class TestBackpressure:
     """Integration tests for backpressure."""
 
     @pytest.mark.asyncio
-    @pytest.mark.integration
+    @pytest.mark.e2e
     async def test_worker_receives_backpressure(
         self, echo_server, test_config, sample_audio_base64
     ):
@@ -159,7 +159,7 @@ class TestBackpressure:
                 await client.disconnect()
 
     @pytest.mark.asyncio
-    @pytest.mark.integration
+    @pytest.mark.e2e
     async def test_backpressure_triggers_at_threshold(
         self, echo_server, test_config, sample_audio_base64
     ):

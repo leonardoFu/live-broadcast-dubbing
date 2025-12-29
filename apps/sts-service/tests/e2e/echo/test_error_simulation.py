@@ -75,7 +75,7 @@ class TestErrorSimulation:
     """Integration tests for error simulation."""
 
     @pytest.mark.asyncio
-    @pytest.mark.integration
+    @pytest.mark.e2e
     async def test_worker_configures_error_simulation(self, echo_server, test_config):
         """Config accepted via Socket.IO."""
         client = socketio.AsyncClient()
@@ -137,7 +137,7 @@ class TestErrorSimulation:
                 await client.disconnect()
 
     @pytest.mark.asyncio
-    @pytest.mark.integration
+    @pytest.mark.e2e
     async def test_worker_handles_timeout_error(
         self, echo_server, test_config, sample_audio_base64
     ):
@@ -232,7 +232,7 @@ class TestErrorSimulation:
                 await client.disconnect()
 
     @pytest.mark.asyncio
-    @pytest.mark.integration
+    @pytest.mark.e2e
     async def test_worker_handles_model_error(self, echo_server, test_config, sample_audio_base64):
         """Model error returned correctly."""
         client = socketio.AsyncClient()
@@ -319,7 +319,7 @@ class TestErrorSimulation:
                 await client.disconnect()
 
     @pytest.mark.asyncio
-    @pytest.mark.integration
+    @pytest.mark.e2e
     async def test_error_simulation_multiple_rules(
         self, echo_server, test_config, sample_audio_base64
     ):

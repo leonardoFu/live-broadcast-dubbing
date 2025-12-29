@@ -304,14 +304,14 @@ make sts-test-unit
 .venv/bin/python -m pytest apps/sts-service/tests/unit/echo/ -v
 ```
 
-### Integration Tests
+### E2E Tests
 
 ```bash
 # Using Makefile
-make sts-test-integration
+make sts-test-e2e
 
 # Or directly
-.venv/bin/python -m pytest apps/sts-service/tests/integration/echo/ -v -m integration
+.venv/bin/python -m pytest apps/sts-service/tests/e2e/echo/ -v -m e2e
 ```
 
 ### With Coverage

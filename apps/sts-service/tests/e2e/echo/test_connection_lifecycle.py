@@ -72,7 +72,7 @@ class TestConnectionLifecycle:
     """Integration tests for connection lifecycle."""
 
     @pytest.mark.asyncio
-    @pytest.mark.integration
+    @pytest.mark.e2e
     async def test_worker_connects_and_initializes(self, echo_server, test_config):
         """Full connection flow with Socket.IO client."""
         client = socketio.AsyncClient()
@@ -129,7 +129,7 @@ class TestConnectionLifecycle:
                 await client.disconnect()
 
     @pytest.mark.asyncio
-    @pytest.mark.integration
+    @pytest.mark.e2e
     async def test_worker_connection_rejected_invalid_key(self, echo_server, test_config):
         """Rejection with real transport for invalid key."""
         client = socketio.AsyncClient()
@@ -151,7 +151,7 @@ class TestConnectionLifecycle:
                 await client.disconnect()
 
     @pytest.mark.asyncio
-    @pytest.mark.integration
+    @pytest.mark.e2e
     async def test_multiple_concurrent_sessions(self, echo_server, test_config):
         """10 concurrent sessions handled correctly."""
         num_clients = 10
@@ -213,7 +213,7 @@ class TestLifecycleFlow:
     """Integration tests for full lifecycle flow."""
 
     @pytest.mark.asyncio
-    @pytest.mark.integration
+    @pytest.mark.e2e
     async def test_worker_pause_resume_end_lifecycle(self, echo_server, test_config):
         """Full lifecycle flow: connect -> init -> pause -> resume -> end."""
         client = socketio.AsyncClient()
@@ -278,7 +278,7 @@ class TestLifecycleFlow:
                 await client.disconnect()
 
     @pytest.mark.asyncio
-    @pytest.mark.integration
+    @pytest.mark.e2e
     async def test_stream_complete_auto_disconnect(self, echo_server, test_config):
         """Connection closes after 5 seconds (configured to 1s for test)."""
         client = socketio.AsyncClient()

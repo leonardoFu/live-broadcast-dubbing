@@ -44,7 +44,7 @@ help:
 	@echo "  make sts-echo           - Start Echo STS Service (for E2E testing)"
 	@echo "  make sts-test           - Run all sts-service tests"
 	@echo "  make sts-test-unit      - Run sts-service unit tests"
-	@echo "  make sts-test-integration - Run sts-service integration tests"
+	@echo "  make sts-test-e2e       - Run sts-service E2E tests"
 	@echo "  make sts-test-coverage  - Run sts-service tests with coverage"
 	@echo ""
 	@echo "Testing (E2E - Cross-Service):"
@@ -154,7 +154,7 @@ media-test-coverage:
 # =============================================================================
 STS_SERVICE := apps/sts-service
 
-.PHONY: sts-test sts-test-unit sts-test-integration sts-test-coverage sts-echo
+.PHONY: sts-test sts-test-unit sts-test-e2e sts-test-coverage sts-echo
 
 sts-test:
 	$(VENV_PYTHON) -m pytest $(STS_SERVICE)/tests/ -v
@@ -162,8 +162,8 @@ sts-test:
 sts-test-unit:
 	$(VENV_PYTHON) -m pytest $(STS_SERVICE)/tests/unit/ -v
 
-sts-test-integration:
-	$(VENV_PYTHON) -m pytest $(STS_SERVICE)/tests/integration/ -v -m integration
+sts-test-e2e:
+	$(VENV_PYTHON) -m pytest $(STS_SERVICE)/tests/e2e/ -v -m e2e
 
 sts-test-coverage:
 	$(VENV_PYTHON) -m pytest $(STS_SERVICE)/tests/ --cov=sts_service --cov-report=html --cov-report=term --cov-fail-under=80

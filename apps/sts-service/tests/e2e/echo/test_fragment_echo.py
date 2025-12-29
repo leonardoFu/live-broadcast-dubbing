@@ -76,7 +76,7 @@ class TestFragmentRoundTrip:
     """Integration tests for fragment round-trip."""
 
     @pytest.mark.asyncio
-    @pytest.mark.integration
+    @pytest.mark.e2e
     async def test_worker_sends_fragments_receives_echo(
         self, echo_server, test_config, sample_audio_base64
     ):
@@ -154,7 +154,7 @@ class TestFragmentRoundTrip:
                 await client.disconnect()
 
     @pytest.mark.asyncio
-    @pytest.mark.integration
+    @pytest.mark.e2e
     async def test_multiple_fragments_in_sequence(
         self, echo_server, test_config, sample_audio_base64
     ):
@@ -222,7 +222,7 @@ class TestFragmentRoundTrip:
                 await client.disconnect()
 
     @pytest.mark.asyncio
-    @pytest.mark.integration
+    @pytest.mark.e2e
     async def test_fragment_worker_ack(self, echo_server, test_config, sample_audio_base64):
         """Worker acknowledgment handled correctly."""
         client = socketio.AsyncClient()
