@@ -331,7 +331,10 @@ class FasterWhisperASR(BaseASRComponent):
         return result
 
     def _emit_transcript_artifact(self, result: TranscriptAsset) -> None:
-        """Write transcript text to artifact file when debug_artifacts is enabled.
+        """Append transcript text to session file when debug_artifacts is enabled.
+
+        Appends each fragment's transcript to a single file per session,
+        allowing inspection of the full transcript for the whole session.
 
         Args:
             result: The transcript asset to emit
@@ -342,9 +345,13 @@ class FasterWhisperASR(BaseASRComponent):
         output_dir = Path(".artifacts/asr") / result.stream_id
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        output_file = output_dir / f"transcript_{result.sequence_number:06d}.txt"
-        content = result.total_text if result.total_text else "(no speech detected)"
-        output_file.write_text(content)
+        output_file = output_dir / "transcript.txt"
+        content = result.total_text if result.total_text else ""
+
+        # Append to session file (skip empty segments)
+        if content:
+            with output_file.open("a", encoding="utf-8") as f:
+                f.write(f"{content}\n")
 
     def shutdown(self) -> None:
         """Release model resources."""

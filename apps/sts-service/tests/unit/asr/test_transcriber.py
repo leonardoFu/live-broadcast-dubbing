@@ -401,10 +401,10 @@ class TestArtifactEmission:
             end_time_ms=1000,
         )
 
-        # Verify artifact file was created
-        expected_file = artifacts_dir / "test-stream" / "transcript_000042.txt"
+        # Verify artifact file was created (single file per session)
+        expected_file = artifacts_dir / "test-stream" / "transcript.txt"
         assert expected_file.exists(), f"Expected artifact file at {expected_file}"
-        assert expected_file.read_text() == result.total_text
+        assert result.total_text in expected_file.read_text()
 
     def test_no_artifact_when_disabled(
         self, mock_whisper_model, sample_audio_bytes, artifacts_dir
@@ -427,33 +427,39 @@ class TestArtifactEmission:
         # Verify no artifact directory was created
         assert not artifacts_dir.exists(), "Artifacts dir should not exist when disabled"
 
-    def test_artifact_file_path_format(
+    def test_artifact_appends_multiple_fragments(
         self, mock_whisper_model, sample_audio_bytes, artifacts_dir
     ):
-        """Test that artifact file uses correct naming convention."""
+        """Test that multiple fragments append to the same session file."""
         from sts_service.asr.models import ASRConfig
         from sts_service.asr.transcriber import FasterWhisperASR
 
         config = ASRConfig(debug_artifacts=True)
         asr = FasterWhisperASR(config=config)
 
-        # Test with various sequence numbers
-        for seq_num in [0, 1, 123, 999999]:
+        # Transcribe multiple fragments
+        for seq_num in [0, 1, 2]:
             asr.transcribe(
                 audio_data=sample_audio_bytes,
                 stream_id="my-stream-id",
                 sequence_number=seq_num,
-                start_time_ms=0,
-                end_time_ms=1000,
+                start_time_ms=seq_num * 1000,
+                end_time_ms=(seq_num + 1) * 1000,
             )
 
-            expected_file = artifacts_dir / "my-stream-id" / f"transcript_{seq_num:06d}.txt"
-            assert expected_file.exists(), f"Expected file: {expected_file}"
+        # All should be in a single file
+        expected_file = artifacts_dir / "my-stream-id" / "transcript.txt"
+        assert expected_file.exists(), f"Expected file: {expected_file}"
 
-    def test_artifact_contains_no_speech_message_for_silence(
+        # File should contain multiple lines (one per fragment)
+        content = expected_file.read_text()
+        lines = [line for line in content.strip().split("\n") if line]
+        assert len(lines) == 3, f"Expected 3 lines, got {len(lines)}"
+
+    def test_artifact_skips_empty_transcripts(
         self, mock_whisper_model, sample_audio_bytes, artifacts_dir
     ):
-        """Test that artifact contains placeholder when no speech detected."""
+        """Test that empty transcripts (silence) are not written to artifact."""
         from sts_service.asr.models import ASRConfig
         from sts_service.asr.transcriber import FasterWhisperASR
 
@@ -471,6 +477,6 @@ class TestArtifactEmission:
             end_time_ms=1000,
         )
 
-        expected_file = artifacts_dir / "silent-stream" / "transcript_000000.txt"
-        assert expected_file.exists()
-        assert expected_file.read_text() == "(no speech detected)"
+        # Empty transcripts should not create a file
+        expected_file = artifacts_dir / "silent-stream" / "transcript.txt"
+        assert not expected_file.exists(), "Empty transcripts should not be written"
