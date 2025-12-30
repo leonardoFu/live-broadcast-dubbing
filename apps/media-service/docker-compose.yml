@@ -1,5 +1,3 @@
-version: '3.8'
-
 # Media Service - Local Development Environment
 # Purpose: Single-command startup of MediaMTX and media-service
 # Usage: make dev (from project root) or docker compose up (from this directory)
