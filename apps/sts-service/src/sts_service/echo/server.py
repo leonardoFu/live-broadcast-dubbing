@@ -83,6 +83,14 @@ class EchoServer:
         except ImportError:
             logger.debug("Config handlers not yet implemented")
 
+        # Simulate handlers (for E2E testing)
+        try:
+            from sts_service.echo.handlers.simulate import register_simulate_handlers
+
+            register_simulate_handlers(self.sio, self.session_store)
+        except ImportError:
+            logger.debug("Simulate handlers not yet implemented")
+
     def _register_connection_handlers(self) -> None:
         """Register connection lifecycle handlers."""
 

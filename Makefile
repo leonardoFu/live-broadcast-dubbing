@@ -49,7 +49,15 @@ help:
 	@echo "  make sts-test-coverage  - Run sts-service tests with coverage"
 	@echo ""
 	@echo "Testing (E2E - Cross-Service):"
-	@echo "  make e2e-test           - Run E2E tests spanning multiple services"
+	@echo "  make e2e-up             - Start E2E Docker services"
+	@echo "  make e2e-down           - Stop E2E Docker services"
+	@echo "  make e2e-logs           - View E2E Docker logs"
+	@echo "  make e2e-ps             - List E2E Docker containers"
+	@echo "  make e2e-test           - Run E2E tests (services must be running)"
+	@echo "  make e2e-test-full      - Run E2E tests with auto service management"
+	@echo "  make e2e-test-p1        - Run P1 E2E tests (full pipeline + A/V sync)"
+	@echo "  make e2e-test-p2        - Run P2 E2E tests (resilience)"
+	@echo "  make e2e-test-p3        - Run P3 E2E tests (reconnection)"
 	@echo ""
 
 # Monorepo setup target
@@ -181,8 +189,46 @@ sts-echo:
 # =============================================================================
 # E2E Testing (Cross-Service)
 # =============================================================================
-.PHONY: e2e-test
+.PHONY: e2e-test e2e-up e2e-down e2e-logs e2e-ps
 
+# E2E Docker Compose management
+e2e-up:
+	@echo "Starting E2E test services (MediaMTX + echo-sts + media-service)..."
+	docker compose -f tests/e2e/docker-compose.yml up -d --build
+
+e2e-down:
+	@echo "Stopping E2E test services..."
+	docker compose -f tests/e2e/docker-compose.yml down -v --remove-orphans
+
+e2e-logs:
+	docker compose -f tests/e2e/docker-compose.yml logs -f --tail=200
+
+e2e-ps:
+	docker compose -f tests/e2e/docker-compose.yml ps
+
+# Run E2E tests (requires services to be running)
 e2e-test:
 	@echo "Running cross-service E2E tests (media-service + sts-service)..."
-	$(VENV_PYTHON) -m pytest tests/e2e/ -v -m e2e
+	$(VENV_PYTHON) -m pytest tests/e2e/ -v -m e2e --log-cli-level=INFO
+
+# Run E2E tests with automatic service management
+e2e-test-full:
+	@echo "Starting E2E services, running tests, and cleaning up..."
+	docker compose -f tests/e2e/docker-compose.yml up -d --build
+	$(VENV_PYTHON) -m pytest tests/e2e/ -v -m e2e --log-cli-level=INFO || true
+	docker compose -f tests/e2e/docker-compose.yml down -v --remove-orphans
+
+# Run only P1 (critical) E2E tests
+e2e-test-p1:
+	@echo "Running P1 E2E tests (full pipeline + A/V sync)..."
+	$(VENV_PYTHON) -m pytest tests/e2e/ -v -m "e2e and p1" --log-cli-level=INFO
+
+# Run P2 (resilience) E2E tests
+e2e-test-p2:
+	@echo "Running P2 E2E tests (circuit breaker + backpressure + fragment tracker)..."
+	$(VENV_PYTHON) -m pytest tests/e2e/ -v -m "e2e and p2" --log-cli-level=INFO
+
+# Run P3 (reconnection) E2E tests
+e2e-test-p3:
+	@echo "Running P3 E2E tests (reconnection resilience)..."
+	$(VENV_PYTHON) -m pytest tests/e2e/ -v -m "e2e and p3" --log-cli-level=INFO
