@@ -1,6 +1,5 @@
 # Codex CLI (local agent workflows)
 .codex/
-.claude/
 
 # Git worktrees for parallel development
 worktrees/
