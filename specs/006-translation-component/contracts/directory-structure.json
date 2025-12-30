@@ -1,0 +1,157 @@
+{
+  "module": "apps/sts-service/src/sts_service/translation/",
+  "description": "Translation component for STS pipeline - translates transcript text with deterministic preprocessing",
+  "structure": {
+    "__init__.py": {
+      "description": "Public API exports",
+      "exports": [
+        "TranslationComponent",
+        "BaseTranslationComponent",
+        "TextAsset",
+        "TranslationStatus",
+        "TranslationError",
+        "TranslationErrorType",
+        "SpeakerPolicy",
+        "NormalizationPolicy",
+        "TranslationConfig",
+        "create_translation_component",
+        "MockIdentityTranslation",
+        "MockDictionaryTranslation"
+      ]
+    },
+    "interface.py": {
+      "description": "Protocol + BaseClass pattern for component contract",
+      "classes": [
+        "TranslationComponent (Protocol)",
+        "BaseTranslationComponent (ABC)"
+      ],
+      "dependencies": [
+        "models.py (TextAsset, SpeakerPolicy, NormalizationPolicy)"
+      ]
+    },
+    "models.py": {
+      "description": "Pydantic models for data structures",
+      "classes": [
+        "TextAsset (extends AssetIdentifiers)",
+        "TranslationStatus (Enum)",
+        "TranslationError",
+        "TranslationErrorType (Enum)",
+        "SpeakerPolicy",
+        "NormalizationPolicy",
+        "TranslationConfig"
+      ],
+      "dependencies": [
+        "sts_service.asr.models (AssetIdentifiers)"
+      ]
+    },
+    "errors.py": {
+      "description": "Error classification and handling",
+      "functions": [
+        "classify_error(exception: Exception) -> TranslationErrorType",
+        "is_retryable(error_type: TranslationErrorType) -> bool",
+        "create_translation_error(exception: Exception) -> TranslationError"
+      ],
+      "dependencies": [
+        "models.py (TranslationError, TranslationErrorType)"
+      ]
+    },
+    "factory.py": {
+      "description": "Component factory for instantiation",
+      "functions": [
+        "create_translation_component(config, mock, mock_type, mock_dictionary) -> TranslationComponent"
+      ],
+      "dependencies": [
+        "interface.py (TranslationComponent)",
+        "models.py (TranslationConfig)",
+        "mock.py (MockIdentityTranslation, MockDictionaryTranslation)"
+      ]
+    },
+    "mock.py": {
+      "description": "Mock implementations for testing",
+      "classes": [
+        "MockIdentityTranslation (extends BaseTranslationComponent)",
+        "MockDictionaryTranslation (extends BaseTranslationComponent)"
+      ],
+      "dependencies": [
+        "interface.py (BaseTranslationComponent)",
+        "models.py (TextAsset, TranslationStatus, SpeakerPolicy, NormalizationPolicy)",
+        "preprocessing.py (SpeakerLabelDetector)",
+        "normalization.py (TranslationNormalizer)",
+        "postprocessing.py (TTSCleanup)"
+      ]
+    },
+    "preprocessing.py": {
+      "description": "Speaker label detection (pre-translation)",
+      "classes": [
+        "SpeakerLabelDetector"
+      ],
+      "methods": [
+        "detect_and_remove(text: str) -> tuple[str, str]"
+      ],
+      "dependencies": []
+    },
+    "normalization.py": {
+      "description": "Translation-oriented text normalization (pre-translation)",
+      "classes": [
+        "TranslationNormalizer"
+      ],
+      "methods": [
+        "normalize(text: str, policy: NormalizationPolicy) -> str",
+        "_normalize_time_phrases(text: str) -> str",
+        "_normalize_hyphens(text: str) -> str",
+        "_expand_abbreviations(text: str) -> str",
+        "_normalize_symbols(text: str) -> str"
+      ],
+      "dependencies": [
+        "models.py (NormalizationPolicy)"
+      ]
+    },
+    "postprocessing.py": {
+      "description": "TTS-oriented cleanup (post-translation, optional)",
+      "classes": [
+        "TTSCleanup"
+      ],
+      "methods": [
+        "cleanup(text: str) -> str",
+        "_normalize_smart_punctuation(text: str) -> str",
+        "_normalize_scores(text: str) -> str",
+        "_normalize_whitespace(text: str) -> str"
+      ],
+      "dependencies": []
+    }
+  },
+  "tests": {
+    "unit": {
+      "location": "apps/sts-service/tests/unit/translation/",
+      "files": [
+        "test_speaker_detection.py (SpeakerLabelDetector tests)",
+        "test_normalization.py (TranslationNormalizer tests)",
+        "test_postprocessing.py (TTSCleanup tests)",
+        "test_translation_component.py (Component protocol compliance, mocks)",
+        "test_errors.py (Error classification)"
+      ]
+    },
+    "integration": {
+      "location": "apps/sts-service/tests/integration/",
+      "files": [
+        "test_asr_translation.py (ASR → Translation pipeline, lineage)"
+      ]
+    }
+  },
+  "dependencies": {
+    "internal": [
+      "sts_service.asr.models (AssetIdentifiers base class)"
+    ],
+    "external": [
+      "pydantic (>=2.0)",
+      "pytest (>=7.0, dev)",
+      "pytest-mock (dev)",
+      "pytest-cov (dev)"
+    ]
+  },
+  "file_count": {
+    "source_files": 8,
+    "test_files": 6,
+    "total_loc_estimate": 2000
+  }
+}

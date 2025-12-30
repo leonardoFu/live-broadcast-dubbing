@@ -21,6 +21,8 @@ dependencies = [
     "uvicorn[standard]>=0.24.0",
     # Socket.IO for Echo STS Service
     "python-socketio[asyncio]>=5.0",
+    # Translation
+    "deepl>=1.0.0",
     # Shared internal packages
     "dubbing-common",
     "dubbing-contracts",

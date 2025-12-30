@@ -1,0 +1,77 @@
+{
+  "agent": "plan",
+  "status": "success",
+  "timestamp": "2025-12-30T10:30:00Z",
+  "execution_time_ms": 2500,
+  "result": {
+    "plan_file": "/Users/leonardofu/dev/back-end/live-broadcast-dubbing-cloud/worktree/tts-translation/specs/006-translation-component/plan.md",
+    "data_model_file": "/Users/leonardofu/dev/back-end/live-broadcast-dubbing-cloud/worktree/tts-translation/specs/006-translation-component/data-model.md",
+    "updates_applied": [
+      "Added deepl>=1.0.0 to primary dependencies",
+      "Updated module scope to 9 files (~1500 LOC)",
+      "Added Phase 3.5: DeepL Provider Implementation",
+      "Updated file structure to include deepl_provider.py",
+      "Updated test structure to include test_deepl_provider.py",
+      "Added .env.example file creation",
+      "Updated errors.py to be DeepL-aware",
+      "Added DeepLConfig model to data-model.md",
+      "Added environment variable configuration documentation"
+    ],
+    "new_phase": {
+      "phase": "3.5",
+      "name": "DeepL Provider Implementation",
+      "objective": "Implement production-ready DeepL API translation provider",
+      "deliverables": [
+        "deepl_provider.py with DeepLTranslationComponent",
+        "Environment variable configuration (DEEPL_AUTH_KEY, etc.)",
+        "DeepL-specific error handling",
+        ".env.example file for documentation"
+      ],
+      "files_to_create": [
+        "apps/sts-service/src/sts_service/translation/deepl_provider.py",
+        "apps/sts-service/.env.example"
+      ],
+      "files_to_modify": [
+        "apps/sts-service/src/sts_service/translation/errors.py",
+        "apps/sts-service/src/sts_service/translation/factory.py",
+        "apps/sts-service/requirements.txt"
+      ],
+      "tests": [
+        "test_deepl_provider.py: API initialization, env config, error handling, mocked API responses",
+        "test_errors.py: DeepL exception classification"
+      ],
+      "environment_variables": [
+        "DEEPL_AUTH_KEY (required)",
+        "TRANSLATION_PROVIDER (optional, defaults to deepl)",
+        "STS_SOURCE_LANGUAGE (optional)",
+        "STS_TARGET_LANGUAGE (optional)",
+        "DEEPL_FORMALITY (optional)",
+        "DEEPL_MODEL_TYPE (optional)"
+      ]
+    },
+    "data_model_updates": {
+      "new_models": [
+        "DeepLConfig: DeepL-specific configuration with auth_key, formality, model_type"
+      ],
+      "updated_models": []
+    },
+    "technologies": [
+      "Python 3.10.x",
+      "Pydantic >=2.0",
+      "pytest >=7.0",
+      "deepl >=1.0.0"
+    ],
+    "constitution_violations": [],
+    "artifacts_updated": [
+      "plan.md",
+      "data-model.md"
+    ],
+    "next_steps": [
+      "Phase 3.5: Implement DeepL provider (TDD - tests first)",
+      "Create .env.example file",
+      "Update errors.py for DeepL exception handling",
+      "Update factory.py for DeepL provider selection",
+      "Add deepl>=1.0.0 to requirements.txt"
+    ]
+  }
+}
