@@ -1,0 +1,49 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "sts-simulate-disconnect.json",
+  "title": "Echo STS Simulate Disconnect Event",
+  "description": "Event sent from test client to Echo STS server to force Socket.IO disconnection for reconnection testing.",
+  "type": "object",
+  "properties": {
+    "event": {
+      "type": "string",
+      "const": "simulate:disconnect",
+      "description": "Event name for simulating disconnect"
+    },
+    "payload": {
+      "type": "object",
+      "properties": {
+        "delay_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 60000,
+          "default": 0,
+          "description": "Delay in milliseconds before forcing disconnect (0 = immediate)"
+        }
+      },
+      "required": []
+    }
+  },
+  "required": ["event", "payload"],
+  "examples": [
+    {
+      "event": "simulate:disconnect",
+      "payload": {
+        "delay_ms": 0
+      }
+    },
+    {
+      "event": "simulate:disconnect",
+      "payload": {
+        "delay_ms": 5000
+      }
+    }
+  ],
+  "notes": [
+    "This event is for testing purposes only and should not be exposed in production Echo STS",
+    "After receiving this event, the server will call socketio.disconnect(sid) to force client disconnect",
+    "No response is sent - the connection is immediately closed after delay_ms",
+    "Client should trigger reconnection logic with exponential backoff (2s, 4s, 8s, 16s, 32s)",
+    "Used by test_reconnection.py E2E test to validate WorkerRunner reconnection behavior"
+  ]
+}

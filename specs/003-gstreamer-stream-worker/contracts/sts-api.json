@@ -1,0 +1,302 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://dubbing.example.com/schemas/sts-api.json",
+  "title": "STS Service API Contract (DEPRECATED)",
+  "description": "DEPRECATED: This HTTP-based contract is superseded by the Socket.IO-based WebSocket Audio Fragment Protocol. See specs/017-echo-sts-service/contracts/ for the current Socket.IO event schemas (stream-events.json, fragment-events.json, error-events.json). This file is retained for historical reference only.",
+  "_deprecation_note": {
+    "reason": "Replaced by Socket.IO-based real-time protocol for lower latency",
+    "replacement": "../017-echo-sts-service/contracts/",
+    "deprecated_since": "2025-12-29"
+  },
+  "definitions": {
+    "StsConfig": {
+      "type": "object",
+      "description": "Configuration for STS processing",
+      "required": ["source_language", "target_language"],
+      "properties": {
+        "source_language": {
+          "type": "string",
+          "description": "BCP-47 language code for input audio",
+          "examples": ["en-US", "es-ES", "fr-FR"],
+          "pattern": "^[a-z]{2}(-[A-Z]{2})?$"
+        },
+        "target_language": {
+          "type": "string",
+          "description": "BCP-47 language code for output audio",
+          "examples": ["es-ES", "de-DE", "ja-JP"],
+          "pattern": "^[a-z]{2}(-[A-Z]{2})?$"
+        },
+        "voice_id": {
+          "type": "string",
+          "description": "TTS voice identifier (provider-specific)",
+          "default": "default"
+        },
+        "preserve_style": {
+          "type": "boolean",
+          "description": "Attempt to preserve speaking style (emotion, pace)",
+          "default": true
+        },
+        "background_mode": {
+          "type": "string",
+          "description": "How to handle background audio",
+          "enum": ["remove", "preserve", "lower"],
+          "default": "lower"
+        }
+      }
+    },
+    "StsRequest": {
+      "type": "object",
+      "description": "Request payload for STS Service API",
+      "required": ["fragment_id", "stream_id", "sequence_number", "audio", "config"],
+      "properties": {
+        "fragment_id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Unique identifier for this fragment (UUID v4)"
+        },
+        "stream_id": {
+          "type": "string",
+          "description": "Stream identifier for routing and logging",
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "sequence_number": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Fragment sequence number for ordering"
+        },
+        "audio": {
+          "type": "string",
+          "contentEncoding": "base64",
+          "description": "Base64-encoded PCM S16LE @ 48kHz stereo audio"
+        },
+        "config": {
+          "$ref": "#/definitions/StsConfig"
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "minimum": 1000,
+          "maximum": 30000,
+          "default": 8000,
+          "description": "Maximum processing time before timeout (ms)"
+        }
+      }
+    },
+    "StsResponse": {
+      "type": "object",
+      "description": "Response payload from STS Service API",
+      "required": ["fragment_id", "status"],
+      "properties": {
+        "fragment_id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Matching request UUID for correlation"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["success", "error", "timeout"],
+          "description": "Processing result status"
+        },
+        "dubbed_audio": {
+          "type": "string",
+          "contentEncoding": "base64",
+          "description": "Base64-encoded dubbed PCM audio (same format as input)"
+        },
+        "transcript": {
+          "type": "string",
+          "description": "ASR transcript of original audio (optional)"
+        },
+        "translation": {
+          "type": "string",
+          "description": "Translated text (optional)"
+        },
+        "processing_time_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Server-side processing time in milliseconds"
+        },
+        "error_message": {
+          "type": "string",
+          "description": "Error description if status is 'error'"
+        }
+      },
+      "if": {
+        "properties": {
+          "status": { "const": "success" }
+        }
+      },
+      "then": {
+        "required": ["dubbed_audio"]
+      }
+    },
+    "ErrorResponse": {
+      "type": "object",
+      "description": "Error response for API failures",
+      "required": ["error", "message"],
+      "properties": {
+        "error": {
+          "type": "string",
+          "description": "Error code",
+          "enum": [
+            "INVALID_REQUEST",
+            "INVALID_AUDIO",
+            "PROCESSING_FAILED",
+            "TIMEOUT",
+            "RATE_LIMITED",
+            "INTERNAL_ERROR"
+          ]
+        },
+        "message": {
+          "type": "string",
+          "description": "Human-readable error message"
+        },
+        "fragment_id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Fragment ID from request (if available)"
+        },
+        "details": {
+          "type": "object",
+          "description": "Additional error context"
+        }
+      }
+    }
+  },
+  "paths": {
+    "/v1/process": {
+      "post": {
+        "summary": "Process audio fragment for dubbing",
+        "description": "Submit a PCM audio fragment for speech-to-speech translation",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/definitions/StsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful processing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/definitions/StsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/definitions/ErrorResponse"
+                }
+              }
+            }
+          },
+          "408": {
+            "description": "Processing timeout",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/definitions/StsResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/definitions/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/definitions/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/health": {
+      "get": {
+        "summary": "Health check endpoint",
+        "responses": {
+          "200": {
+            "description": "Service is healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["status"],
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": ["healthy", "degraded"]
+                    },
+                    "version": {
+                      "type": "string"
+                    },
+                    "gpu_available": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "headers": {
+    "Authorization": {
+      "description": "Bearer token for API authentication",
+      "required": true,
+      "schema": {
+        "type": "string",
+        "pattern": "^Bearer .+$"
+      }
+    },
+    "X-Request-ID": {
+      "description": "Request correlation ID (optional, uses fragment_id if not provided)",
+      "required": false,
+      "schema": {
+        "type": "string",
+        "format": "uuid"
+      }
+    }
+  },
+  "audio_format": {
+    "_deprecated": "This PCM format is no longer used. The current protocol uses M4A (AAC in MP4 container).",
+    "description": "DEPRECATED: Audio format specification for PCM data (no longer used)",
+    "encoding": "S16LE",
+    "sample_rate": 48000,
+    "channels": 2,
+    "bits_per_sample": 16,
+    "byte_order": "little-endian",
+    "fragment_duration_ms": 1000,
+    "fragment_size_bytes": 192000
+  },
+  "current_audio_format": {
+    "description": "Current audio format used in Socket.IO protocol (see specs/017-echo-sts-service/contracts/fragment-events.json)",
+    "format": "m4a",
+    "codec": "AAC",
+    "container": "MP4",
+    "sample_rate_hz": 48000,
+    "channels": "1 or 2",
+    "notes": "Audio is sent as base64-encoded M4A data in fragment:data events"
+  }
+}
