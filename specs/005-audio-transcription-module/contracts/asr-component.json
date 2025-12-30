@@ -1,0 +1,277 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://live-broadcast-dubbing.local/schemas/asr-component.json",
+  "title": "ASR Component Contract",
+  "description": "JSON Schema for the Audio Transcription Module (ASR Component) per specs/005-audio-transcription-module.md",
+  "definitions": {
+    "AudioFormat": {
+      "type": "string",
+      "enum": ["pcm_f32le", "pcm_s16le"],
+      "description": "Supported audio formats"
+    },
+    "AudioFragment": {
+      "type": "object",
+      "title": "Audio Fragment Input",
+      "description": "Input audio fragment for ASR processing (~1-2 seconds)",
+      "required": ["stream_id", "sequence_number", "start_time_ms", "end_time_ms", "payload_ref"],
+      "properties": {
+        "stream_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Logical stream/session identifier"
+        },
+        "sequence_number": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Monotonically increasing fragment index"
+        },
+        "audio_format": {
+          "$ref": "#/definitions/AudioFormat",
+          "default": "pcm_f32le"
+        },
+        "sample_rate_hz": {
+          "type": "integer",
+          "minimum": 8000,
+          "maximum": 48000,
+          "default": 16000,
+          "description": "Sample rate in Hz"
+        },
+        "channels": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2,
+          "default": 1,
+          "description": "Number of audio channels"
+        },
+        "start_time_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Fragment start in stream timeline (ms)"
+        },
+        "end_time_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Fragment end in stream timeline (ms)"
+        },
+        "payload_ref": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Reference to PCM bytes (in-memory key or asset store path)"
+        },
+        "domain": {
+          "type": "string",
+          "enum": ["sports", "football", "basketball", "news", "interview", "general"],
+          "default": "general",
+          "description": "Domain hint for vocabulary priming"
+        },
+        "language": {
+          "type": "string",
+          "pattern": "^[a-z]{2}$",
+          "default": "en",
+          "description": "Expected language code (ISO 639-1)"
+        }
+      },
+      "additionalProperties": false
+    },
+    "WordTiming": {
+      "type": "object",
+      "title": "Word-Level Timing",
+      "required": ["start_time_ms", "end_time_ms", "word"],
+      "properties": {
+        "start_time_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Word start (absolute stream time)"
+        },
+        "end_time_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Word end (absolute stream time)"
+        },
+        "word": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Recognized word text"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Word-level confidence (0.0-1.0)"
+        }
+      },
+      "additionalProperties": false
+    },
+    "TranscriptSegment": {
+      "type": "object",
+      "title": "Transcript Segment",
+      "description": "A single transcript segment with timing and confidence",
+      "required": ["start_time_ms", "end_time_ms", "text", "confidence"],
+      "properties": {
+        "start_time_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Segment start (absolute stream time)"
+        },
+        "end_time_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Segment end (absolute stream time)"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Human-readable transcript text"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Segment-level confidence score (0.0-1.0)"
+        },
+        "words": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/WordTiming"
+          },
+          "description": "Word-level timestamps (when enabled)"
+        },
+        "no_speech_probability": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Probability that segment contains no speech"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ASRErrorType": {
+      "type": "string",
+      "enum": ["no_speech", "model_load", "memory_error", "invalid_audio", "timeout", "preprocessing", "unknown"],
+      "description": "Classification of ASR errors"
+    },
+    "ASRError": {
+      "type": "object",
+      "title": "ASR Error",
+      "required": ["error_type", "message", "retryable"],
+      "properties": {
+        "error_type": {
+          "$ref": "#/definitions/ASRErrorType"
+        },
+        "message": {
+          "type": "string",
+          "description": "Human-readable error message"
+        },
+        "retryable": {
+          "type": "boolean",
+          "description": "Whether this error is worth retrying"
+        },
+        "details": {
+          "type": "object",
+          "description": "Additional error context"
+        }
+      },
+      "additionalProperties": false
+    },
+    "TranscriptStatus": {
+      "type": "string",
+      "enum": ["success", "partial", "failed"],
+      "description": "Status of transcript generation"
+    },
+    "TranscriptAsset": {
+      "type": "object",
+      "title": "Transcript Asset",
+      "description": "Complete ASR output for a single audio fragment",
+      "required": ["stream_id", "sequence_number", "asset_id", "created_at", "component", "component_instance", "language", "segments", "status"],
+      "properties": {
+        "stream_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Logical stream/session identifier"
+        },
+        "sequence_number": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Fragment index within stream"
+        },
+        "asset_id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Globally unique identifier for this artifact"
+        },
+        "parent_asset_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "default": [],
+          "description": "References to upstream assets"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of artifact creation"
+        },
+        "component": {
+          "type": "string",
+          "const": "asr",
+          "description": "Always 'asr' for this asset type"
+        },
+        "component_instance": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Provider identifier (e.g., 'faster-whisper-base')"
+        },
+        "language": {
+          "type": "string",
+          "pattern": "^[a-z]{2}$",
+          "description": "Detected or specified language code"
+        },
+        "language_probability": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Language detection confidence"
+        },
+        "segments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/TranscriptSegment"
+          },
+          "description": "Ordered list of transcript segments"
+        },
+        "status": {
+          "$ref": "#/definitions/TranscriptStatus"
+        },
+        "errors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ASRError"
+          },
+          "default": [],
+          "description": "List of errors encountered"
+        },
+        "processing_time_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total processing time in milliseconds"
+        },
+        "model_info": {
+          "type": "string",
+          "description": "Model identifier used"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "type": "object",
+  "properties": {
+    "request": {
+      "$ref": "#/definitions/AudioFragment"
+    },
+    "response": {
+      "$ref": "#/definitions/TranscriptAsset"
+    }
+  }
+}
