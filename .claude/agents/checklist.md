@@ -28,6 +28,8 @@ WORKFLOW_CONTEXT:
     "speckit-plan": { "status": "success", "plan_file": "..." }
   }
 }
+
+USER_REQUEST: <original user request text>
 ```
 
 **Extract from context**:
@@ -35,6 +37,7 @@ WORKFLOW_CONTEXT:
 - `feature_dir`: Base directory for all spec artifacts
 - `previous_results.speckit-specify.spec_file`: Path to spec.md
 - `previous_results.speckit-plan.plan_file`: Path to plan.md (if available)
+- `USER_REQUEST`: Original user request for context
 
 ## Execution
 

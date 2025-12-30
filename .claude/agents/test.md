@@ -30,12 +30,15 @@ WORKFLOW_CONTEXT:
     }
   }
 }
+
+USER_REQUEST: <original user request text>
 ```
 
 **Extract from context**:
 - `feature_id`: Use to construct paths like `specs/<feature-id>/tasks.md`
 - `feature_dir`: Base directory for all spec artifacts
 - `previous_results.speckit-implement`: Understand what was implemented
+- `USER_REQUEST`: Original user request for context
 
 ## Execution
 

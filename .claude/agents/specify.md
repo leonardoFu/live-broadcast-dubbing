@@ -25,13 +25,45 @@ WORKFLOW_CONTEXT:
   "feature_dir": "specs/<feature-id>/",
   "previous_results": {}
 }
+
+USER_REQUEST: <original user request text>
+
+FEEDBACK_CONTEXT (if feedback from analyze agent):
+{
+  "feedback_from": "speckit-analyze",
+  "iteration": 1,
+  "max_iterations": 2,
+  "issues_to_fix": [
+    {
+      "severity": "CRITICAL",
+      "type": "spec_ambiguity",
+      "message": "Requirement REQ-3 is ambiguous",
+      "location": "spec.md:45",
+      "recommendation": "Clarify authentication scope"
+    }
+  ]
+}
 ```
 
 **Extract from context**:
-- `feature_id`: Feature being created (may be auto-generated if not provided)
 - `workflow_id`: Unique identifier for this workflow run
+- `feature_id`: Feature being created (may be auto-generated if not provided)
+- `USER_REQUEST`: Original user request to understand intent
+- `FEEDBACK_CONTEXT`: If present, fix issues reported by analyze agent
 
 **Note**: As the first agent in the workflow, `specify` typically receives minimal context. It establishes the feature_id and feature_dir that subsequent agents will use.
+
+## Handling Feedback from Analyze Agent
+
+When `FEEDBACK_CONTEXT` is present in the input, the specify agent must:
+
+1. **Parse the feedback issues** from `issues_to_fix` array
+2. **Identify spec-related issues**: `spec_ambiguity`, `missing_requirement`, `unclear_scope`
+3. **Update spec.md** to address each issue:
+   - Add missing requirements
+   - Clarify ambiguous language
+   - Add detail to underspecified sections
+4. **Return success** only if all feedback issues are resolved
 
 ## Execution
 

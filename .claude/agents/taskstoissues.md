@@ -27,6 +27,8 @@ WORKFLOW_CONTEXT:
     "speckit-tasks": { "status": "success", "tasks_file": "...", "task_count": 23 }
   }
 }
+
+USER_REQUEST: <original user request text>
 ```
 
 **Extract from context**:
@@ -34,6 +36,7 @@ WORKFLOW_CONTEXT:
 - `feature_dir`: Base directory for all spec artifacts
 - `previous_results.speckit-tasks.tasks_file`: Path to tasks.md
 - `previous_results.speckit-tasks.task_count`: Number of tasks to convert
+- `USER_REQUEST`: Original user request for issue descriptions
 
 ## Execution
 

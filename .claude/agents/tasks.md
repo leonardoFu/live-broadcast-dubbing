@@ -28,6 +28,38 @@ WORKFLOW_CONTEXT:
     "speckit-plan": { "status": "success", "plan_file": "...", "data_model_file": "..." }
   }
 }
+
+USER_REQUEST: <original user request text>
+
+FEEDBACK_CONTEXT (if feedback from analyze agent):
+{
+  "feedback_from": "speckit-analyze",
+  "iteration": 1,
+  "max_iterations": 2,
+  "issues_to_fix": [
+    {
+      "severity": "CRITICAL",
+      "type": "coverage_gap",
+      "message": "Requirement REQ-5 has no corresponding tasks",
+      "location": "spec.md:67",
+      "recommendation": "Add tasks to implement REQ-5"
+    },
+    {
+      "severity": "HIGH",
+      "type": "dependency_error",
+      "message": "Task T008 depends on T012 but T012 comes later",
+      "location": "tasks.md:45",
+      "recommendation": "Reorder tasks or fix dependency"
+    },
+    {
+      "severity": "HIGH",
+      "type": "constitution_violation",
+      "message": "Task T012 missing test step before implementation",
+      "location": "tasks.md:78",
+      "recommendation": "Add test implementation step before code"
+    }
+  ]
+}
 ```
 
 **Extract from context**:
@@ -36,6 +68,20 @@ WORKFLOW_CONTEXT:
 - `previous_results.speckit-plan.plan_file`: Path to plan.md
 - `previous_results.speckit-plan.data_model_file`: Path to data-model.md
 - `previous_results.speckit-specify.spec_file`: Path to spec.md
+- `USER_REQUEST`: Original user request for context
+- `FEEDBACK_CONTEXT`: If present, fix issues reported by analyze agent
+
+## Handling Feedback from Analyze Agent
+
+When `FEEDBACK_CONTEXT` is present in the input, the tasks agent must:
+
+1. **Parse the feedback issues** from `issues_to_fix` array
+2. **Identify task-related issues**: `coverage_gap`, `dependency_error`, `task_ordering`, `constitution_violation`
+3. **Update tasks.md** to address each issue:
+   - Add missing tasks for uncovered requirements
+   - Fix task ordering and dependencies
+   - Add TDD test steps where missing (constitution compliance)
+4. **Return success** only if all feedback issues are resolved
 
 ## Execution
 

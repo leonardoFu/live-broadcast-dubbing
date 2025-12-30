@@ -29,6 +29,8 @@ WORKFLOW_CONTEXT:
     "speckit-tasks": { "status": "success", "tasks_file": "...", "task_count": 23 }
   }
 }
+
+USER_REQUEST: <original user request text>
 ```
 
 **Extract from context**:
@@ -37,6 +39,7 @@ WORKFLOW_CONTEXT:
 - `previous_results.speckit-specify.spec_file`: Path to spec.md
 - `previous_results.speckit-plan.plan_file`: Path to plan.md
 - `previous_results.speckit-tasks.tasks_file`: Path to tasks.md
+- `USER_REQUEST`: Original user request for understanding intent
 
 ## Execution
 

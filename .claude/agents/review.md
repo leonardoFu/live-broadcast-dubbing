@@ -34,6 +34,8 @@ WORKFLOW_CONTEXT:
     }
   }
 }
+
+USER_REQUEST: <original user request text>
 ```
 
 **Extract from context**:
@@ -41,6 +43,7 @@ WORKFLOW_CONTEXT:
 - `feature_dir`: Base directory for all spec artifacts
 - `previous_results.speckit-implement.files_created`: Know which files were created
 - `previous_results.speckit-test`: Confirm tests passed before cleanup
+- `USER_REQUEST`: Original user request for understanding feature scope
 
 ## Your Mission
 

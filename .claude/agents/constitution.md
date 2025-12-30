@@ -25,10 +25,13 @@ WORKFLOW_CONTEXT:
   "feature_dir": null,
   "previous_results": {}
 }
+
+USER_REQUEST: <original user request text>
 ```
 
 **Extract from context**:
 - `workflow_id`: Unique identifier for this workflow run
+- `USER_REQUEST`: User's constitution update request
 
 **Note**: The constitution agent operates at the project level, not feature level. It does not require `feature_id` or `feature_dir`. The constitution applies globally to all features.
 

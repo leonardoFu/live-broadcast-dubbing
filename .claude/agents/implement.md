@@ -30,6 +30,8 @@ WORKFLOW_CONTEXT:
   }
 }
 
+USER_REQUEST: <original user request text>
+
 RETRY_CONTEXT (if retrying after test failure):
 Previous implementation failed quality gates. Fix these issues:
 BLOCKING_ISSUES:
@@ -55,8 +57,10 @@ FEEDBACK_CONTEXT (if feedback from review agent):
 
 **Extract from context**:
 - `feature_id`: Feature being implemented
+- `feature_dir`: Base directory for all spec artifacts
 - `previous_results.speckit-tasks.tasks_file`: Path to tasks.md
 - `previous_results.speckit-plan.plan_file`: Path to plan.md
+- `USER_REQUEST`: Original user request for context
 - `RETRY_CONTEXT`: If present, focus on fixing the listed blocking issues
 - `FEEDBACK_CONTEXT`: If present, fix issues reported by review agent
 

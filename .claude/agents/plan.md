@@ -28,12 +28,54 @@ WORKFLOW_CONTEXT:
     "speckit-clarify": { "status": "success", "clarifications_resolved": 3 }
   }
 }
+
+USER_REQUEST: <original user request text>
+
+FEEDBACK_CONTEXT (if feedback from analyze agent):
+{
+  "feedback_from": "speckit-analyze",
+  "iteration": 1,
+  "max_iterations": 2,
+  "issues_to_fix": [
+    {
+      "severity": "CRITICAL",
+      "type": "architecture_gap",
+      "message": "Data model missing relationship between User and Session",
+      "location": "data-model.md:23",
+      "recommendation": "Add foreign key relationship"
+    },
+    {
+      "severity": "HIGH",
+      "type": "design_flaw",
+      "message": "Plan doesn't address concurrent access scenario",
+      "location": "plan.md:67",
+      "recommendation": "Add concurrency handling section"
+    }
+  ]
+}
 ```
 
 **Extract from context**:
 - `feature_id`: Feature being planned
 - `feature_dir`: Base directory for all spec artifacts
 - `previous_results.speckit-specify.spec_file`: Path to spec.md to load
+- `previous_results.speckit-clarify`: Clarification results (optional, may not exist in Simple workflow)
+- `USER_REQUEST`: Original user request for context
+- `FEEDBACK_CONTEXT`: If present, fix issues reported by analyze agent
+
+**Note**: `speckit-clarify` may not be present in `previous_results` for Simple workflows.
+
+## Handling Feedback from Analyze Agent
+
+When `FEEDBACK_CONTEXT` is present in the input, the plan agent must:
+
+1. **Parse the feedback issues** from `issues_to_fix` array
+2. **Identify plan-related issues**: `architecture_gap`, `data_model_issue`, `design_flaw`
+3. **Update artifacts** to address each issue:
+   - Fix data-model.md for relationship/schema issues
+   - Update plan.md for architecture gaps
+   - Add missing sections or clarifications
+4. **Return success** only if all feedback issues are resolved
 
 ## Execution
 

@@ -27,6 +27,24 @@ WORKFLOW_CONTEXT:
     "speckit-specify": { "status": "success", "spec_file": "...", "clarifications_needed": 3 }
   }
 }
+
+USER_REQUEST: <original user request text>
+
+FEEDBACK_CONTEXT (if feedback from analyze agent):
+{
+  "feedback_from": "speckit-analyze",
+  "iteration": 1,
+  "max_iterations": 2,
+  "issues_to_fix": [
+    {
+      "severity": "HIGH",
+      "type": "spec_ambiguity",
+      "message": "Authentication flow unclear - OAuth2 or JWT?",
+      "location": "spec.md:32",
+      "recommendation": "Ask user to clarify authentication method"
+    }
+  ]
+}
 ```
 
 **Extract from context**:
@@ -34,6 +52,17 @@ WORKFLOW_CONTEXT:
 - `feature_dir`: Base directory for all spec artifacts
 - `previous_results.speckit-specify.spec_file`: Path to spec.md to analyze
 - `previous_results.speckit-specify.clarifications_needed`: Count of [NEEDS CLARIFICATION] markers
+- `USER_REQUEST`: Original user request for context
+- `FEEDBACK_CONTEXT`: If present, prioritize resolving these specific ambiguities
+
+## Handling Feedback from Analyze Agent
+
+When `FEEDBACK_CONTEXT` is present in the input, the clarify agent must:
+
+1. **Prioritize feedback issues** over general ambiguity scan
+2. **Focus questions** on resolving the specific issues identified
+3. **Update spec.md** with answers that address the feedback
+4. **Return success** only if all feedback issues are resolved
 
 ## Execution
 
