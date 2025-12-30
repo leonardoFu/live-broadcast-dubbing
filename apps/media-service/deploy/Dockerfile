@@ -1,13 +1,20 @@
 # Media Service Dockerfile
-# Multi-stage build for production-ready image
+# Multi-stage build for production-ready image with GStreamer support
+#
+# GStreamer dependencies added for spec 003 (Stream Worker Implementation)
 
 FROM python:3.10-slim as builder
 
 WORKDIR /build
 
-# Install build dependencies
+# Install build dependencies including GStreamer development packages
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
+    pkg-config \
+    libcairo2-dev \
+    libgirepository1.0-dev \
+    gir1.2-gstreamer-1.0 \
+    gir1.2-gst-plugins-base-1.0 \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy application source
@@ -28,9 +35,23 @@ COPY --from=builder /usr/local/lib/python3.10/site-packages /usr/local/lib/pytho
 COPY --from=builder /usr/local/bin /usr/local/bin
 COPY --from=builder /build/src /app/src
 
-# Install runtime dependencies
+# Install runtime dependencies including GStreamer
+# Per spec 003: GStreamer 1.x with plugins for RTSP/RTMP/FLV processing
 RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
+    # GStreamer core and Python bindings
+    gstreamer1.0-tools \
+    gstreamer1.0-plugins-base \
+    gstreamer1.0-plugins-good \
+    gstreamer1.0-plugins-bad \
+    gstreamer1.0-plugins-ugly \
+    gstreamer1.0-libav \
+    # GObject introspection for PyGObject
+    python3-gi \
+    gir1.2-gstreamer-1.0 \
+    gir1.2-gst-plugins-base-1.0 \
+    # GStreamer app plugin for appsrc/appsink
+    gstreamer1.0-plugins-base-apps \
     && rm -rf /var/lib/apt/lists/*
 
 # Set Python path

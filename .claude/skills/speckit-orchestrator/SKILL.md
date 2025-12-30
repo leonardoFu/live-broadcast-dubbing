@@ -1,3 +1,8 @@
+---
+name: speckit-orchestrator
+description: Intelligent workflow orchestrator that analyzes user requirements, recommends an appropriate workflow, and executes speckit agents in sequence.
+---
+
 # Speckit Orchestrator
 
 Intelligent workflow orchestrator that analyzes user requirements, recommends an appropriate workflow, and executes speckit agents in sequence.
