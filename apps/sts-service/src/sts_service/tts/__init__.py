@@ -22,6 +22,13 @@ Usage:
 Based on specs/008-tts-module/.
 """
 
+from .encoding import (
+    EncodingError,
+    EncodingResult,
+    encode_pcm_to_m4a,
+    encode_pcm_to_m4a_with_metadata,
+    get_m4a_duration_ms,
+)
 from .errors import TTSError, TTSErrorType, classify_error, is_retryable_error_type
 from .factory import create_tts_component
 from .interface import BaseTTSComponent, TTSComponent
@@ -47,6 +54,12 @@ __all__ = [
     "VoiceProfile",
     "TTSConfig",
     "TTSMetrics",
+    # Encoding
+    "encode_pcm_to_m4a",
+    "encode_pcm_to_m4a_with_metadata",
+    "get_m4a_duration_ms",
+    "EncodingResult",
+    "EncodingError",
     # Errors
     "TTSError",
     "TTSErrorType",

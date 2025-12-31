@@ -24,6 +24,7 @@ class AudioFormat(str, Enum):
 
     PCM_F32LE = "pcm_f32le"  # 32-bit float little-endian (preferred)
     PCM_S16LE = "pcm_s16le"  # 16-bit signed integer little-endian
+    M4A_AAC = "m4a_aac"  # M4A container with AAC codec (compressed)
 
 
 class AudioStatus(str, Enum):
