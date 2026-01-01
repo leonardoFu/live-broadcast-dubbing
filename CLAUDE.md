@@ -186,6 +186,8 @@ Prefer deterministic tests; avoid requiring live RTMP endpoints. Mock STS events
 - N/A (stateless, in-memory session state only) (017-echo-sts-service)
 - Python 3.10.x + pytest>=7.0, pytest-asyncio, python-socketio[client], prometheus_client, Docker Compose v2, ffmpeg/ffprobe (stream analysis) (018-e2e-stream-handler-tests)
 - Docker volumes for MediaMTX streams, in-memory test state (018-e2e-stream-handler-tests)
+- Python 3.10.x (per constitution and existing monorepo setup) + TTS (Coqui TTS library), pydub (audio processing), rubberband (time-stretch), pydantic>=2.0 (data models), numpy (audio manipulation) (008-tts-module)
+- In-memory model cache + optional debug artifacts to local filesystem (when debug_artifacts=True) (008-tts-module)
 
 ## Recent Changes
 - 001-python-monorepo-setup: Added Python 3.10.x (as specified in constitution and architecture spec) + setuptools>=68.0 (build system), ruff>=0.1.0 (linting), mypy>=1.0 (type checking), pytest>=7.0 (testing)

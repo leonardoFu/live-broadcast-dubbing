@@ -1,0 +1,209 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://example.com/tts-config-schema.json",
+  "title": "TTSConfig",
+  "description": "Configuration schema for TTS component including voice selection, model paths, and synthesis parameters",
+  "type": "object",
+  "properties": {
+    "voices_config_path": {
+      "type": "string",
+      "description": "Path to voice/model configuration YAML file (default: configs/coqui-voices.yaml)",
+      "default": "configs/coqui-voices.yaml"
+    },
+    "default_sample_rate_hz": {
+      "type": "integer",
+      "enum": [8000, 16000, 24000, 44100, 48000],
+      "default": 16000,
+      "description": "Default output sample rate"
+    },
+    "default_channels": {
+      "type": "integer",
+      "enum": [1, 2],
+      "default": 1,
+      "description": "Default output channel count"
+    },
+    "model_cache_enabled": {
+      "type": "boolean",
+      "default": true,
+      "description": "Enable in-memory model caching per worker"
+    },
+    "timeout_ms": {
+      "type": "integer",
+      "minimum": 1000,
+      "maximum": 30000,
+      "default": 10000,
+      "description": "Maximum processing time per fragment (1s to 30s)"
+    },
+    "debug_artifacts": {
+      "type": "boolean",
+      "default": false,
+      "description": "Persist intermediate artifacts (preprocessed text, baseline/aligned audio) to disk"
+    },
+    "duration_matching": {
+      "type": "object",
+      "description": "Duration matching and time-stretch configuration",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable duration matching via time-stretch"
+        },
+        "rubberband_path": {
+          "type": "string",
+          "default": "rubberband",
+          "description": "Path to rubberband executable (or command name if in PATH)"
+        },
+        "default_clamp_min": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 1.0,
+          "default": 0.5,
+          "description": "Default minimum speed factor"
+        },
+        "default_clamp_max": {
+          "type": "number",
+          "minimum": 1.0,
+          "maximum": 4.0,
+          "default": 2.0,
+          "description": "Default maximum speed factor"
+        },
+        "only_speed_up_default": {
+          "type": "boolean",
+          "default": true,
+          "description": "Default for only_speed_up flag (live stream mode)"
+        }
+      },
+      "additionalProperties": false
+    },
+    "preprocessing": {
+      "type": "object",
+      "description": "Text preprocessing configuration",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable text preprocessing before synthesis"
+        },
+        "normalize_quotes": {
+          "type": "boolean",
+          "default": true,
+          "description": "Normalize smart quotes to ASCII"
+        },
+        "expand_abbreviations": {
+          "type": "boolean",
+          "default": true,
+          "description": "Expand abbreviations like 'NBA' to 'N B A'"
+        },
+        "rewrite_scores": {
+          "type": "boolean",
+          "default": true,
+          "description": "Rewrite score patterns '15-12' to '15 to 12'"
+        },
+        "normalize_whitespace": {
+          "type": "boolean",
+          "default": true,
+          "description": "Normalize repeated whitespace and line breaks"
+        }
+      },
+      "additionalProperties": false
+    },
+    "error_handling": {
+      "type": "object",
+      "description": "Error handling and retry configuration",
+      "properties": {
+        "auto_classify_errors": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically classify errors as retryable/non-retryable"
+        },
+        "default_retryable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Default retryable flag for unknown errors"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": [],
+  "additionalProperties": false,
+  "examples": [
+    {
+      "voices_config_path": "configs/coqui-voices.yaml",
+      "default_sample_rate_hz": 16000,
+      "default_channels": 1,
+      "model_cache_enabled": true,
+      "timeout_ms": 10000,
+      "debug_artifacts": false,
+      "duration_matching": {
+        "enabled": true,
+        "rubberband_path": "rubberband",
+        "default_clamp_min": 0.5,
+        "default_clamp_max": 2.0,
+        "only_speed_up_default": true
+      },
+      "preprocessing": {
+        "enabled": true,
+        "normalize_quotes": true,
+        "expand_abbreviations": true,
+        "rewrite_scores": true,
+        "normalize_whitespace": true
+      },
+      "error_handling": {
+        "auto_classify_errors": true,
+        "default_retryable": true
+      }
+    }
+  ],
+  "definitions": {
+    "VoicesConfigSchema": {
+      "description": "Schema for configs/coqui-voices.yaml (external file)",
+      "type": "object",
+      "properties": {
+        "languages": {
+          "type": "object",
+          "description": "Language-specific voice configuration",
+          "patternProperties": {
+            "^[a-z]{2}$": {
+              "type": "object",
+              "properties": {
+                "model": {
+                  "type": "string",
+                  "description": "Default model path for quality mode"
+                },
+                "fast_model": {
+                  "type": "string",
+                  "description": "Fast model path for low-latency mode (optional)"
+                },
+                "default_speaker": {
+                  "type": ["string", "null"],
+                  "description": "Default speaker name for multi-speaker models"
+                }
+              },
+              "required": ["model"],
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": ["languages"],
+      "examples": [
+        {
+          "languages": {
+            "en": {
+              "model": "tts_models/multilingual/multi-dataset/xtts_v2",
+              "fast_model": "tts_models/en/vctk/vits",
+              "default_speaker": "p225"
+            },
+            "es": {
+              "model": "tts_models/multilingual/multi-dataset/xtts_v2",
+              "fast_model": "tts_models/es/css10/vits",
+              "default_speaker": null
+            }
+          }
+        }
+      ]
+    }
+  }
+}

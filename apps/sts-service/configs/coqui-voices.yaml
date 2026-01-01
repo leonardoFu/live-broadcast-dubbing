@@ -1,0 +1,73 @@
+# Coqui TTS Voice Configuration
+# This file defines voice and model mappings per language for the TTS module.
+#
+# Model choices:
+# - XTTS-v2: High quality, multilingual, supports voice cloning, slower (~2s latency)
+# - VITS: Fast, single-speaker, lower latency (~500ms), no voice cloning
+#
+# Reference: specs/008-tts-module/plan.md
+
+defaults:
+  # Default synthesis settings
+  output_sample_rate_hz: 16000
+  output_channels: 1
+  audio_format: pcm_f32le
+
+  # Duration matching defaults
+  speed_clamp_min: 0.5
+  speed_clamp_max: 2.0
+  only_speed_up: true
+
+  # Model settings
+  device: cpu  # Always CPU per constitution (avoid GPU compatibility issues)
+
+languages:
+  en:
+    # English configuration
+    model: "tts_models/multilingual/multi-dataset/xtts_v2"
+    fast_model: "tts_models/en/vctk/vits"
+    default_speaker: "p225"  # Female VCTK speaker for multi-speaker models
+    sample_rate_hz: 24000  # XTTS-v2 native sample rate
+
+  es:
+    # Spanish configuration
+    model: "tts_models/multilingual/multi-dataset/xtts_v2"
+    fast_model: "tts_models/es/css10/vits"
+    default_speaker: null  # Single speaker model
+    sample_rate_hz: 24000
+
+  fr:
+    # French configuration
+    model: "tts_models/multilingual/multi-dataset/xtts_v2"
+    fast_model: null  # Fallback to XTTS-v2 in fast mode
+    default_speaker: null
+    sample_rate_hz: 24000
+
+  de:
+    # German configuration
+    model: "tts_models/multilingual/multi-dataset/xtts_v2"
+    fast_model: null
+    default_speaker: null
+    sample_rate_hz: 24000
+
+  pt:
+    # Portuguese configuration
+    model: "tts_models/multilingual/multi-dataset/xtts_v2"
+    fast_model: null
+    default_speaker: null
+    sample_rate_hz: 24000
+
+# Voice sample validation criteria
+voice_sample_validation:
+  format: wav  # Required format
+  channels: 1  # Mono required
+  min_sample_rate_hz: 16000  # Minimum sample rate
+  preferred_sample_rate_hz: 22050  # Preferred for XTTS-v2
+  min_duration_seconds: 3  # Minimum voice sample duration
+  max_duration_seconds: 30  # Maximum voice sample duration
+
+# Model caching settings
+model_cache:
+  enabled: true
+  max_models: 4  # Maximum number of models to keep in memory
+  # Cache key format: {model_name}_{language}

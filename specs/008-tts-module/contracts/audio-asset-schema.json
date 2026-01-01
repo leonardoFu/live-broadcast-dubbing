@@ -1,0 +1,215 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://example.com/audio-asset-schema.json",
+  "title": "AudioAsset",
+  "description": "Synthesized speech audio asset produced by TTS component. Follows asset pattern from specs/004-sts-pipeline-design.md.",
+  "type": "object",
+  "properties": {
+    "asset_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Globally unique identifier for this asset"
+    },
+    "stream_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Logical stream/session identifier"
+    },
+    "sequence_number": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Fragment index within stream"
+    },
+    "parent_asset_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "minItems": 1,
+      "description": "References to upstream TextAsset(s) used to create this audio"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Asset creation timestamp (UTC)"
+    },
+    "component": {
+      "type": "string",
+      "enum": ["tts"],
+      "description": "Always 'tts' for this asset type"
+    },
+    "component_instance": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Provider identifier (e.g., 'coqui-xtts-v2', 'coqui-vits')",
+      "examples": ["coqui-xtts-v2", "coqui-vits", "mock-fixed-tone"]
+    },
+    "audio_format": {
+      "type": "string",
+      "enum": ["pcm_f32le", "pcm_s16le"],
+      "description": "PCM audio encoding format"
+    },
+    "sample_rate_hz": {
+      "type": "integer",
+      "enum": [8000, 16000, 24000, 44100, 48000],
+      "description": "Audio sample rate in Hz"
+    },
+    "channels": {
+      "type": "integer",
+      "enum": [1, 2],
+      "description": "Number of audio channels (1=mono, 2=stereo)"
+    },
+    "duration_ms": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 30000,
+      "description": "Actual audio duration in milliseconds (0.001s to 30s)"
+    },
+    "payload_ref": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Reference to PCM audio bytes (mem://fragments/{stream_id}/{seq} or file:// path)",
+      "examples": [
+        "mem://fragments/stream-abc/42",
+        "file:///tmp/audio_stream-abc_42.raw"
+      ]
+    },
+    "language": {
+      "type": "string",
+      "pattern": "^[a-z]{2}$",
+      "description": "Synthesis language (ISO 639-1 code)",
+      "examples": ["en", "es", "fr", "de", "zh"]
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed"],
+      "description": "Synthesis status: success (no errors), partial (warnings), failed (no audio)"
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/TTSError"
+      },
+      "description": "List of errors encountered during synthesis (empty if status=success)"
+    },
+    "processing_time_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total processing time in milliseconds"
+    },
+    "voice_cloning_used": {
+      "type": "boolean",
+      "description": "Whether voice cloning was activated for this synthesis"
+    },
+    "preprocessed_text": {
+      "type": "string",
+      "description": "Actual text used for synthesis after preprocessing (for debugging and lineage)"
+    }
+  },
+  "required": [
+    "asset_id",
+    "stream_id",
+    "sequence_number",
+    "parent_asset_ids",
+    "created_at",
+    "component",
+    "component_instance",
+    "audio_format",
+    "sample_rate_hz",
+    "channels",
+    "duration_ms",
+    "payload_ref",
+    "language",
+    "status"
+  ],
+  "definitions": {
+    "TTSError": {
+      "type": "object",
+      "description": "Structured error information for failed or partial synthesis",
+      "properties": {
+        "error_type": {
+          "type": "string",
+          "enum": [
+            "model_load_failed",
+            "synthesis_failed",
+            "invalid_input",
+            "voice_sample_invalid",
+            "alignment_failed",
+            "timeout",
+            "unknown"
+          ],
+          "description": "Error classification for retry/fallback decisions"
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Human-readable error message (safe for logging)"
+        },
+        "retryable": {
+          "type": "boolean",
+          "description": "Whether this error warrants a retry attempt"
+        },
+        "details": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Additional error context (debug info, stack traces)"
+        }
+      },
+      "required": ["error_type", "message", "retryable"]
+    }
+  },
+  "additionalProperties": false,
+  "examples": [
+    {
+      "asset_id": "550e8400-e29b-41d4-a716-446655440000",
+      "stream_id": "stream-abc-123",
+      "sequence_number": 42,
+      "parent_asset_ids": ["text-uuid-123"],
+      "created_at": "2025-12-30T10:30:00Z",
+      "component": "tts",
+      "component_instance": "coqui-xtts-v2",
+      "audio_format": "pcm_f32le",
+      "sample_rate_hz": 16000,
+      "channels": 1,
+      "duration_ms": 2000,
+      "payload_ref": "mem://fragments/stream-abc-123/42",
+      "language": "en",
+      "status": "success",
+      "errors": [],
+      "processing_time_ms": 1850,
+      "voice_cloning_used": false,
+      "preprocessed_text": "Hello world! This is a test."
+    },
+    {
+      "asset_id": "failed-uuid",
+      "stream_id": "stream-xyz",
+      "sequence_number": 10,
+      "parent_asset_ids": ["text-uuid-789"],
+      "created_at": "2025-12-30T10:35:00Z",
+      "component": "tts",
+      "component_instance": "coqui-xtts-v2",
+      "audio_format": "pcm_f32le",
+      "sample_rate_hz": 16000,
+      "channels": 1,
+      "duration_ms": 0,
+      "payload_ref": "",
+      "language": "es",
+      "status": "failed",
+      "errors": [
+        {
+          "error_type": "model_load_failed",
+          "message": "Failed to load XTTS-v2 model for language 'es': File not found",
+          "retryable": true,
+          "details": {
+            "model_path": "/models/xtts_v2_es",
+            "exception": "FileNotFoundError"
+          }
+        }
+      ],
+      "processing_time_ms": 120,
+      "voice_cloning_used": false,
+      "preprocessed_text": "Synthesize this text."
+    }
+  ]
+}

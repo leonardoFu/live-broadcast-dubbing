@@ -1,0 +1,289 @@
+# TTS Component Interface Contract
+# Defines the protocol that all TTS implementations must follow
+
+openapi: 3.1.0
+info:
+  title: TTS Component Interface
+  description: |
+    Interface contract for Text-to-Speech components in the STS pipeline.
+    All TTS implementations (real and mock) must conform to this contract.
+
+    Based on specs/007-tts-audio-synthesis.md and follows the component
+    pattern from specs/004-sts-pipeline-design.md.
+  version: 1.0.0
+
+components:
+  schemas:
+    TTSComponent:
+      type: object
+      description: |
+        Protocol defining the TTS component contract.
+        This is a runtime_checkable Protocol in Python.
+      properties:
+        component_name:
+          type: string
+          enum: [tts]
+          description: Always returns "tts" for TTS components
+        component_instance:
+          type: string
+          description: Provider identifier (e.g., "coqui-xtts-v2", "coqui-vits")
+          examples:
+            - coqui-xtts-v2
+            - coqui-vits
+            - mock-fixed-tone
+        is_ready:
+          type: boolean
+          description: Indicates if component is ready to process requests
+      required:
+        - component_name
+        - component_instance
+        - is_ready
+
+    SynthesizeRequest:
+      type: object
+      description: Input parameters for TTS synthesis operation
+      properties:
+        text_asset_id:
+          type: string
+          format: uuid
+          description: UUID of TextAsset containing text to synthesize
+        stream_id:
+          type: string
+          description: Logical stream/session identifier
+        sequence_number:
+          type: integer
+          minimum: 0
+          description: Fragment index within stream
+        target_language:
+          type: string
+          pattern: "^[a-z]{2}$"
+          description: Target language (ISO 639-1 code)
+          examples:
+            - en
+            - es
+            - fr
+        voice_profile:
+          $ref: '#/components/schemas/VoiceProfile'
+        target_duration_ms:
+          type: integer
+          minimum: 100
+          maximum: 30000
+          description: Desired audio duration for alignment (0.1s to 30s)
+        output_sample_rate_hz:
+          type: integer
+          enum: [8000, 16000, 24000, 44100, 48000]
+          description: Requested output sample rate
+          default: 16000
+        output_channels:
+          type: integer
+          enum: [1, 2]
+          description: Requested output channel count (1=mono, 2=stereo)
+          default: 1
+        only_speed_up:
+          type: boolean
+          description: Only speed up audio, never slow down (for live streams)
+          default: true
+        fast_mode:
+          type: boolean
+          description: Use fast synthesis model for low latency
+          default: false
+        voice_sample_asset_id:
+          type: string
+          format: uuid
+          description: Optional voice sample for cloning (quality mode only)
+        speaker_id:
+          type: string
+          description: Named speaker fallback when multi-speaker model available
+        synthesis_speed_hint:
+          type: number
+          minimum: 0.5
+          maximum: 2.0
+          description: Coarse synthesis speed control (1.0 = normal)
+          default: 1.0
+      required:
+        - text_asset_id
+        - stream_id
+        - sequence_number
+        - target_language
+        - voice_profile
+        - target_duration_ms
+
+    VoiceProfile:
+      type: object
+      description: Voice selection and synthesis configuration
+      properties:
+        language:
+          type: string
+          pattern: "^[a-z]{2}$"
+          description: Target language (ISO 639-1)
+        model_name:
+          type: string
+          description: Explicit model override (optional)
+        fast_mode:
+          type: boolean
+          default: false
+          description: Use fast model for low latency
+        voice_sample_path:
+          type: string
+          description: Path to voice cloning sample WAV file
+        speaker_name:
+          type: string
+          description: Named speaker for multi-speaker models
+        use_voice_cloning:
+          type: boolean
+          default: false
+          description: Enable voice cloning (requires voice_sample_path)
+        speed_clamp_min:
+          type: number
+          minimum: 0.1
+          maximum: 1.0
+          default: 0.5
+          description: Minimum speed factor for duration matching
+        speed_clamp_max:
+          type: number
+          minimum: 1.0
+          maximum: 4.0
+          default: 2.0
+          description: Maximum speed factor for duration matching
+        only_speed_up:
+          type: boolean
+          default: true
+          description: Only speed up (never slow down) for live fragments
+      required:
+        - language
+
+    SynthesizeResponse:
+      type: object
+      description: Output from TTS synthesis operation
+      properties:
+        audio_asset:
+          $ref: './audio-asset-schema.json#/components/schemas/AudioAsset'
+        warnings:
+          type: array
+          items:
+            type: string
+          description: Non-fatal warnings (e.g., "clamped speed factor to 2.0x")
+        final_text:
+          type: string
+          description: Exact text used for synthesis (after preprocessing)
+      required:
+        - audio_asset
+
+paths:
+  /synthesize:
+    post:
+      summary: Synthesize speech from text
+      description: |
+        Convert TextAsset to AudioAsset using configured voice model.
+        Applies duration matching to align with target timing.
+      operationId: synthesize
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SynthesizeRequest'
+      responses:
+        '200':
+          description: Synthesis succeeded (status=SUCCESS or PARTIAL)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SynthesizeResponse'
+        '400':
+          description: Invalid input (status=FAILED, retryable=False)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  error_type:
+                    type: string
+                    enum: [invalid_input, voice_sample_invalid]
+                  retryable:
+                    type: boolean
+                    enum: [false]
+        '500':
+          description: Synthesis failed (status=FAILED, check retryable flag)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  error_type:
+                    type: string
+                    enum: [model_load_failed, synthesis_failed, alignment_failed, timeout, unknown]
+                  retryable:
+                    type: boolean
+                  details:
+                    type: object
+
+  /is_ready:
+    get:
+      summary: Check component readiness
+      description: |
+        Verify that TTS component is ready to process requests.
+        Checks model availability and configuration validity.
+      operationId: isReady
+      responses:
+        '200':
+          description: Component is ready
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ready:
+                    type: boolean
+                    enum: [true]
+                  models_loaded:
+                    type: array
+                    items:
+                      type: string
+                    description: List of loaded model identifiers
+        '503':
+          description: Component not ready
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ready:
+                    type: boolean
+                    enum: [false]
+                  reason:
+                    type: string
+                    description: Why component is not ready
+
+  /shutdown:
+    post:
+      summary: Release component resources
+      description: |
+        Release model cache and cleanup resources.
+        Component should not be used after shutdown.
+      operationId: shutdown
+      responses:
+        '200':
+          description: Shutdown complete
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [shutdown]
+
+# Component Contract Requirements:
+# 1. All implementations MUST provide component_name="tts"
+# 2. All implementations MUST provide unique component_instance identifier
+# 3. All implementations MUST implement is_ready property
+# 4. All implementations MUST implement synthesize(request) -> response
+# 5. All implementations MUST implement shutdown() method
+# 6. All implementations MUST return AudioAsset with correct lineage
+# 7. All implementations MUST classify errors as retryable/non-retryable
+# 8. Mock implementations MUST conform to same contract for testing
