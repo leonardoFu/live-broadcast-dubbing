@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -147,8 +148,15 @@ class WorkerRunner:
         logger.info(f"Starting worker for stream: {self.config.stream_id}")
 
         try:
-            # Connect to STS Service
-            await self._connect_sts()
+            # Connect to STS Service (skip if SKIP_STS_CONNECTION is set for integration tests)
+            skip_sts = os.getenv("SKIP_STS_CONNECTION", "false").lower() == "true"
+            if skip_sts:
+                logger.warning(
+                    "Skipping STS connection (SKIP_STS_CONNECTION=true) - "
+                    "worker will not process audio segments"
+                )
+            else:
+                await self._connect_sts()
 
             # Build and start pipelines
             self._build_pipelines()

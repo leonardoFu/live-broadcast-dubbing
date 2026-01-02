@@ -54,6 +54,7 @@ services:
     environment:
       - PORT=8080
       - LOG_LEVEL=INFO
+      - SKIP_STS_CONNECTION=true  # Skip STS for integration tests (no STS in docker-compose)
 
     # Networking
     networks:
