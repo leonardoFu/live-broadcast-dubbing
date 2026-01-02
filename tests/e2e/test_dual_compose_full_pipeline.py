@@ -120,8 +120,8 @@ async def test_full_pipeline_media_to_sts_to_output(
         try:
             metrics = metrics_parser.get_all_metrics()
 
-            # Check for worker activity (any fragment processing started)
-            if "worker_audio_fragments_total" in metrics:
+            # Check for worker activity (segment processing indicates WorkerRunner is active)
+            if any("media_service_worker_segments_processed_total" in k for k in metrics.keys()):
                 worker_connected = True
                 logger.info("WorkerRunner has started processing")
                 break
@@ -229,12 +229,17 @@ async def test_full_pipeline_media_to_sts_to_output(
 
     metrics = metrics_parser.get_all_metrics()
 
-    # Verify fragment processing metrics
-    fragments_total = metrics.get("worker_audio_fragments_total", {})
-    processed_count = fragments_total.get('status="processed"', 0)
+    # Verify segment processing metrics
+    # Find all audio segment processing metrics for this stream
+    audio_segment_metrics = {
+        k: v for k, v in metrics.items()
+        if "media_service_worker_segments_processed_total" in k
+        and 'type="audio"' in k
+    }
+    processed_count = sum(audio_segment_metrics.values())
 
     assert processed_count == expected_segments, \
-        f"Metrics should show {expected_segments} processed fragments, got {processed_count}"
+        f"Metrics should show {expected_segments} processed audio segments, got {processed_count}"
 
     # Verify A/V sync metrics (if available)
     if "worker_av_sync_delta_ms" in metrics:

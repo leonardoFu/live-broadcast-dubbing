@@ -10,7 +10,8 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
+from prometheus_client import REGISTRY, generate_latest
 
 from media_service.api import hooks
 from media_service.orchestrator.worker_manager import WorkerManager
@@ -58,6 +59,15 @@ app = FastAPI(
 
 # Include routers
 app.include_router(hooks.router, prefix="/v1/mediamtx/events", tags=["hooks"])
+
+
+@app.get("/metrics", response_class=PlainTextResponse)
+async def metrics() -> PlainTextResponse:
+    """Expose Prometheus metrics endpoint."""
+    return PlainTextResponse(
+        content=generate_latest(REGISTRY).decode("utf-8"),
+        media_type="text/plain; version=0.0.4; charset=utf-8",
+    )
 
 
 @app.get("/health")

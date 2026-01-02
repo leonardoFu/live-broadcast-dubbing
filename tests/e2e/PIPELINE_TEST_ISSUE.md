@@ -1,10 +1,10 @@
 # Full Pipeline E2E Test - Issue Summary
 
-**Status:** ✅ Step 1 FIXED, ❌ Now failing at Step 2
+**Status:** ✅ Step 1 FIXED | 🔧 Step 2: Hooks Working, STS Connection Blocked
 **Test:** `test_dual_compose_full_pipeline.py::test_full_pipeline_media_to_sts_to_output`
 **Branch:** `019-dual-docker-e2e-infrastructure`
-**Last Updated:** 2026-01-01
-**Original Issue Date:** 2026-01-01
+**Last Updated:** 2026-01-01 18:30 PST (Major fixes applied)
+**Original Issue Date:** 2026-01-01 17:00 PST
 
 ---
 
@@ -545,9 +545,33 @@ Once Step 1 passes, the remaining pipeline should work (assuming WorkerRunner an
 
 ---
 
-**Last Updated:** 2026-01-01
+**Last Updated:** 2026-01-01 18:30 PST
 **Issue Owner:** Development Team
-**Priority:** ✅ Step 1 Resolved | ❌ Step 2 Investigation Needed
+**Priority:** ✅ Hooks Infrastructure Complete | ❌ STS Connection Investigation Needed
+
+---
+
+## Summary of Accomplishments (2026-01-01)
+
+**Major Milestone Achieved:** MediaMTX → media-service hook integration is now fully functional.
+
+**Fixes Applied (8 files modified):**
+1. `apps/media-service/docker-compose.e2e.yml` - Added hook mount + ORCHESTRATOR_URL
+2. `tests/e2e/docker-compose.yml` - Added hook mount + ORCHESTRATOR_URL
+3. `apps/media-service/src/media_service/main.py` - Fixed `/metrics` endpoint (route vs mount)
+4. `apps/media-service/src/media_service/models/events.py` - Fixed sourceType validation
+5. `apps/media-service/tests/unit/test_metrics_endpoint.py` - Added unit tests (NEW)
+6. `tests/e2e/helpers/metrics_parser.py` - Added `get_all_metrics()` method
+7. `tests/e2e/test_dual_compose_full_pipeline.py` - Updated metric names
+8. `tests/e2e/PIPELINE_TEST_ISSUE.md` - This file (documentation)
+
+**Technical Debt Resolved:**
+- ✅ E2E docker-compose configs now match local dev (hook configuration parity)
+- ✅ Prometheus metrics properly exposed via HTTP endpoint
+- ✅ Test helpers support flattened metric queries
+- ✅ API validation accepts actual MediaMTX sourceType values
+
+**Next Phase:** Resolve STS Socket.IO connection issue to enable audio/video segment processing
 
 ---
 
@@ -560,32 +584,90 @@ Once Step 1 passes, the remaining pipeline should work (assuming WorkerRunner an
 - [x] Step 1 passing consistently
 - [x] Debug logging added for better visibility
 
-### ❌ Current Blocking Issue: Step 2 - WorkerRunner Connection
+### 🔧 Step 2 Fixes Applied - WorkerRunner Connection
 
-**Problem:** WorkerRunner doesn't detect or process the stream despite MediaMTX receiving it successfully.
+**Previous Problem:** WorkerRunner didn't detect or process the stream despite MediaMTX receiving it successfully.
 
-**Investigation Needed:**
-1. Check if MediaMTX hooks are firing (`runOnReady`, `runOnNotReady`)
-2. Verify WorkerRunner is listening for hook callbacks
-3. Check WorkerRunner container logs during stream publish
-4. Verify `/hooks/mtx-hook` script is mounted and executable in MediaMTX container
-5. Test hook endpoint manually
+**Root Causes Identified:**
+1. ❌ Missing hook configuration in E2E docker-compose files
+2. ❌ Missing `/metrics` HTTP endpoint in media-service
+3. ❌ Missing `get_all_metrics()` method in MetricsParser
+4. ❌ Metric name mismatch (test vs implementation)
 
-**Files to Check:**
-- `apps/media-service/deploy/mediamtx/hooks/mtx-hook` - Hook script
-- WorkerRunner logs - Stream detection logic
-- MediaMTX logs - Hook execution output
+**Fixes Applied (2026-01-01):**
 
-### Test Progress
+1. **Docker Compose Hook Configuration** ✅
+   - Added hook volume mount to `apps/media-service/docker-compose.e2e.yml`
+   - Added hook volume mount to `tests/e2e/docker-compose.yml`
+   - Added `ORCHESTRATOR_URL=http://media-service:8080` to both files
+
+2. **Prometheus Metrics Endpoint** ✅
+   - Created unit test: `apps/media-service/tests/unit/test_metrics_endpoint.py`
+   - Added `/metrics` endpoint to `apps/media-service/src/media_service/main.py`
+   - Mounted `prometheus_client.make_asgi_app()` at `/metrics`
+
+3. **MetricsParser Enhancement** ✅
+   - Added `get_all_metrics()` method to `tests/e2e/helpers/metrics_parser.py`
+   - Returns flattened dict of all metrics with labels
+
+4. **Metric Name Alignment** ✅
+   - Updated test to use `media_service_worker_segments_processed_total{type="audio"}`
+   - Changed from old name `worker_audio_fragments_total`
+   - Updated both Step 2 and Step 6 metric checks
+
+5. **Source Type Validation Fix** ✅
+   - Fixed validator in `apps/media-service/src/media_service/models/events.py`
+   - Added `'rtmpConn'`, `'rtspSession'`, `'webRTCSession'` to allowed types
+   - MediaMTX sends `sourceType='rtmpConn'` (detailed type), not `'rtmp'`
+   - Previous validator rejected these, causing 422 validation errors
+
+**Testing Status:** ✅ Hooks Working | ❌ STS Connection Failing
+
+**Verified Working (2026-01-01 18:30):**
+- ✅ MediaMTX hooks fire when stream published (confirmed in logs)
+- ✅ Hook script `/hooks/mtx-hook` executes successfully
+- ✅ HTTP POST reaches `http://media-service:8080/v1/mediamtx/events/ready`
+- ✅ Source type validation passes (`rtmpConn` accepted)
+- ✅ `/metrics` endpoint returns 200 OK (no more 307 redirects)
+- ✅ `get_all_metrics()` method works correctly
+- ✅ WorkerManager.start_worker() is called
+- ✅ WorkerRunner initialization begins
+
+**New Blocking Issue - STS Service Connection (Step 2 Still Failing):**
+- ❌ WorkerRunner fails to connect to STS service via Socket.IO
+- Error: `ConnectionError: Failed to connect to STS Service: One or more namespaces failed to connect`
+- This prevents WorkerRunner from processing audio/video segments
+- No segment metrics are generated (`media_service_worker_segments_processed_total` never appears)
+- Step 2 assertion fails: "WorkerRunner should connect and start processing within 10 seconds"
+
+**Root Cause of STS Connection Failure:**
+- STS service URL: `http://host.docker.internal:3000` (from docker-compose.e2e.yml)
+- Socket.IO namespace: `/ws/sts` (from test configuration)
+- Possible issues:
+  1. STS service not listening on correct port/namespace
+  2. Network connectivity issue (`host.docker.internal` not resolving)
+  3. Socket.IO client/server version mismatch
+  4. Authentication/handshake failure
+
+**Next Investigation Steps:**
+1. Verify STS service is running and accessible at `http://localhost:3000`
+2. Test Socket.IO connection manually: `curl http://localhost:3000/socket.io/?transport=polling`
+3. Check STS service logs for connection attempts
+4. Verify Socket.IO namespace matches between client and server
+5. Consider using echo-sts for testing (simpler than real STS)
+
+### Test Progress Summary
 
 | Step | Description | Status | Notes |
 |------|-------------|--------|-------|
 | 0 | Environment Setup | ✅ PASS | Both compose envs healthy |
-| 1 | MediaMTX Receives Stream | ✅ PASS | Fixed via RTMP conversion |
-| 2 | WorkerRunner Connects | ❌ FAIL | Current blocking issue |
-| 3 | Socket.IO Events | ⏸️ Not reached | Blocked by Step 2 |
-| 4 | Event Data Validation | ⏸️ Not reached | Blocked by Step 2 |
-| 5 | Output RTMP Stream | ⏸️ Not reached | Blocked by Step 2 |
-| 6 | Metrics Verification | ⏸️ Not reached | Blocked by Step 2 |
+| 1 | MediaMTX Receives Stream | ✅ PASS | Fixed via RTMP conversion (ea27c3f) |
+| 2 | WorkerRunner Connects | ⚠️ PARTIAL | Hooks work, STS connection fails |
+| 3 | Socket.IO Events | ⏸️ Not reached | Blocked by Step 2 STS issue |
+| 4 | Event Data Validation | ⏸️ Not reached | Blocked by Step 2 STS issue |
+| 5 | Output RTMP Stream | ⏸️ Not reached | Blocked by Step 2 STS issue |
+| 6 | Metrics Verification | ⏸️ Not reached | Blocked by Step 2 STS issue |
 
-**Overall Progress:** 2/7 steps passing (29% complete)
+**Overall Progress:** 1.5/7 steps passing (~21% complete)
+**Hooks Infrastructure:** ✅ Working (major milestone)
+**Current Blocker:** STS service Socket.IO connection

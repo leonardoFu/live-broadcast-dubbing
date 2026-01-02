@@ -22,8 +22,10 @@ services:
       - MTX_APIADDRESS=:8889
       - MTX_PROTOCOLS=tcp
       - MTX_LOGLEVEL=warn
+      - ORCHESTRATOR_URL=http://media-service:8080
     volumes:
       - ./deploy/mediamtx/mediamtx.yml:/mediamtx.yml:ro
+      - ./deploy/mediamtx/hooks:/hooks:ro
     networks:
       - e2e-media-network
     healthcheck:

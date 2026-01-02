@@ -381,3 +381,44 @@ class MetricsParser:
             Raw Prometheus text format
         """
         return self._raw_text
+
+    def get_all_metrics(self) -> dict[str, float]:
+        """Get all metrics as a simplified dictionary.
+
+        Fetches metrics from endpoint and returns a flattened view
+        of all metric values for easy querying in tests.
+
+        Returns:
+            Dictionary mapping metric names (with labels) to their values.
+            For metrics with labels, keys are formatted as:
+            'metric_name{label1="value1",label2="value2"}'
+
+        Example:
+            {
+                'media_service_worker_segments_processed_total{stream_id="test",type="audio"}': 5.0,
+                'worker_av_sync_delta_ms{stream_id="test"}': 45.5,
+            }
+
+        Raises:
+            httpx.HTTPError: If metrics fetch fails
+        """
+        # Fetch metrics if not already fetched
+        if not self._metrics:
+            self.fetch()
+
+        result = {}
+
+        for family in self._metrics.values():
+            for sample in family.samples:
+                # Format metric name with labels
+                if sample.labels:
+                    label_str = ",".join(
+                        f'{k}="{v}"' for k, v in sorted(sample.labels.items())
+                    )
+                    key = f"{sample.name}{{{label_str}}}"
+                else:
+                    key = sample.name
+
+                result[key] = sample.value
+
+        return result
