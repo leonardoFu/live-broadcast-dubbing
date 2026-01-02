@@ -61,11 +61,11 @@ async def test_full_pipeline_media_to_sts_to_output(
     - Services may not be able to communicate
     """
     # Test setup validation
-    stream_path, rtsp_url = publish_test_fixture
+    stream_path, rtmp_url = publish_test_fixture
     assert stream_path is not None, "Stream path should be provided"
-    assert rtsp_url is not None, "RTSP URL should be provided"
+    assert rtmp_url is not None, "RTMP URL should be provided"
 
-    logger.info(f"Test fixture publishing to: {rtsp_url}")
+    logger.info(f"Test fixture publishing to: {rtmp_url}")
     logger.info(f"Expected output stream: rtmp://localhost:1935/live/{stream_path.replace('/in', '/out')}")
 
     # Step 1: Verify MediaMTX received the stream
@@ -74,6 +74,7 @@ async def test_full_pipeline_media_to_sts_to_output(
 
     # Wait for stream to be active in MediaMTX
     stream_active = False
+    available_paths = []
     for attempt in range(10):
         try:
             async with httpx.AsyncClient(follow_redirects=True) as client:
@@ -81,16 +82,30 @@ async def test_full_pipeline_media_to_sts_to_output(
                 resp.raise_for_status()
                 paths = resp.json()
 
+                # Debug logging
+                logger.debug(f"Attempt {attempt + 1}: MediaMTX API response: {paths}")
+                available_paths = [p.get("name", "") for p in paths.get("items", [])]
+                logger.debug(f"Available paths: {available_paths}")
+
                 # Check if our stream is in the list
                 stream_name = stream_path.split("/")[1]  # Extract stream name
+                logger.debug(f"Looking for stream containing: {stream_name}")
+
                 if any(stream_name in p.get("name", "") for p in paths.get("items", [])):
                     stream_active = True
+                    matching_path = [p for p in available_paths if stream_name in p][0]
                     logger.info(f"Stream {stream_name} is active in MediaMTX")
+                    logger.info(f"Full path: {matching_path}")
                     break
         except Exception as e:
-            logger.debug(f"Attempt {attempt + 1}: MediaMTX check failed: {e}")
+            logger.warning(f"Attempt {attempt + 1}: MediaMTX check failed: {e}")
 
         await asyncio.sleep(1)
+
+    # Log failure details if stream didn't appear
+    if not stream_active:
+        logger.error(f"Stream {stream_path.split('/')[1]} never appeared in MediaMTX")
+        logger.error(f"Final available paths: {available_paths if available_paths else 'N/A'}")
 
     assert stream_active, "Stream should be active in MediaMTX within 10 seconds"
 

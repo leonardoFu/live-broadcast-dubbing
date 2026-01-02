@@ -22,6 +22,8 @@ services:
       - MTX_APIADDRESS=:8889
       - MTX_PROTOCOLS=tcp
       - MTX_LOGLEVEL=warn
+    volumes:
+      - ./deploy/mediamtx/mediamtx.yml:/mediamtx.yml:ro
     networks:
       - e2e-media-network
     healthcheck:

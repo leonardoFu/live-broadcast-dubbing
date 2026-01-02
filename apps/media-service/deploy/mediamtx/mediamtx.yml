@@ -28,9 +28,13 @@ rtsp: true
 rtspAddress: :8554
 protocols: [tcp]  # Force TCP to avoid UDP packet loss in Docker
 
+# WebRTC Configuration
+# Disabled for E2E tests to avoid port conflict with Control API on :8889
+webrtc: false
+
 # Control API Configuration (FR-008)
+# Note: Port 9997 for dev, but E2E tests override to 8889 via MTX_APIADDRESS
 api: true
-apiAddress: :9997
 
 # Prometheus Metrics Configuration (FR-009)
 metrics: true

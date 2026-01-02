@@ -205,14 +205,14 @@ def publish_test_fixture(
     # Start publishing
     publisher = StreamPublisher(
         fixture_path=TEST_FIXTURE_PATH,
-        rtsp_base_url="rtsp://localhost:8554",
+        rtmp_base_url="rtmp://localhost:1935",
     )
 
     try:
         publisher.start(stream_path=stream_path, realtime=True)
-        rtsp_url = f"rtsp://localhost:8554/{stream_path}"
-        logger.info(f"Publishing test fixture to {rtsp_url}")
-        yield stream_path, rtsp_url
+        rtmp_url = f"rtmp://localhost:1935/{stream_path}"
+        logger.info(f"Publishing test fixture to {rtmp_url}")
+        yield stream_path, rtmp_url
     finally:
         # Cleanup: stop publishing
         if publisher.is_running():

@@ -1,6 +1,6 @@
 """Stream publisher helper for E2E tests.
 
-Publishes video files to MediaMTX RTSP server using ffmpeg subprocess.
+Publishes video files to MediaMTX RTMP server using ffmpeg subprocess.
 Provides controlled stream injection for deterministic E2E testing.
 """
 
@@ -48,16 +48,16 @@ class StreamPublisher:
     def __init__(
         self,
         fixture_path: Path | None = None,
-        rtsp_base_url: str | None = None,
+        rtmp_base_url: str | None = None,
     ) -> None:
         """Initialize stream publisher.
 
         Args:
             fixture_path: Path to video fixture (default: 1-min-nfl.mp4)
-            rtsp_base_url: RTSP server URL (default: rtsp://localhost:8554)
+            rtmp_base_url: RTMP server URL (default: rtmp://localhost:1935)
         """
         self.fixture_path = fixture_path or TestFixtureConfig.FIXTURE_PATH
-        self.rtsp_base_url = rtsp_base_url or MediaMTXConfig.RTSP_URL
+        self.rtmp_base_url = rtmp_base_url or MediaMTXConfig.RTMP_URL
         self._process: Popen | None = None
         self._stream_path: str | None = None
 
@@ -67,10 +67,10 @@ class StreamPublisher:
         loop: bool = False,
         realtime: bool = True,
     ) -> None:
-        """Start publishing stream to RTSP.
+        """Start publishing stream to RTMP.
 
         Args:
-            stream_path: RTSP path (e.g., "live/test/in")
+            stream_path: RTMP path (e.g., "live/test/in")
             loop: Whether to loop the video (for longer tests)
             realtime: Whether to publish at realtime speed
 
@@ -85,14 +85,15 @@ class StreamPublisher:
         if not self.fixture_path.exists():
             raise FileNotFoundError(f"Fixture not found: {self.fixture_path}")
 
-        rtsp_url = f"{self.rtsp_base_url}/{stream_path}"
+        rtmp_url = f"{self.rtmp_base_url}/{stream_path}"
         self._stream_path = stream_path
 
         # Build ffmpeg command
-        cmd = self._build_ffmpeg_command(rtsp_url, loop, realtime)
+        cmd = self._build_ffmpeg_command(rtmp_url, loop, realtime)
 
         logger.info(f"Starting stream publisher: {stream_path}")
         logger.debug(f"ffmpeg command: {' '.join(cmd)}")
+        logger.debug(f"Publishing to: {rtmp_url}")
 
         self._process = subprocess.Popen(
             cmd,
@@ -108,18 +109,18 @@ class StreamPublisher:
             _, stderr = self._process.communicate()
             raise RuntimeError(f"ffmpeg failed to start: {stderr.decode()}")
 
-        logger.info(f"Stream publisher started: {rtsp_url}")
+        logger.info(f"Stream publisher started: {rtmp_url}")
 
     def _build_ffmpeg_command(
         self,
-        rtsp_url: str,
+        rtmp_url: str,
         loop: bool,
         realtime: bool,
     ) -> list[str]:
-        """Build ffmpeg command for RTSP publishing.
+        """Build ffmpeg command for RTMP publishing.
 
         Args:
-            rtsp_url: Target RTSP URL
+            rtmp_url: Target RTMP URL
             loop: Whether to loop input
             realtime: Whether to publish at realtime
 
@@ -141,9 +142,8 @@ class StreamPublisher:
         cmd.extend([
             "-c:v", "copy",
             "-c:a", "copy",
-            "-f", "rtsp",
-            "-rtsp_transport", "tcp",
-            rtsp_url,
+            "-f", "flv",
+            rtmp_url,
         ])
 
         return cmd
@@ -258,13 +258,13 @@ class StreamPublisher:
 
     @property
     def stream_url(self) -> str | None:
-        """Get the current RTSP stream URL.
+        """Get the current RTMP stream URL.
 
         Returns:
-            RTSP URL if publishing, None otherwise
+            RTMP URL if publishing, None otherwise
         """
         if self._stream_path:
-            return f"{self.rtsp_base_url}/{self._stream_path}"
+            return f"{self.rtmp_base_url}/{self._stream_path}"
         return None
 
 
