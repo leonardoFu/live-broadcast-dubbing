@@ -7,7 +7,7 @@ Tests the orchestration of the dubbing pipeline.
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -28,8 +28,8 @@ def worker_config(tmp_segment_dir: Path) -> WorkerConfig:
     """Create a test worker configuration."""
     return WorkerConfig(
         stream_id="test-stream",
-        rtsp_url="rtsp://localhost:8554/test",
-        rtmp_url="rtmp://localhost:1935/live/test",
+        rtmp_input_url="rtmp://localhost:1935/live/test/in",  # Changed from rtsp_url
+        rtmp_url="rtmp://localhost:1935/live/test/out",
         sts_url="http://localhost:3000",
         segment_dir=tmp_segment_dir,
         source_language="en",
@@ -44,8 +44,8 @@ class TestWorkerConfigInit:
         """Test default values are set."""
         config = WorkerConfig(
             stream_id="test",
-            rtsp_url="rtsp://localhost:8554/test",
-            rtmp_url="rtmp://localhost:1935/live/test",
+            rtmp_input_url="rtmp://localhost:1935/live/test/in",
+            rtmp_url="rtmp://localhost:1935/live/test/out",
             sts_url="http://localhost:3000",
             segment_dir=tmp_segment_dir,
         )
@@ -59,8 +59,8 @@ class TestWorkerConfigInit:
         """Test custom values are applied."""
         config = WorkerConfig(
             stream_id="custom-stream",
-            rtsp_url="rtsp://custom:8554/stream",
-            rtmp_url="rtmp://custom:1935/live/stream",
+            rtmp_input_url="rtmp://custom:1935/live/stream/in",
+            rtmp_url="rtmp://custom:1935/live/stream/out",
             sts_url="http://custom:3000",
             segment_dir=tmp_segment_dir,
             source_language="ja",
@@ -471,3 +471,115 @@ class TestWorkerRunnerStop:
 
         mock_input.stop.assert_called_once()
         mock_output.stop.assert_called_once()
+
+
+# =============================================================================
+# RTMP URL Construction Tests (T007 - TDD - These tests should FAIL initially)
+# =============================================================================
+
+
+class TestRTMPURLConstruction:
+    """Unit tests for WorkerRunner RTMP URL construction.
+
+    These tests verify that WorkerRunner constructs RTMP URLs correctly
+    for InputPipeline initialization as part of the RTSP to RTMP migration.
+
+    Per TDD workflow, these tests are written BEFORE implementation
+    and MUST fail initially.
+    """
+
+    def test_worker_config_uses_rtmp_url(self, tmp_segment_dir: Path) -> None:
+        """Test WorkerConfig accepts rtmp_url for input stream."""
+        # WorkerConfig should have an rtmp_input_url field (not rtsp_url)
+        config = WorkerConfig(
+            stream_id="test-stream",
+            rtmp_input_url="rtmp://mediamtx:1935/live/test/in",
+            rtmp_url="rtmp://localhost:1935/live/test/out",
+            sts_url="http://localhost:3000",
+            segment_dir=tmp_segment_dir,
+        )
+
+        assert config.rtmp_input_url == "rtmp://mediamtx:1935/live/test/in"
+
+    def test_worker_runner_builds_rtmp_url(self, tmp_segment_dir: Path) -> None:
+        """Test WorkerRunner constructs RTMP URL format correctly.
+
+        Expected format: rtmp://{host}:{port}/{app}/{stream}/in
+        """
+        config = WorkerConfig(
+            stream_id="test-stream",
+            rtmp_input_url="rtmp://mediamtx:1935/live/test/in",
+            rtmp_url="rtmp://localhost:1935/live/test/out",
+            sts_url="http://localhost:3000",
+            segment_dir=tmp_segment_dir,
+        )
+
+        worker = WorkerRunner(config)
+
+        # Worker should store RTMP URL for InputPipeline
+        assert hasattr(worker, 'config')
+        assert worker.config.rtmp_input_url.startswith("rtmp://")
+        assert ":1935/" in worker.config.rtmp_input_url
+
+    def test_worker_runner_uses_port_1935(self, tmp_segment_dir: Path) -> None:
+        """Test WorkerRunner uses RTMP port 1935 (not RTSP port 8554)."""
+        config = WorkerConfig(
+            stream_id="port-test",
+            rtmp_input_url="rtmp://mediamtx:1935/live/port-test/in",
+            rtmp_url="rtmp://localhost:1935/live/port-test/out",
+            sts_url="http://localhost:3000",
+            segment_dir=tmp_segment_dir,
+        )
+
+        worker = WorkerRunner(config)
+
+        # RTMP should use port 1935
+        assert ":1935/" in worker.config.rtmp_input_url
+        # Should NOT use RTSP port 8554
+        assert ":8554/" not in worker.config.rtmp_input_url
+
+    def test_worker_runner_no_rtsp_url(self, tmp_segment_dir: Path) -> None:
+        """Test WorkerConfig does NOT have rtsp_url attribute after migration."""
+        config = WorkerConfig(
+            stream_id="no-rtsp-test",
+            rtmp_input_url="rtmp://mediamtx:1935/live/no-rtsp/in",
+            rtmp_url="rtmp://localhost:1935/live/no-rtsp/out",
+            sts_url="http://localhost:3000",
+            segment_dir=tmp_segment_dir,
+        )
+
+        # rtsp_url should NOT exist on the config
+        assert not hasattr(config, 'rtsp_url'), "WorkerConfig should not have rtsp_url"
+
+    def test_worker_runner_input_pipeline_uses_rtmp(
+        self, tmp_segment_dir: Path
+    ) -> None:
+        """Test WorkerRunner initializes InputPipeline with rtmp_url parameter."""
+        config = WorkerConfig(
+            stream_id="pipeline-test",
+            rtmp_input_url="rtmp://mediamtx:1935/live/pipeline/in",
+            rtmp_url="rtmp://localhost:1935/live/pipeline/out",
+            sts_url="http://localhost:3000",
+            segment_dir=tmp_segment_dir,
+        )
+
+        worker = WorkerRunner(config)
+
+        # Mock both InputPipeline and OutputPipeline to prevent GStreamer calls
+        with patch('media_service.worker.worker_runner.InputPipeline') as mock_input_pipeline, \
+             patch('media_service.worker.worker_runner.OutputPipeline') as mock_output_pipeline:
+            mock_input_instance = MagicMock()
+            mock_output_instance = MagicMock()
+            mock_input_pipeline.return_value = mock_input_instance
+            mock_output_pipeline.return_value = mock_output_instance
+
+            # Build pipelines (this is what _build_pipelines does)
+            worker._build_pipelines()
+
+            # Verify InputPipeline was called with rtmp_url
+            mock_input_pipeline.assert_called_once()
+            call_kwargs = mock_input_pipeline.call_args
+            if call_kwargs:
+                kwargs = call_kwargs.kwargs if hasattr(call_kwargs, 'kwargs') else call_kwargs[1]
+                assert 'rtmp_url' in kwargs, "InputPipeline must be called with rtmp_url"
+                assert kwargs['rtmp_url'].startswith("rtmp://"), "rtmp_url must start with rtmp://"

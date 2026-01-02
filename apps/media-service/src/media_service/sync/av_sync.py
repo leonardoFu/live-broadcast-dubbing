@@ -15,6 +15,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import deque
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -245,7 +246,7 @@ class AvSyncManager:
 
     async def flush_with_fallback(
         self,
-        get_original_audio: callable,
+        get_original_audio: Callable[[AudioSegment], Awaitable[bytes]],
     ) -> list[SyncPair]:
         """Flush video buffer using original audio as fallback.
 

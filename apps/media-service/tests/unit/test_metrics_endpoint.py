@@ -1,6 +1,6 @@
 """Test /metrics endpoint exposure."""
-import pytest
 from fastapi.testclient import TestClient
+
 from media_service.main import app
 
 

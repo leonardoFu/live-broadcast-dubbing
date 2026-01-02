@@ -331,7 +331,7 @@ class TestAvSyncManagerGetReadyPairs:
         # Now get all ready pairs
         # Note: Each pair should have been created during push since both arrive sequentially
         # Let's verify no pairs are left if they were already matched
-        pairs = await av_sync_manager.get_ready_pairs()
+        _ = await av_sync_manager.get_ready_pairs()
 
         # Since push_audio creates pairs immediately when video is ready,
         # the buffers should be empty

@@ -11,8 +11,8 @@ services:
 
     # Port Mappings
     ports:
-      - "1935:1935"     # RTMP ingest (FR-002)
-      - "8554:8554"     # RTSP read (FR-003)
+      - "1935:1935"     # RTMP ingest/playback (FR-002, spec 020-rtmp-stream-pull)
+      - "8554:8554"     # RTSP (deprecated, kept for MediaMTX multi-protocol)
       - "9997:9997"     # Control API (FR-008)
       - "9998:9998"     # Prometheus metrics (FR-009)
       - "9996:9996"     # Playback server (FR-010)

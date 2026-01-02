@@ -6,7 +6,7 @@ Tests worker lifecycle orchestration, idempotency, and registry management.
 
 import asyncio
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -19,7 +19,7 @@ def worker_config():
     """Create a test worker configuration."""
     return WorkerConfig(
         stream_id="test-stream",
-        rtsp_url="rtsp://localhost:8554/live/test/in",
+        rtmp_input_url="rtmp://localhost:1935/live/test/in",
         rtmp_url="rtmp://localhost:1935/live/test/out",
         sts_url="http://localhost:8080",
         segment_dir=Path("/tmp/segments/test-stream"),
@@ -93,14 +93,14 @@ class TestStartWorker:
 
             config1 = WorkerConfig(
                 stream_id="stream-1",
-                rtsp_url="rtsp://localhost:8554/live/stream-1/in",
+                rtmp_input_url="rtmp://localhost:1935/live/stream-1/in",
                 rtmp_url="rtmp://localhost:1935/live/stream-1/out",
                 sts_url="http://localhost:8080",
                 segment_dir=Path("/tmp/segments/stream-1"),
             )
             config2 = WorkerConfig(
                 stream_id="stream-2",
-                rtsp_url="rtsp://localhost:8554/live/stream-2/in",
+                rtmp_input_url="rtmp://localhost:1935/live/stream-2/in",
                 rtmp_url="rtmp://localhost:1935/live/stream-2/out",
                 sts_url="http://localhost:8080",
                 segment_dir=Path("/tmp/segments/stream-2"),
@@ -142,7 +142,7 @@ class TestStartWorker:
             mock_runner.start.side_effect = delayed_start
 
             # Start same worker concurrently
-            results = await asyncio.gather(
+            await asyncio.gather(
                 manager.start_worker("test-stream", worker_config),
                 manager.start_worker("test-stream", worker_config),
                 manager.start_worker("test-stream", worker_config),
@@ -228,14 +228,14 @@ class TestCleanupAll:
 
             config1 = WorkerConfig(
                 stream_id="stream-1",
-                rtsp_url="rtsp://localhost:8554/live/stream-1/in",
+                rtmp_input_url="rtmp://localhost:1935/live/stream-1/in",
                 rtmp_url="rtmp://localhost:1935/live/stream-1/out",
                 sts_url="http://localhost:8080",
                 segment_dir=Path("/tmp/segments/stream-1"),
             )
             config2 = WorkerConfig(
                 stream_id="stream-2",
-                rtsp_url="rtsp://localhost:8554/live/stream-2/in",
+                rtmp_input_url="rtmp://localhost:1935/live/stream-2/in",
                 rtmp_url="rtmp://localhost:1935/live/stream-2/out",
                 sts_url="http://localhost:8080",
                 segment_dir=Path("/tmp/segments/stream-2"),
@@ -265,14 +265,14 @@ class TestCleanupAll:
 
             config1 = WorkerConfig(
                 stream_id="stream-1",
-                rtsp_url="rtsp://localhost:8554/live/stream-1/in",
+                rtmp_input_url="rtmp://localhost:1935/live/stream-1/in",
                 rtmp_url="rtmp://localhost:1935/live/stream-1/out",
                 sts_url="http://localhost:8080",
                 segment_dir=Path("/tmp/segments/stream-1"),
             )
             config2 = WorkerConfig(
                 stream_id="stream-2",
-                rtsp_url="rtsp://localhost:8554/live/stream-2/in",
+                rtmp_input_url="rtmp://localhost:1935/live/stream-2/in",
                 rtmp_url="rtmp://localhost:1935/live/stream-2/out",
                 sts_url="http://localhost:8080",
                 segment_dir=Path("/tmp/segments/stream-2"),

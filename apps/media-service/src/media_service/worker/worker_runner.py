@@ -45,8 +45,8 @@ class WorkerConfig:
 
     Attributes:
         stream_id: Stream identifier
-        rtsp_url: Input RTSP URL
-        rtmp_url: Output RTMP URL
+        rtmp_input_url: Input RTMP URL for pulling stream from MediaMTX
+        rtmp_url: Output RTMP URL for publishing dubbed stream
         sts_url: STS Service URL
         segment_dir: Directory for segment storage
         source_language: Source audio language
@@ -55,7 +55,7 @@ class WorkerConfig:
     """
 
     stream_id: str
-    rtsp_url: str
+    rtmp_input_url: str  # Changed from rtsp_url per spec 020-rtmp-stream-pull
     rtmp_url: str
     sts_url: str
     segment_dir: Path
@@ -69,12 +69,16 @@ class WorkerRunner:
     """Orchestrates the stream dubbing pipeline.
 
     Coordinates all components for end-to-end dubbing:
-    1. Input pipeline pulls RTSP stream
+    1. Input pipeline pulls RTMP stream from MediaMTX (via rtmpsrc + flvdemux)
     2. Segment buffer accumulates 6-second segments
     3. Video segments written to disk
     4. Audio segments sent to STS for dubbing
     5. A/V sync pairs video with dubbed audio
-    6. Output pipeline publishes to RTMP
+    6. Output pipeline publishes dubbed stream to RTMP
+
+    Per spec 020-rtmp-stream-pull:
+    - Uses RTMP for input (not RTSP) for simpler pipeline
+    - No RTP depayloading needed (FLV demuxer handles codec extraction)
 
     Attributes:
         config: Worker configuration
@@ -113,7 +117,7 @@ class WorkerRunner:
         # STS components
         self.sts_client = StsSocketIOClient(
             server_url=self.config.sts_url,
-            namespace="/",  # Use default namespace (server registers handlers on "/")
+            namespace="/sts",  # Use STS namespace per spec
         )
         self.fragment_tracker = FragmentTracker(max_inflight=3)
         self.backpressure_handler = BackpressureHandler()
@@ -186,16 +190,16 @@ class WorkerRunner:
 
     def _build_pipelines(self) -> None:
         """Build input and output GStreamer pipelines."""
-        # Input pipeline
+        # Input pipeline - uses RTMP to pull stream from MediaMTX
         self.input_pipeline = InputPipeline(
-            rtsp_url=self.config.rtsp_url,
+            rtmp_url=self.config.rtmp_input_url,
             on_video_buffer=self._on_video_buffer,
             on_audio_buffer=self._on_audio_buffer,
         )
         self.input_pipeline.build()
         self.input_pipeline.start()
 
-        # Output pipeline
+        # Output pipeline - uses RTMP to publish dubbed stream
         self.output_pipeline = OutputPipeline(
             rtmp_url=self.config.rtmp_url,
         )
@@ -215,8 +219,12 @@ class WorkerRunner:
         segment, segment_data = self.segment_buffer.push_video(data, pts_ns, duration_ns)
 
         if segment is not None:
-            # Queue segment for processing
-            asyncio.create_task(self._process_video_segment(segment, segment_data))
+            # Thread-safe queue operation
+            try:
+                self._video_queue.put_nowait((segment, segment_data))
+                logger.debug(f"Video segment queued: batch={segment.batch_number}")
+            except asyncio.QueueFull:
+                logger.warning(f"Video queue full, dropping segment {segment.batch_number}")
 
     def _on_audio_buffer(
         self,
@@ -231,8 +239,12 @@ class WorkerRunner:
         segment, segment_data = self.segment_buffer.push_audio(data, pts_ns, duration_ns)
 
         if segment is not None:
-            # Queue segment for STS processing
-            asyncio.create_task(self._process_audio_segment(segment, segment_data))
+            # Thread-safe queue operation
+            try:
+                self._audio_queue.put_nowait((segment, segment_data))
+                logger.debug(f"Audio segment queued: batch={segment.batch_number}")
+            except asyncio.QueueFull:
+                logger.warning(f"Audio queue full, dropping segment {segment.batch_number}")
 
     async def _process_video_segment(
         self,
@@ -448,6 +460,28 @@ class WorkerRunner:
 
         try:
             while self._running:
+                # Process video segments from queue
+                while not self._video_queue.empty():
+                    try:
+                        video_seg, video_data = self._video_queue.get_nowait()
+                        await self._process_video_segment(video_seg, video_data)
+                        self._video_queue.task_done()
+                    except asyncio.QueueEmpty:
+                        break
+                    except Exception as e:
+                        logger.error(f"Error processing video segment: {e}")
+
+                # Process audio segments from queue
+                while not self._audio_queue.empty():
+                    try:
+                        audio_seg, audio_data = self._audio_queue.get_nowait()
+                        await self._process_audio_segment(audio_seg, audio_data)
+                        self._audio_queue.task_done()
+                    except asyncio.QueueEmpty:
+                        break
+                    except Exception as e:
+                        logger.error(f"Error processing audio segment: {e}")
+
                 # Update metrics periodically
                 self.metrics.set_sts_inflight(self.fragment_tracker.inflight_count)
                 self.metrics.set_circuit_breaker_state(self.circuit_breaker.state_value)
@@ -457,7 +491,7 @@ class WorkerRunner:
                 for pair in pairs:
                     await self._output_pair(pair)
 
-                await asyncio.sleep(0.1)  # 100ms tick
+                await asyncio.sleep(0.05)  # 50ms tick for faster responsiveness
 
         except asyncio.CancelledError:
             logger.info("Worker run loop cancelled")
