@@ -13,20 +13,18 @@ Requirements:
 """
 
 import time
-import pytest
 
-from sts_service.translation.models import TextAsset, TranslationStatus
+import pytest
 from sts_service.tts.coqui_provider import CoquiTTSComponent
 from sts_service.tts.mock import MockTTSFixedTone
-from sts_service.tts.models import AudioAsset, AudioStatus, VoiceProfile
+from sts_service.tts.models import AudioStatus, VoiceProfile
 
 from .conftest import (
     create_text_asset,
-    synthesize_from_translation,
     has_coqui_tts,
     skip_without_coqui,
+    synthesize_from_translation,
 )
-
 
 # =============================================================================
 # Test: Model Caching with Mock (Fast Tests)

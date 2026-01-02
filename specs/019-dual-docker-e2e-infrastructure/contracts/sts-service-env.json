@@ -1,0 +1,89 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "STS Service Docker Compose Environment Variables",
+  "description": "Environment configuration for apps/sts-service/docker-compose.e2e.yml",
+  "type": "object",
+  "properties": {
+    "STS_PORT": {
+      "type": "string",
+      "description": "STS service Socket.IO port exposed to host",
+      "default": "3000",
+      "pattern": "^[0-9]{1,5}$"
+    },
+    "HOST": {
+      "type": "string",
+      "description": "Host interface to bind (0.0.0.0 for all interfaces)",
+      "default": "0.0.0.0",
+      "pattern": "^([0-9]{1,3}\\.){3}[0-9]{1,3}$"
+    },
+    "LOG_LEVEL": {
+      "type": "string",
+      "description": "Logging level for STS service",
+      "enum": ["DEBUG", "INFO", "WARN", "ERROR"],
+      "default": "INFO"
+    },
+    "ASR_MODEL": {
+      "type": "string",
+      "description": "Whisper ASR model size (balance accuracy vs. speed)",
+      "enum": ["whisper-tiny", "whisper-base", "whisper-small", "whisper-medium", "whisper-large"],
+      "default": "whisper-small"
+    },
+    "TRANSLATION_PROVIDER": {
+      "type": "string",
+      "description": "Translation service provider",
+      "enum": ["google", "deepl", "mock"],
+      "default": "google"
+    },
+    "TTS_PROVIDER": {
+      "type": "string",
+      "description": "TTS synthesis provider",
+      "enum": ["coqui", "google", "mock"],
+      "default": "coqui"
+    },
+    "TTS_MODEL": {
+      "type": "string",
+      "description": "Coqui TTS model identifier",
+      "default": "tts_models/en/ljspeech/tacotron2-DDC"
+    },
+    "DEVICE": {
+      "type": "string",
+      "description": "Processing device (cpu or cuda)",
+      "enum": ["cpu", "cuda"],
+      "default": "cpu"
+    },
+    "MAX_INFLIGHT": {
+      "type": "string",
+      "description": "Maximum concurrent fragments to process",
+      "default": "3",
+      "pattern": "^[0-9]+$"
+    },
+    "PROCESSING_TIMEOUT": {
+      "type": "string",
+      "description": "Timeout for processing each fragment (seconds)",
+      "default": "30",
+      "pattern": "^[0-9]+$"
+    }
+  },
+  "required": [
+    "STS_PORT",
+    "HOST",
+    "ASR_MODEL",
+    "TTS_PROVIDER",
+    "DEVICE"
+  ],
+  "additionalProperties": false,
+  "examples": [
+    {
+      "STS_PORT": "3000",
+      "HOST": "0.0.0.0",
+      "LOG_LEVEL": "INFO",
+      "ASR_MODEL": "whisper-small",
+      "TRANSLATION_PROVIDER": "google",
+      "TTS_PROVIDER": "coqui",
+      "TTS_MODEL": "tts_models/en/ljspeech/tacotron2-DDC",
+      "DEVICE": "cpu",
+      "MAX_INFLIGHT": "3",
+      "PROCESSING_TIMEOUT": "30"
+    }
+  ]
+}

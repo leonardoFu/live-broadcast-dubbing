@@ -35,28 +35,28 @@ class TestClassifyError:
 
     def test_classify_timeout_error(self):
         """Test TimeoutError maps to TIMEOUT."""
-        from sts_service.translation.errors import classify_error, TranslationErrorType
+        from sts_service.translation.errors import TranslationErrorType, classify_error
 
         result = classify_error(TimeoutError("Operation timed out"))
         assert result == TranslationErrorType.TIMEOUT
 
     def test_classify_value_error(self):
         """Test ValueError maps to EMPTY_INPUT."""
-        from sts_service.translation.errors import classify_error, TranslationErrorType
+        from sts_service.translation.errors import TranslationErrorType, classify_error
 
         result = classify_error(ValueError("Empty string"))
         assert result == TranslationErrorType.EMPTY_INPUT
 
     def test_classify_unknown_exception(self):
         """Test unknown exceptions map to UNKNOWN."""
-        from sts_service.translation.errors import classify_error, TranslationErrorType
+        from sts_service.translation.errors import TranslationErrorType, classify_error
 
         result = classify_error(RuntimeError("Something went wrong"))
         assert result == TranslationErrorType.UNKNOWN
 
     def test_classify_connection_error(self):
         """Test ConnectionError maps to PROVIDER_ERROR."""
-        from sts_service.translation.errors import classify_error, TranslationErrorType
+        from sts_service.translation.errors import TranslationErrorType, classify_error
 
         result = classify_error(ConnectionError("Connection refused"))
         assert result == TranslationErrorType.PROVIDER_ERROR
@@ -67,37 +67,37 @@ class TestIsRetryable:
 
     def test_timeout_is_retryable(self):
         """Test TIMEOUT errors are retryable."""
-        from sts_service.translation.errors import is_retryable, TranslationErrorType
+        from sts_service.translation.errors import TranslationErrorType, is_retryable
 
         assert is_retryable(TranslationErrorType.TIMEOUT) is True
 
     def test_provider_error_is_retryable(self):
         """Test PROVIDER_ERROR is retryable."""
-        from sts_service.translation.errors import is_retryable, TranslationErrorType
+        from sts_service.translation.errors import TranslationErrorType, is_retryable
 
         assert is_retryable(TranslationErrorType.PROVIDER_ERROR) is True
 
     def test_empty_input_not_retryable(self):
         """Test EMPTY_INPUT is not retryable."""
-        from sts_service.translation.errors import is_retryable, TranslationErrorType
+        from sts_service.translation.errors import TranslationErrorType, is_retryable
 
         assert is_retryable(TranslationErrorType.EMPTY_INPUT) is False
 
     def test_unsupported_language_pair_not_retryable(self):
         """Test UNSUPPORTED_LANGUAGE_PAIR is not retryable."""
-        from sts_service.translation.errors import is_retryable, TranslationErrorType
+        from sts_service.translation.errors import TranslationErrorType, is_retryable
 
         assert is_retryable(TranslationErrorType.UNSUPPORTED_LANGUAGE_PAIR) is False
 
     def test_normalization_error_not_retryable(self):
         """Test NORMALIZATION_ERROR is not retryable."""
-        from sts_service.translation.errors import is_retryable, TranslationErrorType
+        from sts_service.translation.errors import TranslationErrorType, is_retryable
 
         assert is_retryable(TranslationErrorType.NORMALIZATION_ERROR) is False
 
     def test_unknown_not_retryable(self):
         """Test UNKNOWN is not retryable."""
-        from sts_service.translation.errors import is_retryable, TranslationErrorType
+        from sts_service.translation.errors import TranslationErrorType, is_retryable
 
         assert is_retryable(TranslationErrorType.UNKNOWN) is False
 
@@ -108,8 +108,8 @@ class TestCreateTranslationError:
     def test_create_error_from_timeout(self):
         """Test creating error from TimeoutError."""
         from sts_service.translation.errors import (
-            create_translation_error,
             TranslationErrorType,
+            create_translation_error,
         )
 
         exception = TimeoutError("Exceeded deadline")
@@ -124,8 +124,8 @@ class TestCreateTranslationError:
     def test_create_error_from_value_error(self):
         """Test creating error from ValueError."""
         from sts_service.translation.errors import (
-            create_translation_error,
             TranslationErrorType,
+            create_translation_error,
         )
 
         exception = ValueError("Empty input")
@@ -292,9 +292,9 @@ class TestModels:
         """Test TextAsset.is_retryable property."""
         from sts_service.translation.models import (
             TextAsset,
-            TranslationStatus,
             TranslationError,
             TranslationErrorType,
+            TranslationStatus,
         )
 
         # Failed with retryable error

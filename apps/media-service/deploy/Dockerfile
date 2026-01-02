@@ -49,6 +49,7 @@ RUN pip3 install --no-cache-dir --upgrade pip setuptools wheel && \
     "python-multipart>=0.0.6" \
     "httpx>=0.25.0" \
     "python-socketio[asyncio]>=5.0" \
+    "aiohttp>=3.9.0" \
     "prometheus_client>=0.19.0" && \
     pip3 install --no-cache-dir --break-system-packages --no-deps -e .
 

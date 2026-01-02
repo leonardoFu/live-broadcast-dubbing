@@ -5,11 +5,9 @@ Provides fixtures and adapter functions for testing the complete
 Translation to TTS flow.
 """
 
-import os
-import pytest
-from pathlib import Path
-from typing import Callable
+from collections.abc import Callable
 
+import pytest
 from sts_service.translation.models import (
     TextAsset,
     TranslationStatus,
@@ -19,7 +17,6 @@ from sts_service.tts.models import (
     AudioAsset,
     VoiceProfile,
 )
-
 
 # -----------------------------------------------------------------------------
 # Translation -> TTS Adapter

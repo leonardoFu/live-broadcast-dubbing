@@ -27,6 +27,9 @@ services:
       - MTX_METRICSADDRESS=:9998
       - MTX_PROTOCOLS=tcp
       - MTX_LOGLEVEL=warn
+      - ORCHESTRATOR_URL=http://media-service:8080
+    volumes:
+      - ../../apps/media-service/deploy/mediamtx/hooks:/hooks:ro
     networks:
       - e2e-test-network
     healthcheck:
@@ -76,7 +79,6 @@ services:
       - MEDIAMTX_RTSP_URL=rtsp://mediamtx:8554
       - MEDIAMTX_RTMP_URL=rtmp://mediamtx:1935
       - STS_URL=http://echo-sts:8000
-      - STS_SOCKETIO_PATH=/ws/sts
       - SEGMENT_DIR=/tmp/segments
       - METRICS_ENABLED=true
     volumes:

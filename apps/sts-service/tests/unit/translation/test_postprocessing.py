@@ -4,7 +4,6 @@ Tests for TTS cleanup postprocessing (T009).
 TDD: These tests are written BEFORE the implementation.
 """
 
-import pytest
 
 
 class TestTTSCleanup:

@@ -127,13 +127,14 @@ def docker_logs(docker_manager: DockerManager) -> Generator[None, None, None]:
 
 @pytest.fixture
 def stream_publisher() -> Generator[StreamPublisher, None, None]:
-    """Stream publisher for pushing test fixtures to MediaMTX.
+    """Stream publisher for pushing test fixtures to MediaMTX via RTMP.
 
+    Per spec 020-rtmp-stream-pull, streams are published via RTMP.
     Each test gets a fresh publisher instance.
     """
     publisher = StreamPublisher(
         fixture_path=TestFixtureConfig.FIXTURE_PATH,
-        rtsp_base_url=MediaMTXConfig.RTSP_URL,
+        rtmp_base_url=MediaMTXConfig.RTMP_URL,
     )
 
     yield publisher
@@ -150,7 +151,8 @@ def published_stream(
 ) -> Generator[str, None, None]:
     """Published stream fixture.
 
-    Starts publishing test fixture and yields the stream URL.
+    Starts publishing test fixture via RTMP and yields the stream URL.
+    Per spec 020-rtmp-stream-pull, media-service pulls streams via RTMP.
     Automatically stops on teardown.
     """
     stream_path = f"live/{TestConfig.STREAM_ID}/in"
@@ -159,11 +161,11 @@ def published_stream(
     if not TestFixtureConfig.FIXTURE_PATH.exists():
         pytest.skip(f"Test fixture not found: {TestFixtureConfig.FIXTURE_PATH}")
 
-    # Start publishing
+    # Start publishing via RTMP
     stream_publisher.start(stream_path=stream_path, realtime=True)
 
-    rtsp_url = f"{MediaMTXConfig.RTSP_URL}/{stream_path}"
-    yield rtsp_url
+    rtmp_url = f"{MediaMTXConfig.RTMP_URL}/{stream_path}"
+    yield rtmp_url
 
     # Stop publishing
     stream_publisher.stop()
@@ -324,7 +326,34 @@ def wait_for_condition(
     return False
 
 
-# Export utility function
-__all__ = [
-    "wait_for_condition",
-]
+# =============================================================================
+# Import Dual Compose Fixtures
+# =============================================================================
+
+# Import dual compose fixtures from conftest_dual_compose
+# These can be used alongside the existing single-compose fixtures
+try:
+    from tests.e2e.conftest_dual_compose import (
+        dual_compose_env,
+        dual_compose_manager,
+        media_compose_env,
+        publish_test_fixture,
+        sts_compose_env,
+        sts_monitor,
+    )
+
+    # Make dual compose fixtures available
+    __all__ = [
+        "wait_for_condition",
+        "dual_compose_env",
+        "dual_compose_manager",
+        "media_compose_env",
+        "sts_compose_env",
+        "publish_test_fixture",
+        "sts_monitor",
+    ]
+except ImportError:
+    # Dual compose fixtures not available
+    __all__ = [
+        "wait_for_condition",
+    ]

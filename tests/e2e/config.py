@@ -12,23 +12,31 @@ PROJECT_ROOT = E2E_TEST_DIR.parent.parent
 
 
 class MediaMTXConfig:
-    """MediaMTX server configuration."""
+    """MediaMTX server configuration.
 
-    RTSP_URL = "rtsp://localhost:8554"
+    Per spec 020-rtmp-stream-pull:
+    - Media service pulls streams via RTMP (port 1935)
+    - RTSP is deprecated for stream pulling
+    """
+
+    # RTMP URLs (primary for spec 020-rtmp-stream-pull)
     RTMP_URL = "rtmp://localhost:1935"
-    CONTROL_API_URL = "http://localhost:9997"
-    METRICS_URL = "http://localhost:9998"
-
-    # Container URLs (for inter-service communication)
-    RTSP_URL_INTERNAL = "rtsp://mediamtx:8554"
     RTMP_URL_INTERNAL = "rtmp://mediamtx:1935"
+
+    # RTSP URLs (deprecated, kept for backward compatibility)
+    RTSP_URL = "rtsp://localhost:8554"
+    RTSP_URL_INTERNAL = "rtsp://mediamtx:8554"
+
+    # Control and metrics
+    CONTROL_API_URL = "http://localhost:8889"
+    METRICS_URL = "http://localhost:9998"
 
 
 class EchoSTSConfig:
     """Echo STS Service configuration."""
 
     URL = "http://localhost:8000"
-    SOCKETIO_PATH = "/ws/sts"
+    SOCKETIO_PATH = "/socket.io/"  # Default Socket.IO path (changed from /ws/sts)
 
     # Container URL
     URL_INTERNAL = "http://echo-sts:8000"

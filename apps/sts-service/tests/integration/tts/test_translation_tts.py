@@ -11,16 +11,14 @@ Requirements:
 - TTS mock components (no external dependencies)
 """
 
-import pytest
 
 from sts_service.translation.factory import create_translation_component
 from sts_service.translation.models import TextAsset, TranslationStatus
 from sts_service.tts.factory import create_tts_component
-from sts_service.tts.mock import MockTTSFixedTone, MockTTSFailOnce
+from sts_service.tts.mock import MockTTSFailOnce, MockTTSFixedTone
 from sts_service.tts.models import AudioAsset, AudioStatus
 
 from .conftest import create_text_asset, synthesize_from_translation
-
 
 # =============================================================================
 # Test: Translation -> TTS Handoff (Mock-based)
@@ -137,7 +135,7 @@ class TestAssetLineageChain:
         # Verify unique asset IDs
         assert audio_asset.asset_id != text_asset.asset_id
 
-        print(f"\n--- Asset Lineage Chain ---")
+        print("\n--- Asset Lineage Chain ---")
         print(f"Translation Asset ID: {text_asset.asset_id}")
         print(f"TTS Asset ID: {audio_asset.asset_id}")
         print(f"TTS Parent IDs: {audio_asset.parent_asset_ids}")
@@ -260,8 +258,8 @@ class TestFullPipelineWithMockTranslation:
         assert audio_asset.stream_id == "full-pipeline-test"
         assert audio_asset.sequence_number == 0
 
-        print(f"\n--- Full Pipeline: Translation -> TTS ---")
-        print(f"Source: This is a test of the full pipeline.")
+        print("\n--- Full Pipeline: Translation -> TTS ---")
+        print("Source: This is a test of the full pipeline.")
         print(f"Translated: {text_asset.translated_text}")
         print(f"Audio Duration: {audio_asset.duration_ms}ms")
         print(f"Lineage: {text_asset.asset_id} -> {audio_asset.asset_id}")

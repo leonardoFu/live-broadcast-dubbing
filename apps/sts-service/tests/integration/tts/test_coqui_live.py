@@ -13,27 +13,19 @@ Requirements:
 - Skip with: pytest -m "not coqui_live"
 """
 
-import math
-import struct
 import pytest
-
 from sts_service.tts.coqui_provider import CoquiTTSComponent
 from sts_service.tts.models import (
-    AudioAsset,
     AudioFormat,
     AudioStatus,
-    TTSConfig,
     VoiceProfile,
 )
-from sts_service.translation.models import TextAsset, TranslationStatus
 
 from .conftest import (
     create_text_asset,
-    synthesize_from_translation,
-    has_coqui_tts,
     skip_without_coqui,
+    synthesize_from_translation,
 )
-
 
 # =============================================================================
 # Test: Basic Synthesis

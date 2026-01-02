@@ -4,8 +4,8 @@ Tests for Translation component interface (Protocol + BaseClass).
 TDD: These tests are written BEFORE the implementation.
 """
 
+
 import pytest
-from typing import runtime_checkable
 
 
 class TestTranslationComponentProtocol:
@@ -80,10 +80,10 @@ class TestBaseTranslationComponent:
         """Test component_name property returns 'translate'."""
         from sts_service.translation.interface import BaseTranslationComponent
         from sts_service.translation.models import (
+            NormalizationPolicy,
+            SpeakerPolicy,
             TextAsset,
             TranslationStatus,
-            SpeakerPolicy,
-            NormalizationPolicy,
         )
 
         # Create a minimal concrete implementation to test base class
@@ -136,8 +136,8 @@ class TestBaseTranslationComponent:
 
     def test_translate_is_abstract(self):
         """Test translate is abstract."""
+
         from sts_service.translation.interface import BaseTranslationComponent
-        from abc import abstractmethod
 
         # translate should be abstract
         assert getattr(BaseTranslationComponent.translate, "__isabstractmethod__", False)
@@ -146,10 +146,10 @@ class TestBaseTranslationComponent:
         """Test shutdown has a default (no-op) implementation."""
         from sts_service.translation.interface import BaseTranslationComponent
         from sts_service.translation.models import (
+            NormalizationPolicy,
+            SpeakerPolicy,
             TextAsset,
             TranslationStatus,
-            SpeakerPolicy,
-            NormalizationPolicy,
         )
 
         class TestComponent(BaseTranslationComponent):
@@ -193,14 +193,14 @@ class TestConcreteImplementationCompliance:
     def test_minimal_implementation_satisfies_protocol(self):
         """Test a minimal implementation satisfies TranslationComponent protocol."""
         from sts_service.translation.interface import (
-            TranslationComponent,
             BaseTranslationComponent,
+            TranslationComponent,
         )
         from sts_service.translation.models import (
+            NormalizationPolicy,
+            SpeakerPolicy,
             TextAsset,
             TranslationStatus,
-            SpeakerPolicy,
-            NormalizationPolicy,
         )
 
         class MinimalComponent(BaseTranslationComponent):

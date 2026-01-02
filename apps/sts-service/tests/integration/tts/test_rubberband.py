@@ -15,21 +15,20 @@ Requirements:
 import math
 import struct
 import subprocess
-import pytest
 
+import pytest
 from sts_service.tts.duration_matching import (
-    calculate_speed_factor,
-    apply_clamping,
-    time_stretch_audio,
-    resample_audio,
-    align_channels,
-    align_audio_to_duration,
     AlignmentResult,
     _time_stretch_simple,
+    align_audio_to_duration,
+    align_channels,
+    apply_clamping,
+    calculate_speed_factor,
+    resample_audio,
+    time_stretch_audio,
 )
 
-from .conftest import has_rubberband, skip_without_rubberband
-
+from .conftest import skip_without_rubberband
 
 # =============================================================================
 # Helper Functions

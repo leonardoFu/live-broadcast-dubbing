@@ -18,9 +18,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
+# Copy shared libraries first (from monorepo root)
+COPY libs/common /app/libs/common
+COPY libs/contracts /app/libs/contracts
+
+# Install shared libraries
+RUN pip install --no-cache-dir -e /app/libs/common -e /app/libs/contracts
+
 # Copy only what's needed for pip install
-COPY pyproject.toml ./
-COPY src/ ./src/
+COPY apps/sts-service/pyproject.toml ./
+COPY apps/sts-service/src/ ./src/
 
 # Install the package with minimal dependencies
 # Note: We only need socketio-related deps, not ML deps
@@ -28,7 +35,8 @@ RUN pip install --no-cache-dir \
     python-socketio[asyncio]>=5.0 \
     uvicorn[standard]>=0.24.0 \
     pydantic>=2.0 \
-    && pip install --no-cache-dir -e .
+    starlette>=0.27.0 \
+    && pip install --no-cache-dir --no-deps -e .
 
 # Create non-root user
 RUN useradd -m -u 1000 appuser
@@ -36,16 +44,16 @@ USER appuser
 
 # Environment variables
 ENV ECHO_HOST=0.0.0.0
-ENV ECHO_PORT=8000
-ENV REQUIRE_AUTH=true
+ENV ECHO_PORT=3000
+ENV REQUIRE_AUTH=false
 ENV LOG_LEVEL=INFO
 
 # Expose port
-EXPOSE 8000
+EXPOSE 3000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/socket.io/ || exit 1
+# Health check - just check if uvicorn is responding
+HEALTHCHECK --interval=5s --timeout=3s --start-period=10s --retries=10 \
+    CMD curl -f http://localhost:3000/ || exit 1
 
 # Run the echo service
-CMD ["python", "-m", "sts_service.echo", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "-m", "sts_service.echo", "--host", "0.0.0.0", "--port", "3000"]

@@ -10,9 +10,11 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
+from prometheus_client import REGISTRY, generate_latest
 
 from media_service.api import hooks
+from media_service.orchestrator.worker_manager import WorkerManager
 
 # Configure structured logging
 logging.basicConfig(
@@ -24,10 +26,28 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    """Application lifespan manager."""
+    """Application lifespan manager.
+
+    Initializes WorkerManager on startup and cleans up all workers on shutdown.
+    """
+    # Startup
     logger.info("Stream orchestration service starting...")
+
+    # Initialize WorkerManager and attach to app state
+    worker_manager = WorkerManager()
+    app.state.worker_manager = worker_manager
+
+    logger.info("WorkerManager initialized and ready to accept hook events")
+
     yield
+
+    # Shutdown
     logger.info("Stream orchestration service shutting down...")
+
+    # Cleanup all active workers
+    await worker_manager.cleanup_all()
+
+    logger.info("All workers cleaned up, shutdown complete")
 
 
 app = FastAPI(
@@ -39,6 +59,15 @@ app = FastAPI(
 
 # Include routers
 app.include_router(hooks.router, prefix="/v1/mediamtx/events", tags=["hooks"])
+
+
+@app.get("/metrics", response_class=PlainTextResponse)
+async def metrics() -> PlainTextResponse:
+    """Expose Prometheus metrics endpoint."""
+    return PlainTextResponse(
+        content=generate_latest(REGISTRY).decode("utf-8"),
+        media_type="text/plain; version=0.0.4; charset=utf-8",
+    )
 
 
 @app.get("/health")

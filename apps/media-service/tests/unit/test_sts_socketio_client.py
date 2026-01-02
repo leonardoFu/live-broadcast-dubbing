@@ -6,7 +6,6 @@ Tests T040-T052 from tasks.md - Socket.IO client functionality.
 
 from __future__ import annotations
 
-import asyncio
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -39,7 +38,7 @@ def sts_client():
     """Create an StsSocketIOClient instance."""
     return StsSocketIOClient(
         server_url="http://sts-service:8000",
-        namespace="/sts",
+        namespace="/sts",  # Use STS namespace
         reconnect_attempts=5,
         reconnect_delay=1.0,
     )
@@ -84,9 +83,9 @@ class TestStsSocketIOClientInit:
         assert client.server_url == "http://test:8000"
 
     def test_init_default_namespace(self) -> None:
-        """Test default namespace is /sts."""
+        """Test default namespace is /."""
         client = StsSocketIOClient(server_url="http://test:8000")
-        assert client.namespace == "/sts"
+        assert client.namespace == "/"
 
     def test_init_custom_namespace(self) -> None:
         """Test custom namespace."""

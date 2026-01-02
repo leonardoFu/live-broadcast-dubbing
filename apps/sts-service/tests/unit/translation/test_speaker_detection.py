@@ -4,7 +4,6 @@ Tests for speaker label detection (T007).
 TDD: These tests are written BEFORE the implementation.
 """
 
-import pytest
 
 
 class TestSpeakerLabelDetector:

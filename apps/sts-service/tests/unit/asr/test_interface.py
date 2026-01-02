@@ -5,7 +5,7 @@ TDD: These tests are written BEFORE implementation.
 """
 
 from abc import ABC
-from typing import Protocol, runtime_checkable
+from typing import Protocol
 
 import pytest
 

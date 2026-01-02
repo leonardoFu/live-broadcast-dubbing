@@ -11,25 +11,21 @@ To run these tests:
 """
 
 import os
-import pytest
 
-from sts_service.asr.models import TranscriptAsset
-from sts_service.translation.factory import create_translation_component
+import pytest
 from sts_service.translation.deepl_provider import DeepLTranslator
+from sts_service.translation.factory import create_translation_component
 from sts_service.translation.models import (
     NormalizationPolicy,
     SpeakerPolicy,
-    TextAsset,
-    TranslationConfig,
     TranslationStatus,
 )
 
 from .conftest import (
-    translate_transcript,
     create_transcript_asset,
     skip_without_deepl,
+    translate_transcript,
 )
-
 
 # =============================================================================
 # DeepL API Availability Check
@@ -418,7 +414,7 @@ class TestDeepLErrorHandling:
     def test_very_long_text_handling(self):
         """Test handling of longer text content."""
         # Create a longer text
-        long_text = " ".join(["This is sentence number {}.".format(i) for i in range(20)])
+        long_text = " ".join([f"This is sentence number {i}." for i in range(20)])
 
         transcript = create_transcript_asset(
             text=long_text,
@@ -476,7 +472,7 @@ class TestDeepLPerformance:
             latencies.append(result.processing_time_ms)
 
         avg_latency = sum(latencies) / len(latencies)
-        print(f"\n--- DeepL Latency Benchmark ---")
+        print("\n--- DeepL Latency Benchmark ---")
         print(f"Sentences tested: {len(test_sentences)}")
         print(f"Individual latencies: {latencies}ms")
         print(f"Average latency: {avg_latency:.1f}ms")
@@ -503,7 +499,7 @@ class TestDeepLPerformance:
         total_time = time.time() - start_time
         throughput = len(sentences) / total_time
 
-        print(f"\n--- DeepL Throughput Benchmark ---")
+        print("\n--- DeepL Throughput Benchmark ---")
         print(f"Sentences: {len(sentences)}")
         print(f"Total time: {total_time:.2f}s")
         print(f"Throughput: {throughput:.2f} sentences/second")

@@ -5,24 +5,22 @@ Tests the complete flow from ASR TranscriptAsset to Translation TextAsset,
 verifying lineage tracking, language handling, and policy application.
 """
 
-import pytest
 
-from sts_service.asr.models import TranscriptAsset, TranscriptStatus
+from sts_service.asr.models import TranscriptAsset
 from sts_service.translation.factory import create_translation_component
+from sts_service.translation.mock import (
+    MockFailingTranslator,
+    MockIdentityTranslator,
+    MockLatencyTranslator,
+)
 from sts_service.translation.models import (
     NormalizationPolicy,
     SpeakerPolicy,
     TextAsset,
     TranslationStatus,
 )
-from sts_service.translation.mock import (
-    MockIdentityTranslator,
-    MockFailingTranslator,
-    MockLatencyTranslator,
-)
 
-from .conftest import translate_transcript, create_transcript_asset
-
+from .conftest import translate_transcript
 
 # =============================================================================
 # Mock-based Integration Tests (CI-safe, no external dependencies)

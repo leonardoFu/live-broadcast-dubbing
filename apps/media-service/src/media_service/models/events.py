@@ -38,8 +38,12 @@ class HookEvent(BaseModel):
     @field_validator("source_type")
     @classmethod
     def validate_source_type(cls, v: str) -> str:
-        """Validate source type is one of the allowed protocols."""
-        allowed_types = ["rtmp", "rtsp", "webrtc"]
+        """Validate source type is one of the allowed protocols.
+
+        MediaMTX sends detailed source types like 'rtmpConn', 'rtspSession', 'webRTCSession'.
+        We accept these along with the base protocol names.
+        """
+        allowed_types = ["rtmp", "rtsp", "webrtc", "rtmpConn", "rtspSession", "webRTCSession"]
         if v not in allowed_types:
             raise ValueError(f"source_type must be one of {allowed_types}, got {v}")
         return v

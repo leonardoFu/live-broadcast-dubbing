@@ -4,7 +4,6 @@ Unit tests for ASR component factory.
 TDD: These tests are written BEFORE implementation.
 """
 
-from unittest.mock import patch
 
 import pytest
 

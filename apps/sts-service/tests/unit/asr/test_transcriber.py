@@ -333,7 +333,7 @@ class TestFasterWhisperASR:
     def test_shutdown_clears_model_cache(self, mock_whisper_model):
         """Test that shutdown clears cached models."""
         from sts_service.asr.models import ASRConfig
-        from sts_service.asr.transcriber import FasterWhisperASR, _clear_model_cache
+        from sts_service.asr.transcriber import FasterWhisperASR
 
         asr = FasterWhisperASR(config=ASRConfig())
         asr.shutdown()

@@ -10,7 +10,6 @@ import subprocess
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from sts_service.tts.encoding import (
     EncodingError,
     EncodingResult,

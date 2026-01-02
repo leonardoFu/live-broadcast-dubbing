@@ -54,7 +54,7 @@ class StsSocketIOClient:
     def __init__(
         self,
         server_url: str,
-        namespace: str = "/sts",
+        namespace: str = "/",
         reconnect_attempts: int = 5,
         reconnect_delay: float = 1.0,
     ) -> None:
@@ -269,6 +269,7 @@ class StsSocketIOClient:
             "stream:init",
             {
                 "stream_id": stream_id,
+                "worker_id": f"worker-{stream_id}",  # Worker ID based on stream ID
                 "config": config.to_dict(),
             },
             namespace=self.namespace,

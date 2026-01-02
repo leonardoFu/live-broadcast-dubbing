@@ -4,7 +4,6 @@ Tests for translation normalization (T008).
 TDD: These tests are written BEFORE the implementation.
 """
 
-import pytest
 
 
 class TestTranslationNormalizer:
@@ -19,8 +18,8 @@ class TestTranslationNormalizer:
 
     def test_normalize_time_phrases(self):
         """Test time phrase normalization: '1:54 REMAINING' -> '1:54 remaining'."""
-        from sts_service.translation.normalization import TranslationNormalizer
         from sts_service.translation.models import NormalizationPolicy
+        from sts_service.translation.normalization import TranslationNormalizer
 
         normalizer = TranslationNormalizer()
         policy = NormalizationPolicy(normalize_time_phrases=True)
@@ -30,8 +29,8 @@ class TestTranslationNormalizer:
 
     def test_normalize_time_phrases_complex(self):
         """Test complex time phrase: '2:30 LEFT IN THE QUARTER'."""
-        from sts_service.translation.normalization import TranslationNormalizer
         from sts_service.translation.models import NormalizationPolicy
+        from sts_service.translation.normalization import TranslationNormalizer
 
         normalizer = TranslationNormalizer()
         policy = NormalizationPolicy(normalize_time_phrases=True)
@@ -41,8 +40,8 @@ class TestTranslationNormalizer:
 
     def test_normalize_hyphens_word_compound(self):
         """Test hyphen normalization: 'TEN-YARD' -> 'TEN YARD'."""
-        from sts_service.translation.normalization import TranslationNormalizer
         from sts_service.translation.models import NormalizationPolicy
+        from sts_service.translation.normalization import TranslationNormalizer
 
         normalizer = TranslationNormalizer()
         policy = NormalizationPolicy(normalize_hyphens=True)
@@ -52,8 +51,8 @@ class TestTranslationNormalizer:
 
     def test_preserve_score_hyphens(self):
         """Test score patterns like '15-12' are preserved."""
-        from sts_service.translation.normalization import TranslationNormalizer
         from sts_service.translation.models import NormalizationPolicy
+        from sts_service.translation.normalization import TranslationNormalizer
 
         normalizer = TranslationNormalizer()
         policy = NormalizationPolicy(normalize_hyphens=True)
@@ -63,8 +62,8 @@ class TestTranslationNormalizer:
 
     def test_expand_abbreviation_nfl(self):
         """Test abbreviation expansion: 'NFL' -> 'N F L'."""
-        from sts_service.translation.normalization import TranslationNormalizer
         from sts_service.translation.models import NormalizationPolicy
+        from sts_service.translation.normalization import TranslationNormalizer
 
         normalizer = TranslationNormalizer()
         policy = NormalizationPolicy(expand_abbreviations=True)
@@ -74,8 +73,8 @@ class TestTranslationNormalizer:
 
     def test_expand_abbreviation_vs(self):
         """Test abbreviation expansion: 'vs.' -> 'versus'."""
-        from sts_service.translation.normalization import TranslationNormalizer
         from sts_service.translation.models import NormalizationPolicy
+        from sts_service.translation.normalization import TranslationNormalizer
 
         normalizer = TranslationNormalizer()
         policy = NormalizationPolicy(expand_abbreviations=True)
@@ -85,8 +84,8 @@ class TestTranslationNormalizer:
 
     def test_expand_abbreviation_vs_uppercase(self):
         """Test abbreviation expansion: 'VS' -> 'versus'."""
-        from sts_service.translation.normalization import TranslationNormalizer
         from sts_service.translation.models import NormalizationPolicy
+        from sts_service.translation.normalization import TranslationNormalizer
 
         normalizer = TranslationNormalizer()
         policy = NormalizationPolicy(expand_abbreviations=True)
@@ -96,8 +95,8 @@ class TestTranslationNormalizer:
 
     def test_normalize_symbol_ampersand(self):
         """Test symbol normalization: '&' -> 'and'."""
-        from sts_service.translation.normalization import TranslationNormalizer
         from sts_service.translation.models import NormalizationPolicy
+        from sts_service.translation.normalization import TranslationNormalizer
 
         normalizer = TranslationNormalizer()
         policy = NormalizationPolicy(normalize_symbols=True)
@@ -107,8 +106,8 @@ class TestTranslationNormalizer:
 
     def test_normalize_symbol_percent(self):
         """Test symbol normalization: '%' -> 'percent'."""
-        from sts_service.translation.normalization import TranslationNormalizer
         from sts_service.translation.models import NormalizationPolicy
+        from sts_service.translation.normalization import TranslationNormalizer
 
         normalizer = TranslationNormalizer()
         policy = NormalizationPolicy(normalize_symbols=True)
@@ -118,8 +117,8 @@ class TestTranslationNormalizer:
 
     def test_normalize_symbol_dollar(self):
         """Test symbol normalization: '$' -> 'dollars'."""
-        from sts_service.translation.normalization import TranslationNormalizer
         from sts_service.translation.models import NormalizationPolicy
+        from sts_service.translation.normalization import TranslationNormalizer
 
         normalizer = TranslationNormalizer()
         policy = NormalizationPolicy(normalize_symbols=True)
@@ -129,8 +128,8 @@ class TestTranslationNormalizer:
 
     def test_normalize_symbol_at(self):
         """Test symbol normalization: '@' -> 'at'."""
-        from sts_service.translation.normalization import TranslationNormalizer
         from sts_service.translation.models import NormalizationPolicy
+        from sts_service.translation.normalization import TranslationNormalizer
 
         normalizer = TranslationNormalizer()
         policy = NormalizationPolicy(normalize_symbols=True)
@@ -140,8 +139,8 @@ class TestTranslationNormalizer:
 
     def test_policy_disabled_returns_unchanged(self):
         """Test policy enabled=False returns input unchanged."""
-        from sts_service.translation.normalization import TranslationNormalizer
         from sts_service.translation.models import NormalizationPolicy
+        from sts_service.translation.normalization import TranslationNormalizer
 
         normalizer = TranslationNormalizer()
         policy = NormalizationPolicy(enabled=False)
@@ -152,8 +151,8 @@ class TestTranslationNormalizer:
 
     def test_individual_rules_disabled(self):
         """Test individual rules can be disabled."""
-        from sts_service.translation.normalization import TranslationNormalizer
         from sts_service.translation.models import NormalizationPolicy
+        from sts_service.translation.normalization import TranslationNormalizer
 
         normalizer = TranslationNormalizer()
 
@@ -172,8 +171,8 @@ class TestTranslationNormalizer:
 
     def test_determinism_100_runs(self):
         """Test determinism: same input 100 times -> same output."""
-        from sts_service.translation.normalization import TranslationNormalizer
         from sts_service.translation.models import NormalizationPolicy
+        from sts_service.translation.normalization import TranslationNormalizer
 
         normalizer = TranslationNormalizer()
         policy = NormalizationPolicy()
@@ -186,8 +185,8 @@ class TestTranslationNormalizer:
 
     def test_empty_string(self):
         """Test empty string handling."""
-        from sts_service.translation.normalization import TranslationNormalizer
         from sts_service.translation.models import NormalizationPolicy
+        from sts_service.translation.normalization import TranslationNormalizer
 
         normalizer = TranslationNormalizer()
         policy = NormalizationPolicy()
@@ -197,8 +196,8 @@ class TestTranslationNormalizer:
 
     def test_combined_rules(self):
         """Test all normalization rules applied together."""
-        from sts_service.translation.normalization import TranslationNormalizer
         from sts_service.translation.models import NormalizationPolicy
+        from sts_service.translation.normalization import TranslationNormalizer
 
         normalizer = TranslationNormalizer()
         policy = NormalizationPolicy()
