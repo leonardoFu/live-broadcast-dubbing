@@ -46,3 +46,13 @@ coverage/
 *.swp
 *.swo
 *~
+
+# Environment files (keep .env.example and .env.*.example)
+.env
+.env.local
+.env.production
+.env.development
+.env.staging
+**/.env
+!**/.env.example
+!**/.env.*.example

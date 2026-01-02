@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from tests.e2e.config import MediaMTXConfig, TestFixtureConfig, TimeoutConfig
+from config import MediaMTXConfig, TestFixtureConfig, TimeoutConfig
 
 if TYPE_CHECKING:
     from subprocess import Popen

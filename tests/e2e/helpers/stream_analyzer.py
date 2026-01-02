@@ -12,7 +12,7 @@ import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from tests.e2e.config import MediaMTXConfig, TestConfig
+from config import MediaMTXConfig, TestConfig
 
 logger = logging.getLogger(__name__)
 

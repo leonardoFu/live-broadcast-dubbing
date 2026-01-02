@@ -18,8 +18,8 @@ from pathlib import Path
 import httpx
 import pytest
 
-from tests.e2e.helpers.metrics_parser import MetricsParser
-from tests.e2e.helpers.stream_analyzer import StreamAnalyzer
+from helpers.metrics_parser import MetricsParser
+from helpers.stream_analyzer import StreamAnalyzer
 
 logger = logging.getLogger(__name__)
 

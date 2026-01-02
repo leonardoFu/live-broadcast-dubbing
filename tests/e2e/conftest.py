@@ -1,123 +1,175 @@
-"""Pytest configuration and shared fixtures for E2E tests.
+"""Pytest configuration for dual docker-compose E2E tests.
 
-Provides fixtures for:
-- Docker Compose service management
-- Stream publishing
-- Metrics parsing
-- Log capture
-- Resource cleanup
+Provides fixtures for orchestrating two separate docker-compose environments:
+- Media Service composition (MediaMTX + media-service)
+- STS Service composition (real STS service with ASR + Translation + TTS)
+
+Session-scoped fixtures start both compositions once and use unique stream names
+per test for isolation without restart overhead.
 """
 
 from __future__ import annotations
 
 import logging
-import sys
+import time
 from collections.abc import Generator
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import pytest
 
-# Add project root to path for imports
-PROJECT_ROOT = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(PROJECT_ROOT))
-
-from tests.e2e.config import (  # noqa: E402
-    DockerComposeConfig,
-    EchoSTSConfig,
-    MediaMTXConfig,
-    MediaServiceConfig,
-    TestConfig,
-    TestFixtureConfig,
-    TimeoutConfig,
+from helpers.docker_compose_manager import (
+    DockerComposeManager,
+    DualComposeManager,
 )
-from tests.e2e.helpers.docker_manager import DockerManager  # noqa: E402
-from tests.e2e.helpers.metrics_parser import MetricsParser  # noqa: E402
-from tests.e2e.helpers.stream_analyzer import StreamAnalyzer  # noqa: E402
-from tests.e2e.helpers.stream_publisher import StreamPublisher  # noqa: E402
+from helpers.socketio_monitor import SocketIOMonitor
+from helpers.stream_publisher import StreamPublisher
 
-if TYPE_CHECKING:
-    pass
-
-# Configure logging for E2E tests
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
 logger = logging.getLogger(__name__)
 
-
-# =============================================================================
-# Pytest Configuration
-# =============================================================================
-
-
-def pytest_configure(config: pytest.Config) -> None:
-    """Configure pytest with custom markers."""
-    config.addinivalue_line("markers", "e2e: End-to-end tests requiring Docker services")
-    config.addinivalue_line("markers", "p1: Priority 1 tests (core functionality)")
-    config.addinivalue_line("markers", "p2: Priority 2 tests (resilience)")
-    config.addinivalue_line("markers", "p3: Priority 3 tests (reconnection)")
-    config.addinivalue_line("markers", "slow: Tests that take longer than 60 seconds")
-
-
-def pytest_collection_modifyitems(config: pytest.Config, items: list) -> None:
-    """Add e2e marker to all tests in this directory."""
-    for item in items:
-        if "e2e" in str(item.fspath):
-            item.add_marker(pytest.mark.e2e)
+# Paths
+PROJECT_ROOT = Path(__file__).parent.parent.parent
+MEDIA_COMPOSE_FILE = PROJECT_ROOT / "apps/media-service/docker-compose.e2e.yml"
+STS_COMPOSE_FILE = PROJECT_ROOT / "apps/sts-service/docker-compose.e2e.yml"
+TEST_FIXTURE_PATH = Path(__file__).parent.parent / "fixtures/test-streams/1-min-nfl.mp4"
 
 
 # =============================================================================
-# Docker Service Fixtures
+# Dual Compose Fixtures
 # =============================================================================
 
 
 @pytest.fixture(scope="session")
-def docker_manager() -> Generator[DockerManager, None, None]:
-    """Session-scoped Docker manager.
+def media_compose_env() -> Generator[DockerComposeManager, None, None]:
+    """Session-scoped media service Docker Compose environment.
 
-    Manages Docker Compose lifecycle for all E2E tests.
-    Starts services once per test session.
+    Starts MediaMTX + media-service once per test session.
+    Tests use unique stream names to avoid conflicts.
+
+    Yields:
+        DockerComposeManager for media composition
     """
-    manager = DockerManager(
-        compose_file=DockerComposeConfig.COMPOSE_FILE,
-        project_name=DockerComposeConfig.PROJECT_NAME,
+    logger.info("Starting media service Docker Compose environment...")
+
+    manager = DockerComposeManager(
+        compose_file=MEDIA_COMPOSE_FILE,
+        project_name="e2e-media",
+        env={
+            "MEDIAMTX_RTSP_PORT": "8554",
+            "MEDIAMTX_RTMP_PORT": "1935",
+            "MEDIAMTX_API_PORT": "8889",
+            "MEDIA_SERVICE_PORT": "8080",
+            "STS_SERVICE_URL": "http://host.docker.internal:3000",
+        },
     )
 
-    yield manager
+    # Trust Docker's built-in health checks (defined in docker-compose.e2e.yml)
+    # No need for explicit endpoint verification since containers have HEALTHCHECK directives
 
-    # Cleanup on session end (even if tests fail)
-    if manager.is_running():
-        manager.stop()
+    try:
+        manager.start(
+            build=True,
+            timeout=60,
+        )
+        yield manager
+    finally:
+        logger.info("Stopping media service Docker Compose environment...")
+        manager.stop(volumes=True)
 
 
 @pytest.fixture(scope="session")
-def docker_services(docker_manager: DockerManager) -> Generator[DockerManager, None, None]:
-    """Session-scoped Docker services.
+def sts_compose_env() -> Generator[DockerComposeManager, None, None]:
+    """Session-scoped STS service Docker Compose environment.
 
-    Ensures all E2E services are running before tests.
+    Starts real STS service once per test session.
+    Model loading (30s+) happens once, amortized across all tests.
+
+    Yields:
+        DockerComposeManager for STS composition
     """
-    logger.info("Starting E2E Docker services...")
+    logger.info("Starting STS service Docker Compose environment...")
+
+    manager = DockerComposeManager(
+        compose_file=STS_COMPOSE_FILE,
+        project_name="e2e-sts",
+        env={
+            "STS_PORT": "3000",
+            "HOST": "0.0.0.0",
+            "ASR_MODEL": "whisper-small",
+            "TTS_PROVIDER": "coqui",
+            "DEVICE": "cpu",
+        },
+    )
+
+    # Trust Docker's built-in health checks
 
     try:
-        docker_manager.start(build=True, timeout=TimeoutConfig.SERVICE_STARTUP)
-        yield docker_manager
+        manager.start(
+            build=True,
+            timeout=90,  # Allow time for model loading
+        )
+        yield manager
     finally:
-        logger.info("Stopping E2E Docker services...")
-        docker_manager.stop(volumes=True)
+        logger.info("Stopping STS service Docker Compose environment...")
+        manager.stop(volumes=True)
 
 
-@pytest.fixture
-def docker_logs(docker_manager: DockerManager) -> Generator[None, None, None]:
-    """Capture Docker logs on test failure.
+@pytest.fixture(scope="session")
+def dual_compose_env(
+    media_compose_env: DockerComposeManager,
+    sts_compose_env: DockerComposeManager,
+) -> dict[str, DockerComposeManager]:
+    """Session-scoped dual compose environment.
 
-    Use this fixture when you want to see logs if a test fails.
+    Ensures both compositions are running before tests.
+    Tests use unique stream names for isolation.
+
+    Returns:
+        Dictionary with 'media' and 'sts' managers
     """
-    yield
+    logger.info("Dual compose environment ready")
+    return {
+        "media": media_compose_env,
+        "sts": sts_compose_env,
+    }
 
-    # Fixture teardown - could capture logs here on failure
-    # This is handled by pytest hooks instead
+
+@pytest.fixture(scope="session")
+def dual_compose_manager() -> Generator[DualComposeManager, None, None]:
+    """Session-scoped dual compose manager (alternative to separate fixtures).
+
+    Use this when you want a single manager controlling both compositions.
+
+    Yields:
+        DualComposeManager instance
+    """
+    logger.info("Starting dual compose manager...")
+
+    manager = DualComposeManager(
+        media_compose_file=MEDIA_COMPOSE_FILE,
+        sts_compose_file=STS_COMPOSE_FILE,
+        media_project_name="e2e-media-alt",
+        sts_project_name="e2e-sts-alt",
+    )
+
+    media_health = [
+        ("http://localhost:8889/v3/paths/list", "MediaMTX"),
+        ("http://localhost:8080/health", "Media Service"),
+    ]
+    sts_health = [
+        ("http://localhost:3000/health", "STS Service"),
+    ]
+
+    try:
+        manager.start_all(
+            build=True,
+            timeout=90,
+            media_health_endpoints=media_health,
+            sts_health_endpoints=sts_health,
+        )
+        yield manager
+    finally:
+        logger.info("Stopping dual compose manager...")
+        manager.stop_all(volumes=True)
 
 
 # =============================================================================
@@ -126,166 +178,74 @@ def docker_logs(docker_manager: DockerManager) -> Generator[None, None, None]:
 
 
 @pytest.fixture
-def stream_publisher() -> Generator[StreamPublisher, None, None]:
-    """Stream publisher for pushing test fixtures to MediaMTX via RTMP.
+def publish_test_fixture(
+    request: pytest.FixtureRequest,
+    dual_compose_env: dict[str, DockerComposeManager],
+) -> Generator[tuple[str, str], None, None]:
+    """Publish 1-min NFL test fixture to MediaMTX.
 
-    Per spec 020-rtmp-stream-pull, streams are published via RTMP.
-    Each test gets a fresh publisher instance.
+    Uses unique stream name per test to avoid conflicts in session-scoped compose.
+
+    Args:
+        request: Pytest request for test name
+        dual_compose_env: Dual compose environment
+
+    Yields:
+        Tuple of (stream_path, rtsp_url)
     """
-    publisher = StreamPublisher(
-        fixture_path=TestFixtureConfig.FIXTURE_PATH,
-        rtmp_base_url=MediaMTXConfig.RTMP_URL,
-    )
-
-    yield publisher
-
-    # Cleanup: ensure stream is stopped
-    if publisher.is_running():
-        publisher.stop()
-
-
-@pytest.fixture
-def published_stream(
-    docker_services: DockerManager,
-    stream_publisher: StreamPublisher,
-) -> Generator[str, None, None]:
-    """Published stream fixture.
-
-    Starts publishing test fixture via RTMP and yields the stream URL.
-    Per spec 020-rtmp-stream-pull, media-service pulls streams via RTMP.
-    Automatically stops on teardown.
-    """
-    stream_path = f"live/{TestConfig.STREAM_ID}/in"
+    # Generate unique stream name
+    test_name = request.node.name.replace("[", "_").replace("]", "_")
+    timestamp = int(time.time())
+    stream_path = f"live/test_{test_name}_{timestamp}/in"
 
     # Verify fixture exists
-    if not TestFixtureConfig.FIXTURE_PATH.exists():
-        pytest.skip(f"Test fixture not found: {TestFixtureConfig.FIXTURE_PATH}")
+    if not TEST_FIXTURE_PATH.exists():
+        pytest.skip(f"Test fixture not found: {TEST_FIXTURE_PATH}")
 
-    # Start publishing via RTMP
-    stream_publisher.start(stream_path=stream_path, realtime=True)
-
-    rtmp_url = f"{MediaMTXConfig.RTMP_URL}/{stream_path}"
-    yield rtmp_url
-
-    # Stop publishing
-    stream_publisher.stop()
-
-
-# =============================================================================
-# Metrics and Analysis Fixtures
-# =============================================================================
-
-
-@pytest.fixture
-def metrics_parser() -> MetricsParser:
-    """Metrics parser for querying Prometheus metrics."""
-    return MetricsParser(metrics_url=MediaServiceConfig.METRICS_URL)
-
-
-@pytest.fixture
-def stream_analyzer() -> StreamAnalyzer:
-    """Stream analyzer for ffprobe-based analysis."""
-    return StreamAnalyzer(rtmp_base_url=MediaMTXConfig.RTMP_URL)
-
-
-# =============================================================================
-# Configuration Fixtures
-# =============================================================================
-
-
-@pytest.fixture
-def test_config() -> TestConfig:
-    """Test configuration."""
-    return TestConfig()
-
-
-@pytest.fixture
-def mediamtx_config() -> MediaMTXConfig:
-    """MediaMTX configuration."""
-    return MediaMTXConfig()
-
-
-@pytest.fixture
-def echo_sts_config() -> EchoSTSConfig:
-    """Echo STS configuration."""
-    return EchoSTSConfig()
-
-
-@pytest.fixture
-def timeout_config() -> TimeoutConfig:
-    """Timeout configuration."""
-    return TimeoutConfig()
-
-
-# =============================================================================
-# Socket.IO Client Fixtures
-# =============================================================================
-
-
-@pytest.fixture
-async def sts_client():
-    """Socket.IO client for Echo STS Service.
-
-    Use this to send configuration events to Echo STS.
-    """
-    import socketio
-
-    client = socketio.AsyncClient()
-
-    await client.connect(
-        EchoSTSConfig.URL,
-        socketio_path=EchoSTSConfig.SOCKETIO_PATH,
+    # Start publishing
+    publisher = StreamPublisher(
+        fixture_path=TEST_FIXTURE_PATH,
+        rtmp_base_url="rtmp://localhost:1935",
     )
 
-    yield client
-
-    if client.connected:
-        await client.disconnect()
+    try:
+        publisher.start(stream_path=stream_path, realtime=True, loop=True)
+        rtmp_url = f"rtmp://localhost:1935/{stream_path}"
+        logger.info(f"Publishing test fixture to {rtmp_url}")
+        yield stream_path, rtmp_url
+    finally:
+        # Cleanup: stop publishing
+        if publisher.is_running():
+            publisher.stop()
 
 
 # =============================================================================
-# Cleanup Fixtures
+# Socket.IO Monitor Fixtures
 # =============================================================================
 
 
-@pytest.fixture(autouse=True)
-def cleanup_resources():
-    """Autouse fixture for resource cleanup.
+@pytest.fixture
+async def sts_monitor(dual_compose_env: dict[str, DockerComposeManager]) -> Generator[SocketIOMonitor, None, None]:
+    """Socket.IO monitor for capturing STS events.
 
-    Runs after each test to ensure clean state.
+    Connects to real STS service and captures fragment:processed events.
+
+    Args:
+        dual_compose_env: Dual compose environment (ensures STS service is running)
+
+    Yields:
+        SocketIOMonitor instance
     """
-    yield
-
-    # Post-test cleanup would go here
-    # Currently handled by individual fixtures
-
-
-# =============================================================================
-# Test Fixture Verification
-# =============================================================================
-
-
-@pytest.fixture(scope="session")
-def verify_test_fixture() -> bool:
-    """Verify test fixture exists and has correct properties.
-
-    Runs once per session to validate fixture.
-    """
-    from tests.e2e.helpers.stream_publisher import verify_fixture
-
-    fixture_path = TestFixtureConfig.FIXTURE_PATH
-
-    if not fixture_path.exists():
-        logger.warning(f"Test fixture not found: {fixture_path}")
-        return False
+    monitor = SocketIOMonitor(
+        sts_url="http://localhost:3000",
+        # Use default Socket.IO path (removed custom /ws/sts)
+    )
 
     try:
-        info = verify_fixture(fixture_path)
-        logger.info(f"Test fixture verified: {info.get('format', {})}")
-        return True
-    except Exception as e:
-        logger.error(f"Failed to verify test fixture: {e}")
-        return False
+        await monitor.connect()
+        yield monitor
+    finally:
+        await monitor.disconnect()
 
 
 # =============================================================================
@@ -324,36 +284,3 @@ def wait_for_condition(
 
     logger.warning(f"Timeout waiting for {description}")
     return False
-
-
-# =============================================================================
-# Import Dual Compose Fixtures
-# =============================================================================
-
-# Import dual compose fixtures from conftest_dual_compose
-# These can be used alongside the existing single-compose fixtures
-try:
-    from tests.e2e.conftest_dual_compose import (
-        dual_compose_env,
-        dual_compose_manager,
-        media_compose_env,
-        publish_test_fixture,
-        sts_compose_env,
-        sts_monitor,
-    )
-
-    # Make dual compose fixtures available
-    __all__ = [
-        "wait_for_condition",
-        "dual_compose_env",
-        "dual_compose_manager",
-        "media_compose_env",
-        "sts_compose_env",
-        "publish_test_fixture",
-        "sts_monitor",
-    ]
-except ImportError:
-    # Dual compose fixtures not available
-    __all__ = [
-        "wait_for_condition",
-    ]

@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 
 import httpx
 
-from tests.e2e.config import MediaServiceConfig, TimeoutConfig
+from config import MediaServiceConfig, TimeoutConfig
 
 logger = logging.getLogger(__name__)
 
