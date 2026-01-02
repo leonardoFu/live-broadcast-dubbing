@@ -13,6 +13,7 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
 from media_service.api import hooks
+from media_service.orchestrator.worker_manager import WorkerManager
 
 # Configure structured logging
 logging.basicConfig(
@@ -24,10 +25,28 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    """Application lifespan manager."""
+    """Application lifespan manager.
+
+    Initializes WorkerManager on startup and cleans up all workers on shutdown.
+    """
+    # Startup
     logger.info("Stream orchestration service starting...")
+
+    # Initialize WorkerManager and attach to app state
+    worker_manager = WorkerManager()
+    app.state.worker_manager = worker_manager
+
+    logger.info("WorkerManager initialized and ready to accept hook events")
+
     yield
+
+    # Shutdown
     logger.info("Stream orchestration service shutting down...")
+
+    # Cleanup all active workers
+    await worker_manager.cleanup_all()
+
+    logger.info("All workers cleaned up, shutdown complete")
 
 
 app = FastAPI(
