@@ -1,7 +1,7 @@
 ---
 name: speckit-e2e-test-fixer
 description: E2E test failure resolution agent - iteratively fixes test failures, detects implementation gaps, and keeps specs synced
-tools: Read, Write, Edit, Bash, Grep, Glob
+tools: Read, Write, Edit, Bash, Grep, Glob, mcp__plugin_context7_context7__resolve-library-id, mcp__plugin_context7_context7__query-docs
 type: standalone
 color: orange
 ---
@@ -16,7 +16,8 @@ Parse WORKFLOW_CONTEXT from prompt:
 WORKFLOW_CONTEXT:
 {
   "workflow_id": "<uuid>",
-  "feature_id": "<feature-id>",
+  "e2e_test_id": "<number>-<short-name>",
+  "spec_dir": "specs/<e2e_test_id>/",
   "test_file": "tests/e2e/test_<name>.py",
   "iteration": 1,
   "max_iterations": 3,
@@ -68,7 +69,7 @@ failures = parse_pytest_output(test_run_output)
 
 ```python
 def categorize_failure(failure):
-    """Returns: TEST_BUG | IMPLEMENTATION_BUG | SPEC_MISMATCH"""
+    """Returns: TEST_BUG | IMPLEMENTATION_BUG | SPEC_MISMATCH | DEPENDENCY_BUG"""
 
     if has_wrong_comparison(failure):
         return "TEST_BUG"
@@ -82,6 +83,9 @@ def categorize_failure(failure):
     if fixture_error(failure):
         return "TEST_BUG"
 
+    if dependency_error(failure):  # ImportError, AttributeError, TypeError from external lib
+        return "DEPENDENCY_BUG"
+
     return "IMPLEMENTATION_BUG"  # Conservative default
 ```
 
@@ -93,17 +97,46 @@ def categorize_failure(failure):
 
 ```bash
 Read: <test_file>
-# Check for: wrong assertion operator, incorrect timeout, missing setup, fixture issues
+# Check for: wrong assertion, incorrect timeout, missing setup, fixture issues
+```
+
+**For DEPENDENCY_BUG** (ImportError, AttributeError, TypeError from external libs):
+
+```bash
+# 1. Use Context7 to research correct API
+mcp__plugin_context7_context7__resolve-library-id:
+  libraryName: "gstreamer" | "pytest" | "socketio" | "pydantic" etc.
+  query: "<error message>"
+
+mcp__plugin_context7_context7__query-docs:
+  libraryId: "<from above>"
+  query: "How to <action>?"
+
+# 2. Fix code to match documentation, or escalate if version issue
 ```
 
 **For IMPLEMENTATION_BUG**:
 
 ```bash
-# Check if feature exists
 Grep: "def <expected_function>" in apps/<service>/src/
 Grep: "class <ExpectedClass>" in apps/<service>/src/
+# If missing → Assess complexity
+```
 
-# If missing → IMPLEMENTATION_BUG confirmed → Assess complexity
+**For UNKNOWN** (unclear root cause):
+
+```bash
+# Add temporary debug logs at critical points:
+# - Function entry, external API calls, state transitions, branches
+# - Prefix with [DEBUG-E2E-FIXER] for easy cleanup
+
+Edit: apps/<service>/src/<file>.py
+# Example: logger.debug(f"[DEBUG-E2E-FIXER] State: {var}={value}")
+
+Bash: pytest <test_file> -v -s --log-cli-level=DEBUG 2>&1 | tee /tmp/debug.log
+Read: /tmp/debug.log  # Analyze to find root cause
+
+# After fix: Remove all [DEBUG-E2E-FIXER] logs
 ```
 
 **CRITICAL: Complexity Assessment**
@@ -170,9 +203,9 @@ Edit: <test_file>  # Fix assertion logic, timeout, fixture
 # Fix implementation directly
 Edit: apps/<service>/src/<file>.py  # Add missing constant/function
 
-# Update spec to document fix
-Edit: specs/<feature-id>/spec.md
-# Add: "Added <feature> constant/function"
+# Update E2E test spec to document fix
+Edit: specs/<e2e_test_id>/spec.md
+# Add note in relevant section about fix applied
 
 # Re-run tests
 Bash: pytest <test_file> -v
@@ -201,7 +234,8 @@ Return to orchestrator:
       }
     },
     "details": {
-      "feature_id": "<feature-id>",
+      "e2e_test_id": "<e2e_test_id>",
+      "spec_dir": "specs/<e2e_test_id>/",
       "test_file": "<test_file>",
       "failures": [
         {
@@ -228,17 +262,14 @@ Return to orchestrator:
 **Action 3: UPDATE_SPEC (for SPEC_MISMATCH)**
 
 ```bash
-# Update spec to match reality
-Edit: specs/<feature-id>/spec.md
-# Change "within 5s" → "within 10s"
+# Update E2E test spec to match reality
+Edit: specs/<e2e_test_id>/spec.md
+# Update success criteria: "within 5s" → "within 10s"
+# Add note explaining why spec was updated
 
-# Update test to match spec
+# Update test to match updated spec
 Edit: <test_file>
 # Change assert x < 5 → assert x < 10
-
-# Document change
-Edit: specs/<feature-id>/spec.md
-# Add changelog entry with reasoning
 ```
 
 Flag for review:
@@ -293,7 +324,8 @@ else:
   "timestamp": "<ISO8601>",
   "execution_time_ms": <duration>,
   "result": {
-    "feature_id": "<feature-id>",
+    "e2e_test_id": "<e2e_test_id>",
+    "spec_dir": "specs/<e2e_test_id>/",
     "test_file": "<test_file>",
     "iterations_used": 2,
     "fixes_applied": {
@@ -309,10 +341,9 @@ else:
     },
     "spec_updates": [
       {
-        "file": "specs/<feature-id>/spec.md",
+        "file": "specs/<e2e_test_id>/spec.md",
         "change": "Updated SC-002 threshold from 5s to 10s",
         "reason": "Implementation uses 10s timeout",
-        "line": 67,
         "requires_review": true
       }
     ],
@@ -349,7 +380,8 @@ else:
     "code": "MISSING_FEATURE",
     "message": "E2E test failures require feature implementation",
     "details": {
-      "feature_id": "<feature-id>",
+      "e2e_test_id": "<e2e_test_id>",
+      "spec_dir": "specs/<e2e_test_id>/",
       "test_file": "<test_file>",
       "iterations_used": 3,
       "failures_remaining": 2,
@@ -413,10 +445,11 @@ else:
 | Failure Category | Evidence | Complexity | Action | Escalate? |
 |------------------|----------|------------|--------|-----------|
 | TEST_BUG | Wrong assertion, fixture error | N/A | Fix test | No |
+| DEPENDENCY_BUG | ImportError, AttributeError from external lib | N/A | Research with Context7 → Fix syntax | No |
 | IMPLEMENTATION_BUG (SIMPLE) | Missing constant/function | Score ≤ 3 | Fix code + update spec | No |
 | IMPLEMENTATION_BUG (COMPLEX) | Missing class/module | Score > 3 | Return to orchestrator | Yes |
 | SPEC_MISMATCH | Spec ≠ implementation | N/A | Update spec + test | No (flag for review) |
-| UNKNOWN | Cannot determine | N/A | Investigate | Yes (after max iterations) |
+| UNKNOWN | Cannot determine | N/A | Add debug logs → Investigate | Yes (after max iterations) |
 
 ### Complexity Scoring
 
@@ -485,14 +518,12 @@ SC-002: Within 10 seconds
 - Update spec without documenting
 - Skip root cause investigation
 - Exceed max iterations without escalating
-- Make spec changes contradicting business requirements
+- Leave debug logs in code after successful fix
 
 **MUST**:
-- Categorize every failure
-- Fix test bugs directly
-- Assess complexity for implementation bugs
-- Flag complex implementation bugs
-- Update spec when implementation is correct
+- Categorize every failure (TEST_BUG | DEPENDENCY_BUG | IMPLEMENTATION_BUG | SPEC_MISMATCH)
+- Use Context7 for dependency errors (ImportError, AttributeError, TypeError)
+- Add `[DEBUG-E2E-FIXER]` logs when root cause unclear, remove before success
 - Document all spec changes
 - Re-run tests after every fix
 - Return structured JSON

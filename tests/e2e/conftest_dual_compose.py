@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 MEDIA_COMPOSE_FILE = PROJECT_ROOT / "apps/media-service/docker-compose.e2e.yml"
 STS_COMPOSE_FILE = PROJECT_ROOT / "apps/sts-service/docker-compose.e2e.yml"
-TEST_FIXTURE_PATH = Path(__file__).parent / "fixtures/test_streams/30s-counting-english.mp4"
+TEST_FIXTURE_PATH = Path(__file__).parent.parent / "fixtures/test-streams/1-min-nfl.mp4"
 
 
 # =============================================================================
@@ -182,7 +182,7 @@ def publish_test_fixture(
     request: pytest.FixtureRequest,
     dual_compose_env: dict[str, DockerComposeManager],
 ) -> Generator[tuple[str, str], None, None]:
-    """Publish 30s counting test fixture to MediaMTX.
+    """Publish 1-min NFL test fixture to MediaMTX.
 
     Uses unique stream name per test to avoid conflicts in session-scoped compose.
 

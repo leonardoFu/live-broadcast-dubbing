@@ -165,8 +165,9 @@ class InputPipeline:
         self._audio_appsink.set_property("async", False)
         self._audio_appsink.set_property("max-buffers", 0)  # Unlimited buffering
         self._audio_appsink.set_property("drop", False)
-        audio_caps = Gst.Caps.from_string("audio/mpeg")
-        self._audio_appsink.set_property("caps", audio_caps)
+        # NOTE: No caps constraint - let GStreamer auto-negotiate between aacparse and appsink
+        # aacparse output caps may vary (audio/mpeg,mpegversion=2/4, stream-format=raw/adts, etc.)
+        # Setting specific caps was blocking data flow (caps negotiation failure)
 
         # Connect appsink signals
         self._video_appsink.connect("new-sample", self._on_video_sample)

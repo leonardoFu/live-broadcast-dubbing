@@ -35,7 +35,7 @@ class PublishStats:
 class StreamPublisher:
     """Publishes video streams to MediaMTX for E2E testing.
 
-    Uses ffmpeg to push video files to RTSP endpoint,
+    Uses ffmpeg to push video files to RTMP endpoint,
     simulating a real stream source.
 
     Usage:

@@ -39,20 +39,20 @@ async def test_full_pipeline_media_to_sts_to_output(
 
     Test Scenario:
     1. Start dual compose environments (media + STS)
-    2. Publish 30s counting fixture to MediaMTX RTSP
+    2. Publish 1-min NFL fixture to MediaMTX RTSP
     3. Verify WorkerRunner connects and starts processing
-    4. Verify all 5 segments (6s each) sent to real STS service
+    4. Verify all 10 segments (6s each) sent to real STS service
     5. Verify all fragments return with real dubbed audio
     6. Verify output RTMP stream available and playable
-    7. Verify pipeline completes within 180s (allowing real STS latency)
+    7. Verify pipeline completes within 300s (allowing real STS latency)
 
     Expected Results:
     - WorkerRunner connects within 5s
-    - 5 segments processed (30s / 6s = 5)
+    - 10 segments processed (60s / 6s = 10)
     - All fragment:processed events received with dubbed_audio
-    - Output stream duration matches input (30s +/- 500ms)
+    - Output stream duration matches input (60s +/- 1s)
     - A/V sync delta < 120ms throughout
-    - Pipeline completes within 180s total
+    - Pipeline completes within 300s total
 
     This test MUST initially FAIL because:
     - Docker compose files may not be complete
@@ -144,15 +144,15 @@ async def test_full_pipeline_media_to_sts_to_output(
     # Step 3: Monitor Socket.IO events for fragment:processed
     logger.info("Step 3: Monitoring Socket.IO for fragment:processed events...")
 
-    # Expected: 5 segments (30s / 6s = 5)
-    expected_segments = 5
+    # Expected: 10 segments (60s / 6s = 10)
+    expected_segments = 10
 
     try:
-        # Wait for all fragment:processed events (timeout 180s for real STS latency)
+        # Wait for all fragment:processed events (timeout 300s for real STS latency)
         processed_events = await sts_monitor.wait_for_events(
             event_name="fragment:processed",
             count=expected_segments,
-            timeout=180.0,
+            timeout=300.0,
         )
 
         assert len(processed_events) == expected_segments, \
@@ -222,10 +222,10 @@ async def test_full_pipeline_media_to_sts_to_output(
         assert video_streams[0].get("codec_name") == "h264", "Video codec should be h264"
         assert audio_streams[0].get("codec_name") == "aac", "Audio codec should be aac"
 
-        # Verify duration (30s +/- 500ms tolerance)
+        # Verify duration (60s +/- 1s tolerance)
         duration = float(stream_info["format"].get("duration", 0))
-        assert 29.5 <= duration <= 30.5, \
-            f"Output duration should be ~30s, got {duration}s"
+        assert 59.0 <= duration <= 61.0, \
+            f"Output duration should be ~60s, got {duration}s"
 
         logger.info(f"Output stream verified: duration={duration}s, video={video_streams[0]['codec_name']}, audio={audio_streams[0]['codec_name']}")
 
@@ -281,11 +281,11 @@ def test_docker_compose_files_exist():
 @pytest.mark.e2e
 @pytest.mark.requires_docker
 def test_test_fixture_exists():
-    """Verify 30s counting test fixture exists.
+    """Verify 1-min NFL test fixture exists.
 
     This is a sanity check that should pass if fixture is created.
     """
-    fixture_path = Path(__file__).parent / "fixtures/test_streams/30s-counting-english.mp4"
+    fixture_path = Path(__file__).parent.parent / "fixtures/test-streams/1-min-nfl.mp4"
 
     assert fixture_path.exists(), f"Test fixture should exist at {fixture_path}"
 
@@ -303,7 +303,7 @@ def test_test_fixture_exists():
     info = json.loads(result.stdout)
 
     duration = float(info["format"]["duration"])
-    assert 29.5 <= duration <= 30.5, f"Fixture duration should be ~30s, got {duration}s"
+    assert 59.0 <= duration <= 61.0, f"Fixture duration should be ~60s, got {duration}s"
 
     video_streams = [s for s in info["streams"] if s["codec_type"] == "video"]
     audio_streams = [s for s in info["streams"] if s["codec_type"] == "audio"]
@@ -313,6 +313,6 @@ def test_test_fixture_exists():
 
     assert video_streams[0]["codec_name"] == "h264", "Video codec should be h264"
     assert audio_streams[0]["codec_name"] == "aac", "Audio codec should be aac"
-    assert int(audio_streams[0]["sample_rate"]) == 48000, "Audio sample rate should be 48000Hz"
+    assert int(audio_streams[0]["sample_rate"]) == 44100, "Audio sample rate should be 44100Hz"
 
-    logger.info(f"Test fixture verified: duration={duration}s, video=h264, audio=aac@48kHz")
+    logger.info(f"Test fixture verified: duration={duration}s, video=h264, audio=aac@44.1kHz")
