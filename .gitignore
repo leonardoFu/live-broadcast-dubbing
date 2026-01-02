@@ -2,7 +2,7 @@
 .codex/
 
 # Git worktrees for parallel development
-worktrees/
+.worktrees/
 
 
 # OS/editor noise
