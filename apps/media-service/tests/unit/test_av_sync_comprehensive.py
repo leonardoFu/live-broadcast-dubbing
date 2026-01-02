@@ -7,7 +7,6 @@ Tests AvSyncManager pairing and synchronization logic.
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import AsyncMock
 
 import pytest
 

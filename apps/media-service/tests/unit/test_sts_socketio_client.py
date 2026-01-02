@@ -6,7 +6,6 @@ Tests T040-T052 from tasks.md - Socket.IO client functionality.
 
 from __future__ import annotations
 
-import asyncio
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 

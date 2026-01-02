@@ -11,29 +11,24 @@ Requirements:
 - ffmpeg installed for audio extraction
 """
 
-import os
-import pytest
 from pathlib import Path
 
+import pytest
 from sts_service.asr import (
-    FasterWhisperASR,
     ASRConfig,
     ASRModelConfig,
-    TranscriptAsset,
+    FasterWhisperASR,
     TranscriptStatus,
     VADConfig,
 )
-from sts_service.translation.factory import create_translation_component
 from sts_service.translation.deepl_provider import DeepLTranslator
+from sts_service.translation.factory import create_translation_component
 from sts_service.translation.models import (
     NormalizationPolicy,
-    SpeakerPolicy,
-    TextAsset,
     TranslationStatus,
 )
 
-from .conftest import translate_transcript, skip_without_deepl
-
+from .conftest import skip_without_deepl, translate_transcript
 
 # =============================================================================
 # Fixtures
@@ -57,7 +52,7 @@ def nfl_audio_path() -> Path:
 def load_audio_fragment():
     """Return a function that loads an audio fragment from a file."""
     import subprocess
-    import numpy as np
+
 
     def _load_fragment(
         path: Path,
@@ -156,7 +151,7 @@ class TestASRToTranslationWithMock:
         assert result.source_language == "en"
         assert result.target_language == "zh"
 
-        print(f"\n--- E2E Pipeline (Mock) ---")
+        print("\n--- E2E Pipeline (Mock) ---")
         print(f"ASR Output: {transcript.total_text}")
         print(f"Translation: {result.translated_text}")
 
@@ -210,7 +205,7 @@ class TestASRToTranslationWithMock:
         for frag in fragments:
             assert frag["lineage_correct"], f"Fragment {frag['sequence']} has incorrect lineage"
 
-        print(f"\n--- Multi-Fragment E2E (Mock) ---")
+        print("\n--- Multi-Fragment E2E (Mock) ---")
         for frag in fragments:
             print(f"[{frag['sequence']}] ASR: {frag['asr_text'][:50]}...")
 
@@ -268,7 +263,7 @@ class TestASRToDeepLTranslation:
         has_chinese = any('\u4e00' <= char <= '\u9fff' for char in result.translated_text)
         assert has_chinese, f"Expected Chinese characters in: {result.translated_text}"
 
-        print(f"\n--- E2E Pipeline: Audio → ASR → DeepL (EN→ZH) ---")
+        print("\n--- E2E Pipeline: Audio → ASR → DeepL (EN→ZH) ---")
         print(f"ASR Output (EN): {transcript.total_text}")
         print(f"DeepL Translation (ZH): {result.translated_text}")
         print(f"ASR Processing Time: {transcript.processing_time_ms}ms")
@@ -320,7 +315,7 @@ class TestASRToDeepLTranslation:
 
         assert len(results) > 0, "Should have at least one successful segment"
 
-        print(f"\n--- Multi-Segment E2E: Audio → ASR → DeepL (EN→ZH) ---")
+        print("\n--- Multi-Segment E2E: Audio → ASR → DeepL (EN→ZH) ---")
         for r in results:
             print(f"\n[Segment {r['sequence']}] ({r['start_ms']}ms - {r['start_ms']+3000}ms)")
             print(f"  EN: {r['asr_text']}")
@@ -366,7 +361,7 @@ class TestASRToDeepLTranslation:
 
         assert result.status == TranslationStatus.SUCCESS
 
-        print(f"\n--- Sports Content with Normalization ---")
+        print("\n--- Sports Content with Normalization ---")
         print(f"Original ASR: {transcript.total_text}")
         if result.normalized_source_text:
             print(f"Normalized: {result.normalized_source_text}")
@@ -443,7 +438,7 @@ class TestE2EPipelinePerformance:
         avg_trans = sum(m["translation_ms"] for m in measurements) / len(measurements)
         avg_total = sum(m["total_ms"] for m in measurements) / len(measurements)
 
-        print(f"\n--- E2E Pipeline Latency Benchmark ---")
+        print("\n--- E2E Pipeline Latency Benchmark ---")
         print(f"Fragments measured: {len(measurements)}")
         print(f"Average ASR latency: {avg_asr:.1f}ms")
         print(f"Average Translation latency: {avg_trans:.1f}ms")
@@ -499,7 +494,7 @@ class TestAssetLineageTracking:
         # Verify unique asset IDs
         assert result.asset_id != transcript.asset_id
 
-        print(f"\n--- Asset Lineage Verification ---")
+        print("\n--- Asset Lineage Verification ---")
         print(f"ASR Asset ID: {transcript.asset_id}")
         print(f"Translation Asset ID: {result.asset_id}")
         print(f"Translation Parent IDs: {result.parent_asset_ids}")

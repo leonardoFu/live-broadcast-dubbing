@@ -86,7 +86,7 @@ STS_PORT=3001 MEDIAMTX_RTSP_PORT=8555 pytest tests/e2e/ -v
 - **Video**: H.264, 1280x720, 30fps
 - **Audio**: AAC, 48kHz stereo, clear English speech
 - **Content**: Scripted speech with known text for transcript validation
-- **Location**: `tests/fixtures/test-streams/30s-english-speech.mp4`
+- **Location**: `tests/fixtures/test_streams/30s-english-speech.mp4`
 
 ### Why 30 Seconds?
 

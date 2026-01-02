@@ -245,7 +245,7 @@ class TestWorkerRunnerProcessVideoSegment:
         )
 
         # Mock writer that raises
-        worker.video_writer.write = AsyncMock(side_effect=IOError("Write failed"))
+        worker.video_writer.write = AsyncMock(side_effect=OSError("Write failed"))
 
         # Should not raise
         await worker._process_video_segment(segment, b"data")
@@ -298,7 +298,7 @@ class TestWorkerRunnerProcessAudioSegment:
         )
 
         # Mock writer that raises
-        worker.audio_writer.write = AsyncMock(side_effect=IOError("Write failed"))
+        worker.audio_writer.write = AsyncMock(side_effect=OSError("Write failed"))
 
         # Should not raise
         await worker._process_audio_segment(segment, b"data")

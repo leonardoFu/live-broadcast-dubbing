@@ -16,7 +16,7 @@ class MediaMTXConfig:
 
     RTSP_URL = "rtsp://localhost:8554"
     RTMP_URL = "rtmp://localhost:1935"
-    CONTROL_API_URL = "http://localhost:9997"
+    CONTROL_API_URL = "http://localhost:8889"
     METRICS_URL = "http://localhost:9998"
 
     # Container URLs (for inter-service communication)

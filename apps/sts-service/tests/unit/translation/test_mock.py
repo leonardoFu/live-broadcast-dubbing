@@ -4,7 +4,6 @@ Tests for mock translation components (T010-T011).
 TDD: These tests are written BEFORE the implementation.
 """
 
-import pytest
 
 
 class TestMockIdentityTranslator:
@@ -167,8 +166,8 @@ class TestMockIdentityTranslator:
 
     def test_satisfies_protocol(self):
         """Test MockIdentityTranslator satisfies TranslationComponent protocol."""
-        from sts_service.translation.mock import MockIdentityTranslator
         from sts_service.translation.interface import TranslationComponent
+        from sts_service.translation.mock import MockIdentityTranslator
 
         mock = MockIdentityTranslator()
         assert isinstance(mock, TranslationComponent)
@@ -241,7 +240,7 @@ class TestMockFailingTranslator:
     def test_configurable_error_type(self):
         """Test failure type can be configured."""
         from sts_service.translation.mock import MockFailingTranslator
-        from sts_service.translation.models import TranslationStatus, TranslationErrorType
+        from sts_service.translation.models import TranslationErrorType, TranslationStatus
 
         mock = MockFailingTranslator(
             failure_rate=1.0, failure_type=TranslationErrorType.TIMEOUT

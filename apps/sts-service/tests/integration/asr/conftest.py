@@ -5,8 +5,8 @@ Provides access to audio test fixtures and audio loading utilities.
 """
 
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 import numpy as np
 import pytest

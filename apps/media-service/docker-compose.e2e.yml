@@ -1,0 +1,77 @@
+# Media Service E2E Test Environment - Docker Compose Configuration
+# Purpose: Media-service + MediaMTX for dual docker-compose E2E tests
+# Usage:
+#   docker compose -f apps/media-service/docker-compose.e2e.yml up -d
+#   docker compose -f apps/media-service/docker-compose.e2e.yml down -v
+
+version: '3.8'
+
+services:
+  # MediaMTX Media Server (RTSP/RTMP)
+  mediamtx:
+    image: bluenviron/mediamtx:latest-ffmpeg
+    container_name: e2e-media-mediamtx
+    restart: "no"
+    ports:
+      - "${MEDIAMTX_RTSP_PORT:-8554}:8554"     # RTSP
+      - "${MEDIAMTX_RTMP_PORT:-1935}:1935"     # RTMP
+      - "${MEDIAMTX_API_PORT:-8889}:8889"      # Control API
+    environment:
+      - MTX_RTSPADDRESS=:8554
+      - MTX_RTMPADDRESS=:1935
+      - MTX_APIADDRESS=:8889
+      - MTX_PROTOCOLS=tcp
+      - MTX_LOGLEVEL=warn
+    networks:
+      - e2e-media-network
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8889/v3/paths/list"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  # Media Service (WorkerRunner host)
+  media-service:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile
+    container_name: e2e-media-service
+    restart: "no"
+    ports:
+      - "${MEDIA_SERVICE_PORT:-8080}:8080"  # Expose metrics/API
+    environment:
+      - PORT=8080
+      - LOG_LEVEL=${LOG_LEVEL:-DEBUG}
+      - MEDIAMTX_RTSP_URL=rtsp://mediamtx:8554  # Internal: use container name
+      - MEDIAMTX_RTMP_URL=rtmp://mediamtx:1935  # Internal: use container name
+      - STS_SERVICE_URL=${STS_SERVICE_URL:-http://host.docker.internal:3000}  # External: STS on host
+      - STS_SOCKETIO_PATH=/socket.io
+      - SEGMENT_DIR=/tmp/segments
+      - METRICS_ENABLED=true
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # Enable access to host network for STS
+    volumes:
+      - segments-data:/tmp/segments
+    networks:
+      - e2e-media-network
+    depends_on:
+      mediamtx:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+# Shared network for inter-service communication
+networks:
+  e2e-media-network:
+    driver: bridge
+    name: e2e-media-network
+
+# Volumes for segment storage
+volumes:
+  segments-data:
+    driver: local

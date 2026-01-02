@@ -6,9 +6,9 @@ ASR to Translation flow.
 """
 
 import os
-import pytest
-from typing import Callable
+from collections.abc import Callable
 
+import pytest
 from sts_service.asr.models import (
     TranscriptAsset,
     TranscriptSegment,
@@ -20,7 +20,6 @@ from sts_service.translation.models import (
     SpeakerPolicy,
     TextAsset,
 )
-
 
 # -----------------------------------------------------------------------------
 # ASR -> Translation Adapter

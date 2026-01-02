@@ -4,7 +4,6 @@ Unit tests for error classification.
 TDD: These tests are written BEFORE implementation.
 """
 
-import pytest
 
 
 class TestClassifyError:

@@ -52,8 +52,9 @@ class TestCreateTranslationComponent:
 
     def test_deepl_requires_auth_key(self):
         """Test creating DeepL component without auth key raises error."""
-        from sts_service.translation.factory import create_translation_component
         import os
+
+        from sts_service.translation.factory import create_translation_component
 
         # Ensure no env var is set
         old_key = os.environ.pop("DEEPL_AUTH_KEY", None)

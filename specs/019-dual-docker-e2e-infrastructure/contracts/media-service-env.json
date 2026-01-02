@@ -1,0 +1,67 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Media Service Docker Compose Environment Variables",
+  "description": "Environment configuration for apps/media-service/docker-compose.e2e.yml",
+  "type": "object",
+  "properties": {
+    "MEDIAMTX_RTSP_PORT": {
+      "type": "string",
+      "description": "MediaMTX RTSP server port exposed to host",
+      "default": "8554",
+      "pattern": "^[0-9]{1,5}$"
+    },
+    "MEDIAMTX_RTMP_PORT": {
+      "type": "string",
+      "description": "MediaMTX RTMP server port exposed to host",
+      "default": "1935",
+      "pattern": "^[0-9]{1,5}$"
+    },
+    "MEDIAMTX_API_PORT": {
+      "type": "string",
+      "description": "MediaMTX control API port (for health checks)",
+      "default": "9997",
+      "pattern": "^[0-9]{1,5}$"
+    },
+    "MEDIA_SERVICE_PORT": {
+      "type": "string",
+      "description": "Media service metrics/API port exposed to host",
+      "default": "8080",
+      "pattern": "^[0-9]{1,5}$"
+    },
+    "STS_SERVICE_URL": {
+      "type": "string",
+      "description": "STS service Socket.IO endpoint (from media-service container)",
+      "default": "http://host.docker.internal:3000",
+      "pattern": "^https?://.+:[0-9]{1,5}$"
+    },
+    "LOG_LEVEL": {
+      "type": "string",
+      "description": "Logging level for media-service",
+      "enum": ["DEBUG", "INFO", "WARN", "ERROR"],
+      "default": "DEBUG"
+    },
+    "SEGMENT_DIR": {
+      "type": "string",
+      "description": "Directory for temporary audio/video segments",
+      "default": "/tmp/segments"
+    }
+  },
+  "required": [
+    "MEDIAMTX_RTSP_PORT",
+    "MEDIAMTX_RTMP_PORT",
+    "MEDIA_SERVICE_PORT",
+    "STS_SERVICE_URL"
+  ],
+  "additionalProperties": false,
+  "examples": [
+    {
+      "MEDIAMTX_RTSP_PORT": "8554",
+      "MEDIAMTX_RTMP_PORT": "1935",
+      "MEDIAMTX_API_PORT": "9997",
+      "MEDIA_SERVICE_PORT": "8080",
+      "STS_SERVICE_URL": "http://host.docker.internal:3000",
+      "LOG_LEVEL": "DEBUG",
+      "SEGMENT_DIR": "/tmp/segments"
+    }
+  ]
+}

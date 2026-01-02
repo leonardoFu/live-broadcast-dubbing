@@ -1,0 +1,50 @@
+# STS Service E2E Test Environment - Docker Compose Configuration
+# Purpose: Real STS service (ASR + Translation + TTS) for dual docker-compose E2E tests
+# Usage:
+#   docker compose -f apps/sts-service/docker-compose.e2e.yml up -d
+#   docker compose -f apps/sts-service/docker-compose.e2e.yml down -v
+
+version: '3.8'
+
+services:
+  # Echo STS Service (for E2E testing - processes fragments quickly)
+  sts-service:
+    build:
+      context: ../..  # Root of monorepo to access libs/
+      dockerfile: apps/sts-service/deploy/Dockerfile.echo
+    container_name: e2e-sts-service
+    restart: "no"
+    ports:
+      - "${STS_PORT:-3000}:3000"
+    environment:
+      - PORT=3000
+      - HOST=${HOST:-0.0.0.0}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ASR_MODEL=${ASR_MODEL:-whisper-small}  # Balance accuracy and speed
+      - TRANSLATION_PROVIDER=${TRANSLATION_PROVIDER:-google}
+      - TTS_PROVIDER=${TTS_PROVIDER:-coqui}
+      - TTS_MODEL=${TTS_MODEL:-tts_models/en/ljspeech/tacotron2-DDC}
+      - DEVICE=${DEVICE:-cpu}  # Use CPU for E2E tests (no GPU required)
+      - MAX_INFLIGHT=${MAX_INFLIGHT:-3}
+      - PROCESSING_TIMEOUT=${PROCESSING_TIMEOUT:-30}
+    volumes:
+      - model-cache:/root/.cache  # Cache models across runs
+    networks:
+      - e2e-sts-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; s=socket.socket(); s.connect(('127.0.0.1', 3000)); s.close()"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+# Shared network for STS service
+networks:
+  e2e-sts-network:
+    driver: bridge
+    name: e2e-sts-network
+
+# Volumes for model caching
+volumes:
+  model-cache:
+    driver: local

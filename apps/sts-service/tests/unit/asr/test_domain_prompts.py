@@ -4,7 +4,6 @@ Unit tests for domain prompts.
 TDD: These tests are written BEFORE implementation.
 """
 
-import pytest
 
 
 class TestGetDomainPrompt:

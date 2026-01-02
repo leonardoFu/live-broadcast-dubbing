@@ -6,11 +6,10 @@ end-to-end transcription behavior with the faster-whisper model.
 """
 
 import pytest
-
 from sts_service.asr import (
-    FasterWhisperASR,
     ASRConfig,
     ASRModelConfig,
+    FasterWhisperASR,
     TranscriptStatus,
     VADConfig,
 )

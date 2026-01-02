@@ -8,7 +8,7 @@ Location: apps/sts-service/src/sts_service/asr/interface.py
 """
 
 from abc import ABC, abstractmethod
-from typing import Optional, Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable
 
 # Note: In actual implementation, import from the data models module
 # from .models import AudioFragment, TranscriptAsset, ASRConfig
@@ -131,7 +131,7 @@ class AudioPayloadStore(Protocol):
     This protocol defines that interface without coupling to a specific storage backend.
     """
 
-    def get(self, payload_ref: str) -> Optional[bytes]:
+    def get(self, payload_ref: str) -> bytes | None:
         """Retrieve audio bytes by reference.
 
         Args:
@@ -180,7 +180,7 @@ class MockASRConfig:
         words_per_second: float = 3.0,
         simulate_latency_ms: int = 0,
         failure_rate: float = 0.0,
-        failure_type: Optional[str] = None,  # "timeout", "memory_error", etc.
+        failure_type: str | None = None,  # "timeout", "memory_error", etc.
     ):
         self.default_text = default_text
         self.default_confidence = default_confidence

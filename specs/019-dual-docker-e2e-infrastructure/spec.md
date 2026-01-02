@@ -15,7 +15,10 @@ The dual docker-compose approach provides:
 - **Simple networking**: Services communicate via localhost + port exposure (no complex service discovery)
 - **Production-like environment**: Tests validate the actual service integration that will run in production
 
-**Key Design Decision**: Two separate docker-compose files (one for media-service + MediaMTX, one for sts-service) that expose ports to the host network. Services communicate via `localhost:<port>` from the host's perspective.
+**Key Design Decisions**:
+- Two separate docker-compose files (one for media-service + MediaMTX, one for sts-service) using bridge networking with port exposure
+- Services communicate internally via Docker container names, externally via `localhost:<port>`
+- Media-service uses bridge networking (not host mode) for production-like isolation
 
 **Related Specs**:
 - [specs/018-e2e-stream-handler-tests](../018-e2e-stream-handler-tests/spec.md) - E2E tests with Echo STS (mocked)
@@ -179,7 +182,7 @@ Both docker-compose files use environment variables to configure service endpoin
 
 - What happens when STS service is not reachable (port not exposed or service down)? Media-service retries 3 times with exponential backoff, then fails gracefully, E2E test fails with clear error message.
 - What happens when test fixture has no audio track? WorkerRunner logs error "audio track required for dubbing" and exits, E2E test fails with assertion on error log.
-- What happens when STS service processing is very slow (>30s per fragment)? Fragment timeout (default 30s) triggers, fallback audio used, E2E test detects fallback usage via metrics and fails.
+- What happens when STS service processing is very slow (>30s per fragment)? Fragment timeout (default 30s) triggers, media-service uses passthrough audio (original segment) and continues pipeline, E2E test logs warning but passes if output stream is complete (validates graceful degradation per Constitution Principle V).
 - What happens when MediaMTX RTSP stream disconnects mid-test? WorkerRunner detects stream end, completes in-flight fragments, publishes final output, E2E test validates partial output is still correct.
 - What happens when docker-compose fails to start (port conflict)? Pytest fixture detects startup failure (health check timeout), skips test with clear message about port conflict.
 - What happens when output RTMP publish fails (MediaMTX egress disabled)? WorkerRunner logs error and exits, E2E test fails with assertion on error log and missing output stream.
@@ -215,8 +218,9 @@ Both docker-compose files use environment variables to configure service endpoin
 
 **Test Fixture Management (P2)**
 
-- **FR-015**: E2E tests MUST use deterministic test fixtures from `tests/fixtures/test-streams/`
-- **FR-016**: Primary test fixture MUST be 30-second video with English speech, H.264 video, AAC audio, 48kHz
+- **FR-015**: E2E tests MUST use deterministic test fixtures from `tests/fixtures/test_streams/`
+- **FR-016**: Primary test fixture MUST be 30-second video with English speech (counting phrases "One, two, three... thirty" at ~1 number/second), H.264 video, AAC audio, 48kHz sample rate
+- **FR-016a**: Test fixture audio content enables deterministic ASR validation (known expected transcripts for each segment)
 - **FR-017**: Pytest fixtures MUST publish test fixtures to MediaMTX RTSP using ffmpeg subprocess
 - **FR-018**: Pytest fixtures MUST clean up ffmpeg processes and streams in teardown even if test fails
 
@@ -230,7 +234,7 @@ Both docker-compose files use environment variables to configure service endpoin
 **Output Stream Validation (P2)**
 
 - **FR-023**: E2E tests MUST verify output stream using ffprobe inspection (video codec, audio codec, duration)
-- **FR-024**: E2E tests MUST verify output audio is dubbed (not original) by comparing audio content or metadata
+- **FR-024**: E2E tests MUST verify output audio is dubbed (not original) using dual validation: (1) monitor Socket.IO fragment:processed events confirm dubbed_audio received for all segments, (2) extract output audio and compute spectral fingerprint/hash to confirm audio differs from original
 - **FR-025**: E2E tests MUST verify A/V sync delta remains < 120ms throughout output stream
 - **FR-026**: E2E tests MUST verify output stream duration matches input duration (+/- 500ms)
 
@@ -243,7 +247,8 @@ Both docker-compose files use environment variables to configure service endpoin
 
 **Test Lifecycle Management (P3)**
 
-- **FR-031**: Pytest fixtures MUST start both docker-compose environments before tests and stop them after
+- **FR-031**: Pytest fixtures MUST start both docker-compose environments before tests and stop them after, using session scope (start once for all tests, tear down at end)
+- **FR-031a**: Pytest fixtures MUST use unique stream names per test (e.g., `/live/test1/in`, `/live/test2/in`) to avoid conflicts between tests sharing the same docker-compose session
 - **FR-032**: Pytest fixtures MUST wait for health checks to pass before allowing tests to run
 - **FR-033**: Pytest fixtures MUST collect docker-compose logs on test failure for debugging
 - **FR-034**: Pytest fixtures MUST ensure cleanup even if test is interrupted (SIGINT, SIGTERM)
@@ -278,9 +283,9 @@ Based on user requirements and clarification:
 **Choice**: `apps/media-service/docker-compose.e2e.yml` and `apps/sts-service/docker-compose.e2e.yml`
 **Rationale**: Enables independent service development and testing. Each team can work on their service without modifying a monolithic compose file. Matches real-world deployment where services are deployed independently.
 
-### Decision 2: Port Exposure for Service Communication
-**Choice**: Expose ports to host network, services communicate via `localhost:<port>`
-**Rationale**: Simplest networking approach that matches production deployment patterns. Avoids complex Docker networking configuration, service discovery, or DNS setup. Easy to debug with standard tools (curl, nc).
+### Decision 2: Bridge Networking with Port Exposure
+**Choice**: Use Docker bridge networking (default), expose ports to host, services communicate internally via container names (`mediamtx:8554`), externally via `localhost:<port>`
+**Rationale**: Production-like isolation and standard Docker patterns. Internal communication uses container names for efficiency, external access via localhost for pytest validation. Avoids host networking complexities while maintaining simplicity.
 
 ### Decision 3: Real STS Service (No Mocking)
 **Choice**: Use actual ASR + Translation + TTS modules in E2E tests
@@ -290,13 +295,21 @@ Based on user requirements and clarification:
 **Choice**: Use pytest fixtures to start/stop docker-compose, publish fixtures, and validate output
 **Rationale**: Pytest fixtures provide proper setup/teardown guarantees, enable test isolation, and integrate cleanly with existing test suite. Python-based control allows programmatic validation of services.
 
-### Decision 5: 30-Second Test Fixture
-**Choice**: Primary test fixture is 30 seconds (5 segments @ 6s each)
-**Rationale**: Short enough for fast iteration (< 3 minutes total test time with real STS), long enough to validate multi-segment processing and A/V sync over time. Longer than spec 018 (60s) to reduce CI time while still comprehensive.
+### Decision 5: 30-Second Test Fixture with Counting Phrases
+**Choice**: Primary test fixture is 30 seconds (5 segments @ 6s each) with English counting phrases "One, two, three... thirty" (~1 number/second)
+**Rationale**: Short enough for fast iteration (< 3 minutes total test time with real STS), long enough to validate multi-segment processing and A/V sync over time. Counting phrases provide deterministic content for ASR validation (known expected transcripts) and test continuous speech across segments.
 
 ### Decision 6: Environment Variable Configuration
 **Choice**: All service endpoints configurable via environment variables with defaults
 **Rationale**: Enables flexible deployment (localhost for local dev, service names for docker networks, external IPs for distributed setups). Avoids hardcoded values that break in different environments.
+
+### Decision 7: Session-Scoped Pytest Fixtures
+**Choice**: Docker-compose environments use session scope - start once for all E2E tests, tear down at end
+**Rationale**: Balances speed and isolation. STS model loading is expensive (30s+), session scope amortizes this cost across all tests. MediaMTX and STS are stateless between streams, so unique stream names per test (`/live/test1/in`, `/live/test2/in`) provide sufficient isolation without restart overhead.
+
+### Decision 8: 30-Second Timeout with Passthrough Fallback
+**Choice**: Media-service waits 30s max per fragment for STS response, then uses passthrough audio (original segment) and continues pipeline
+**Rationale**: Validates graceful degradation per Constitution Principle V. E2E test logs warning but passes if output stream completes, confirming the system can handle STS latency without complete failure. Better than hard failure which would hide fallback logic bugs.
 
 ## Test Infrastructure Design
 
@@ -337,16 +350,19 @@ services:
       dockerfile: deploy/Dockerfile
     container_name: e2e-media-service
     restart: "no"
-    network_mode: "host"  # Enable localhost communication to STS
+    ports:
+      - "${MEDIA_SERVICE_PORT:-8080}:8080"  # Expose metrics/API
     environment:
       - PORT=8080
       - LOG_LEVEL=DEBUG
-      - MEDIAMTX_RTSP_URL=rtsp://localhost:${MEDIAMTX_RTSP_PORT:-8554}
-      - MEDIAMTX_RTMP_URL=rtmp://localhost:${MEDIAMTX_RTMP_PORT:-1935}
-      - STS_SERVICE_URL=${STS_SERVICE_URL:-http://localhost:3000}
+      - MEDIAMTX_RTSP_URL=rtsp://mediamtx:8554  # Internal: use container name
+      - MEDIAMTX_RTMP_URL=rtmp://mediamtx:1935  # Internal: use container name
+      - STS_SERVICE_URL=${STS_SERVICE_URL:-http://host.docker.internal:3000}  # External: STS on host
       - STS_SOCKETIO_PATH=/socket.io
       - SEGMENT_DIR=/tmp/segments
       - METRICS_ENABLED=true
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # Enable access to host network for STS
     volumes:
       - segments-data:/tmp/segments
     depends_on:
@@ -425,31 +441,52 @@ tests/e2e/
 
 @pytest.fixture(scope="session")
 def media_compose_env():
-    """Start media-service docker-compose and wait for health checks."""
+    """Start media-service docker-compose and wait for health checks.
+
+    Session scope: Starts once for all tests, tears down at end.
+    Uses bridge networking with port exposure.
+    """
     env = {
         "MEDIAMTX_RTSP_PORT": "8554",
         "MEDIAMTX_RTMP_PORT": "1935",
-        "STS_SERVICE_URL": "http://localhost:3000"
+        "MEDIA_SERVICE_PORT": "8080",
+        "STS_SERVICE_URL": "http://host.docker.internal:3000"
     }
     # Start composition, wait for health, yield, cleanup
     ...
 
 @pytest.fixture(scope="session")
 def sts_compose_env():
-    """Start sts-service docker-compose and wait for health checks."""
+    """Start sts-service docker-compose and wait for health checks.
+
+    Session scope: Starts once, model loading (30s+) happens once.
+    """
     env = {"STS_PORT": "3000"}
     # Start composition, wait for health (including model load), yield, cleanup
     ...
 
 @pytest.fixture(scope="session")
 def dual_compose_env(media_compose_env, sts_compose_env):
-    """Combined fixture ensuring both environments are running."""
+    """Combined fixture ensuring both environments are running.
+
+    Session scope: Both compositions stay up for all tests.
+    Tests use unique stream names to avoid conflicts.
+    """
     return {"media": media_compose_env, "sts": sts_compose_env}
 
 @pytest.fixture
-def publish_test_fixture():
-    """Publish 30s test fixture to MediaMTX RTSP, cleanup on teardown."""
-    # ffmpeg publish subprocess, yield, kill process
+def publish_test_fixture(request):
+    """Publish 30s test fixture to MediaMTX RTSP, cleanup on teardown.
+
+    Test fixture: 30s video with counting phrases "One, two, three... thirty"
+    (H.264 video, AAC audio 48kHz, ~1 number/second for deterministic ASR).
+
+    Uses unique stream name per test to avoid conflicts in session-scoped compose.
+    """
+    test_name = request.node.name
+    stream_name = f"test_{test_name}_{int(time.time())}"
+    rtsp_url = f"rtsp://localhost:8554/live/{stream_name}/in"
+    # ffmpeg publish subprocess, yield stream_name, kill process
     ...
 ```
 
@@ -470,7 +507,7 @@ def publish_test_fixture():
 - **External Services**: MediaMTX (RTSP/RTMP server), real STS service (ASR + Translation + TTS)
 - **Python Libraries**: pytest, pytest-asyncio, python-socketio (client), prometheus_client, docker-py
 - **Infrastructure**: Docker, Docker Compose v2, ffmpeg (fixture publishing + stream inspection)
-- **Test Fixtures**: `tests/fixtures/test-streams/30s-english-speech.mp4` (to be created)
+- **Test Fixtures**: `tests/fixtures/test_streams/30s-english-speech.mp4` (to be created)
 - **Specifications**:
   - [specs/003-gstreamer-stream-worker/spec.md](../003-gstreamer-stream-worker/spec.md) - WorkerRunner implementation
   - [specs/016-websocket-audio-protocol](../016-websocket-audio-protocol.md) - Socket.IO protocol
@@ -490,3 +527,29 @@ def publish_test_fixture():
 - Custom error injection beyond natural service failures
 - Real-time streaming from live sources (only pre-recorded fixtures)
 - Multiple language combinations (primary test fixture is English → Spanish)
+
+---
+
+## Clarifications
+
+### Session: 2026-01-01
+
+**Q1: Docker Networking Mode for Media Service**
+- **Question**: Should media-service use `network_mode: "host"` or bridge networking with port exposure?
+- **Answer**: Bridge networking (Option A) - both services use bridge networking with port exposure. Media-service communicates with MediaMTX via container names (`rtsp://mediamtx:8554`), with STS via `host.docker.internal:3000`. More production-like, better isolation, standard Docker patterns.
+
+**Q2: Test Fixture Audio Content Specification**
+- **Question**: What exact English speech content should the 30-second test fixture contain?
+- **Answer**: Counting phrases (Option A) - "One, two, three... thirty" over 30 seconds (~1 number/second). Provides deterministic content for ASR validation, clear segmentation testing, easy to validate output with known expected transcripts, tests continuous speech across multiple segments.
+
+**Q3: STS Service Processing Timeout and Retry Behavior**
+- **Question**: What should happen when STS processing exceeds 30-second timeout?
+- **Answer**: 30s timeout with passthrough fallback (Option A) - media-service waits 30s max per fragment, then uses passthrough audio (original segment) and continues pipeline. E2E test logs warning but passes if output stream is complete. Validates graceful degradation per Constitution Principle V.
+
+**Q4: Output Stream Validation - How to Verify "Dubbed Audio" vs "Original Audio"?**
+- **Question**: How should E2E tests verify output contains Spanish dubbed audio instead of English original?
+- **Answer**: Socket.IO events + fingerprint comparison (Option C + A) - Primary: monitor Socket.IO events to verify all fragments received `fragment:processed` with dubbed_audio field. Secondary: extract audio from output stream, compute spectral hash/fingerprint, compare against original to confirm audio differs. Dual approach validates both that dubbing occurred (events) AND was applied to output (fingerprint).
+
+**Q5: Pytest Fixture Scope and Docker Compose Lifecycle**
+- **Question**: Should docker-compose environments use session scope (start once) or function scope (restart per test)?
+- **Answer**: Session scope for both (Option A) - start once, run all E2E tests, tear down at end. Balances speed (STS model loading happens once, 30s+) and isolation (unique stream names per test like `/live/test1/in`, `/live/test2/in`). MediaMTX and STS are stateless between streams, so session scope is safe and efficient.

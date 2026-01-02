@@ -324,7 +324,34 @@ def wait_for_condition(
     return False
 
 
-# Export utility function
-__all__ = [
-    "wait_for_condition",
-]
+# =============================================================================
+# Import Dual Compose Fixtures
+# =============================================================================
+
+# Import dual compose fixtures from conftest_dual_compose
+# These can be used alongside the existing single-compose fixtures
+try:
+    from tests.e2e.conftest_dual_compose import (
+        dual_compose_env,
+        dual_compose_manager,
+        media_compose_env,
+        publish_test_fixture,
+        sts_compose_env,
+        sts_monitor,
+    )
+
+    # Make dual compose fixtures available
+    __all__ = [
+        "wait_for_condition",
+        "dual_compose_env",
+        "dual_compose_manager",
+        "media_compose_env",
+        "sts_compose_env",
+        "publish_test_fixture",
+        "sts_monitor",
+    ]
+except ImportError:
+    # Dual compose fixtures not available
+    __all__ = [
+        "wait_for_condition",
+    ]

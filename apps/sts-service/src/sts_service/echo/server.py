@@ -129,8 +129,8 @@ class EchoServer:
                 logger.info(f"Client disconnected: sid={sid}")
 
 
-def create_app(config: EchoConfig | None = None) -> socketio.ASGIApp:
-    """Create an ASGI application for the Echo STS Service.
+def create_app(config: EchoConfig | None = None):
+    """Create an ASGI application for the Echo STS Service with health endpoint.
 
     This is the main entry point for running the service with an ASGI
     server like uvicorn.
@@ -139,7 +139,7 @@ def create_app(config: EchoConfig | None = None) -> socketio.ASGIApp:
         config: Optional configuration. If not provided, uses global config.
 
     Returns:
-        An ASGI application.
+        An ASGI application with Socket.IO and HTTP health endpoint.
 
     Example:
         ```python
@@ -151,8 +151,25 @@ def create_app(config: EchoConfig | None = None) -> socketio.ASGIApp:
         uvicorn.run(app, host="0.0.0.0", port=8000)
         ```
     """
+    from starlette.applications import Starlette
+    from starlette.responses import JSONResponse
+    from starlette.routing import Route, Mount
+
     server = EchoServer(config)
-    return server.app
+
+    async def health(request):
+        """Health check endpoint."""
+        return JSONResponse({"status": "healthy", "service": "echo-sts"})
+
+    # Create Starlette app with routes
+    app = Starlette(
+        routes=[
+            Route("/health", health, methods=["GET"]),
+            Mount("/", server.app),  # Mount Socket.IO app at root
+        ]
+    )
+
+    return app
 
 
 def get_server(config: EchoConfig | None = None) -> EchoServer:
