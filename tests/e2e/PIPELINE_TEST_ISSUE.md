@@ -1,13 +1,48 @@
 # Full Pipeline E2E Test - Issue Summary
 
-**Status:** ❌ FAILING at Step 1
+**Status:** ✅ Step 1 FIXED, ❌ Now failing at Step 2
 **Test:** `test_dual_compose_full_pipeline.py::test_full_pipeline_media_to_sts_to_output`
 **Branch:** `019-dual-docker-e2e-infrastructure`
-**Date:** 2026-01-01
+**Last Updated:** 2026-01-01
+**Original Issue Date:** 2026-01-01
 
 ---
 
-## Test Overview
+## ✅ RESOLUTION SUMMARY
+
+**Step 1 is now PASSING!** The issue was resolved by converting stream publishing from RTSP to RTMP.
+
+### What Was Fixed
+
+1. **Root Cause**: E2E tests were using RTSP protocol for stream publishing, but MediaMTX requires RTMP for ingestion
+2. **Solution**: Converted `StreamPublisher` to use RTMP (`-f flv rtmp://...`) instead of RTSP (`-f rtsp rtsp://...`)
+3. **Additional Fix**: Disabled WebRTC in MediaMTX config to prevent port 8889 conflict with Control API
+
+### Changes Made (Commit: ea27c3f)
+
+- **`tests/e2e/helpers/stream_publisher.py`**: Converted from RTSP to RTMP publishing
+- **`tests/e2e/conftest_dual_compose.py`**: Updated fixtures to use `rtmp_base_url` (port 1935)
+- **`tests/e2e/test_dual_compose_full_pipeline.py`**: Added debug logging, updated variable names
+- **`apps/media-service/deploy/mediamtx/mediamtx.yml`**: Disabled WebRTC, removed hardcoded API port
+- **`apps/media-service/docker-compose.e2e.yml`**: Mounted MediaMTX config file
+
+### Test Results After Fix
+
+```
+✅ Step 0: Environment Setup - PASSING
+✅ Step 1: Verify MediaMTX Received Stream - PASSING (FIXED!)
+   - Stream appears in MediaMTX within 1 second
+   - API returns valid JSON with stream details
+   - Stream marked as "ready": true
+
+❌ Step 2: Verify WorkerRunner Connects - NOW FAILING
+   - WorkerRunner doesn't connect within 10 seconds
+   - This is the new blocking issue (separate from original RTSP problem)
+```
+
+---
+
+## Test Overview (Historical - Step 1 Issue)
 
 The full pipeline test validates the complete end-to-end dubbing pipeline from video ingestion to dubbed output.
 
@@ -51,9 +86,9 @@ Dubbed Stream Available
 - Initialize stream publisher with 30s test fixture
 - Connect Socket.IO monitor to STS service
 
-**Status:** PASSING
+**Status:** ✅ PASSING
 
-### ❌ Step 1: Verify MediaMTX Received Stream
+### ✅ Step 1: Verify MediaMTX Received Stream (FIXED!)
 **Location:** `test_dual_compose_full_pipeline.py:71-95`
 
 **What it does:**
@@ -78,11 +113,20 @@ assert False
 - But stream **never appears** in the paths list
 - Test retries 10 times (1 second intervals) - all fail
 
-**Status:** ❌ FAILING HERE - Blocks all subsequent steps
+**Status:** ✅ PASSING (Fixed by converting to RTMP publishing)
+
+**Fix Applied:** Changed StreamPublisher from RTSP to RTMP
+- Before: `ffmpeg -f rtsp rtsp://localhost:8554/...` ❌
+- After: `ffmpeg -f flv rtmp://localhost:1935/...` ✅
+
+**Current Result:**
+- Stream appears in MediaMTX API response within 1 second
+- API returns: `{"name": "live/test_.../in", "ready": true, "source": {"type": "rtmpConn"}}`
+- Test assertion passes successfully
 
 ---
 
-### ⏸️ Step 2: Verify WorkerRunner Connects
+### ❌ Step 2: Verify WorkerRunner Connects (NEW BLOCKING ISSUE)
 **Location:** `test_dual_compose_full_pipeline.py:97-118`
 
 **What it should do:**
@@ -90,7 +134,27 @@ assert False
 - Look for `worker_audio_fragments_total` metric
 - Verify WorkerRunner detected stream and started processing
 
-**Status:** Not reached (blocked by Step 1)
+**Status:** ❌ FAILING - Current blocking issue
+
+**Expected Behavior:**
+- WorkerRunner should detect the stream via MediaMTX hooks
+- Should start processing and generate metrics
+- `worker_audio_fragments_total` metric should appear
+
+**Actual Behavior:**
+- WorkerRunner doesn't connect or start processing
+- No metrics appear within 10 seconds
+- Possible causes:
+  - MediaMTX hooks not configured (config was disabled during debugging)
+  - WorkerRunner not listening for hook callbacks
+  - Stream path format mismatch
+  - WorkerRunner health check passing but not actually processing
+
+**Next Steps for Investigation:**
+1. Verify MediaMTX hooks are firing (check logs)
+2. Check WorkerRunner logs for stream detection
+3. Verify hook script is mounted and executable
+4. Test hook manually: `curl -X POST http://localhost:8080/hooks/...`
 
 ---
 
@@ -145,15 +209,42 @@ assert False
 
 ---
 
-## Root Cause Analysis
+## Root Cause Analysis (Historical - Step 1)
 
-### Primary Issue: Stream Not Appearing in MediaMTX
+### ✅ RESOLVED: Primary Issue - Stream Not Appearing in MediaMTX
 
-The test uses ffmpeg to publish an RTSP stream, but MediaMTX never registers it as active.
+**Confirmed Root Cause:** RTSP vs RTMP Protocol Mismatch
 
-### Possible Causes
+The test was using ffmpeg to publish an **RTSP stream**, but MediaMTX requires **RTMP for publishing**.
 
-#### 1. **ffmpeg Process Dies Silently**
+### Why RTSP Publishing Failed
+
+#### 1. ✅ **CONFIRMED: RTSP Not Supported for Publishing**
+
+MediaMTX supports RTSP for **reading/playback** (pull protocol), but requires RTMP for **publishing** (push protocol).
+
+**Evidence:**
+- Working integration tests use: `ffmpeg -f flv rtmp://localhost:1935/...`
+- Spec examples show: `rtmp://localhost:1935/live/.../in` for publishing
+- MediaMTX documentation: RTMP is the primary ingestion protocol
+- RTSP is for consuming streams, not publishing them
+
+**Fix:** Changed to RTMP publishing, stream immediately appeared in MediaMTX.
+
+#### 2. **WebRTC Port Conflict** (Secondary Issue - Also Fixed)
+
+**Problem:** MediaMTX WebRTC and Control API both tried to bind to port 8889
+
+**Details:**
+```
+MediaMTX startup order:
+- WebRTC listener → :8889 ✓ (binds first from default config)
+- Control API → :8889 ✗ (conflict! Address already in use)
+```
+
+**Fix:** Disabled WebRTC in `mediamtx.yml` (not needed for E2E tests)
+
+#### 3. **ffmpeg Process Dies Silently** (Not the issue)
 - Initial poll (after 1 second) shows process is alive
 - But process might fail to maintain RTSP connection
 - No stderr logging captured in current implementation
@@ -456,4 +547,45 @@ Once Step 1 passes, the remaining pipeline should work (assuming WorkerRunner an
 
 **Last Updated:** 2026-01-01
 **Issue Owner:** Development Team
-**Priority:** High (blocks full E2E validation)
+**Priority:** ✅ Step 1 Resolved | ❌ Step 2 Investigation Needed
+
+---
+
+## Current Status & Next Actions
+
+### ✅ Completed
+- [x] Fixed RTSP → RTMP publishing conversion
+- [x] Resolved WebRTC port conflict
+- [x] MediaMTX config properly mounted and working
+- [x] Step 1 passing consistently
+- [x] Debug logging added for better visibility
+
+### ❌ Current Blocking Issue: Step 2 - WorkerRunner Connection
+
+**Problem:** WorkerRunner doesn't detect or process the stream despite MediaMTX receiving it successfully.
+
+**Investigation Needed:**
+1. Check if MediaMTX hooks are firing (`runOnReady`, `runOnNotReady`)
+2. Verify WorkerRunner is listening for hook callbacks
+3. Check WorkerRunner container logs during stream publish
+4. Verify `/hooks/mtx-hook` script is mounted and executable in MediaMTX container
+5. Test hook endpoint manually
+
+**Files to Check:**
+- `apps/media-service/deploy/mediamtx/hooks/mtx-hook` - Hook script
+- WorkerRunner logs - Stream detection logic
+- MediaMTX logs - Hook execution output
+
+### Test Progress
+
+| Step | Description | Status | Notes |
+|------|-------------|--------|-------|
+| 0 | Environment Setup | ✅ PASS | Both compose envs healthy |
+| 1 | MediaMTX Receives Stream | ✅ PASS | Fixed via RTMP conversion |
+| 2 | WorkerRunner Connects | ❌ FAIL | Current blocking issue |
+| 3 | Socket.IO Events | ⏸️ Not reached | Blocked by Step 2 |
+| 4 | Event Data Validation | ⏸️ Not reached | Blocked by Step 2 |
+| 5 | Output RTMP Stream | ⏸️ Not reached | Blocked by Step 2 |
+| 6 | Metrics Verification | ⏸️ Not reached | Blocked by Step 2 |
+
+**Overall Progress:** 2/7 steps passing (29% complete)
