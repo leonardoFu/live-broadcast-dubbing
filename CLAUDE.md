@@ -169,6 +169,7 @@ make media-test-coverage # Run with coverage report (80% required)
 ```bash
 make sts-test          # Run all sts-service tests
 make sts-test-unit     # Run unit tests only
+make sts-test-e2e      # Run sts-service E2E tests
 make sts-test-coverage # Run with coverage (80% required)
 make sts-echo          # Start Echo STS Service (for E2E testing)
 ```
@@ -224,10 +225,10 @@ make e2e-test-p3
 **Running Specific E2E Tests**:
 ```bash
 # Run a specific test file
-pytest tests/e2e/test_dual_compose_full_pipeline.py -v --log-cli-level=INFO
+pytest tests/e2e/test_full_pipeline.py -v --log-cli-level=INFO
 
 # Run a specific test function
-pytest tests/e2e/test_dual_compose_full_pipeline.py::test_full_pipeline_media_to_sts_to_output -v
+pytest tests/e2e/test_full_pipeline.py::test_full_pipeline_media_to_sts_to_output -v
 
 # Run tests matching a pattern
 pytest tests/e2e/ -k "full_pipeline" -v
@@ -263,7 +264,7 @@ make media-test-coverage  # Ensure 80%+ coverage
 make e2e-up               # Start services
 make e2e-logs             # View logs in real-time
 # In another terminal:
-pytest tests/e2e/test_dual_compose_full_pipeline.py::test_full_pipeline_media_to_sts_to_output -v -s
+pytest tests/e2e/test_full_pipeline.py::test_full_pipeline_media_to_sts_to_output -v -s
 make e2e-down             # Cleanup when done
 ```
 
@@ -335,12 +336,14 @@ apps/media-service/tests/integration/
 **E2E Tests** - Cross-service tests (media-service + STS-service):
 ```
 tests/e2e/
-├── test_dual_compose_full_pipeline.py  # P1: Full dubbing pipeline
+├── test_full_pipeline.py               # P1: Full dubbing pipeline (real STS)
 │                                       # - RTSP stream ingestion
 │                                       # - Segment generation (6s chunks)
 │                                       # - STS processing (ASR→Translation→TTS)
 │                                       # - A/V sync verification
 │                                       # - RTMP output validation
+│
+├── test_pipeline_echo.py               # P1: Pipeline with Echo STS (basic test)
 │
 ├── test_resilience.py                  # P2: Fault tolerance
 │                                       # - Circuit breaker (open/half-open/closed)
