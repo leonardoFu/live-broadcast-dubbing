@@ -29,7 +29,7 @@ class StreamConfigPayload(BaseModel):
     chunk_duration_ms: int = Field(
         default=1000,
         ge=100,
-        le=5000,
+        le=6000,  # Updated to accept 6000ms (6 second segments)
         description="Expected fragment duration in milliseconds",
     )
     sample_rate_hz: int = Field(

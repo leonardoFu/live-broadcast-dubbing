@@ -50,7 +50,6 @@ services:
       - MEDIAMTX_RTSP_URL=rtsp://mediamtx:8554  # Internal: use container name
       - MEDIAMTX_RTMP_URL=rtmp://mediamtx:1935  # Internal: use container name
       - STS_SERVICE_URL=${STS_SERVICE_URL:-http://host.docker.internal:3000}  # External: STS on host
-      - STS_SOCKETIO_PATH=/socket.io
       - SEGMENT_DIR=/tmp/segments
       - METRICS_ENABLED=true
     extra_hosts:

@@ -209,7 +209,7 @@ def publish_test_fixture(
     )
 
     try:
-        publisher.start(stream_path=stream_path, realtime=True)
+        publisher.start(stream_path=stream_path, realtime=True, loop=True)
         rtmp_url = f"rtmp://localhost:1935/{stream_path}"
         logger.info(f"Publishing test fixture to {rtmp_url}")
         yield stream_path, rtmp_url
@@ -238,7 +238,7 @@ async def sts_monitor(dual_compose_env: dict[str, DockerComposeManager]) -> Gene
     """
     monitor = SocketIOMonitor(
         sts_url="http://localhost:3000",
-        socketio_path="/ws/sts",
+        # Use default Socket.IO path (removed custom /ws/sts)
     )
 
     try:

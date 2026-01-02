@@ -113,7 +113,7 @@ class WorkerRunner:
         # STS components
         self.sts_client = StsSocketIOClient(
             server_url=self.config.sts_url,
-            namespace="/sts",
+            namespace="/",  # Use default namespace (server registers handlers on "/")
         )
         self.fragment_tracker = FragmentTracker(max_inflight=3)
         self.backpressure_handler = BackpressureHandler()

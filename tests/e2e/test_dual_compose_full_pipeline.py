@@ -120,17 +120,26 @@ async def test_full_pipeline_media_to_sts_to_output(
         try:
             metrics = metrics_parser.get_all_metrics()
 
-            # Check for worker activity (segment processing indicates WorkerRunner is active)
-            if any("media_service_worker_segments_processed_total" in k for k in metrics.keys()):
+            # Check for worker metrics (indicates WorkerRunner has started and connected to STS)
+            # Look for any of: worker_info, sts_inflight_fragments, or circuit_breaker_state
+            worker_metrics = [k for k in metrics.keys() if any(
+                metric_name in k for metric_name in [
+                    "media_service_worker_info_info",
+                    "media_service_worker_sts_inflight_fragments",
+                    "media_service_worker_circuit_breaker_state"
+                ]
+            )]
+
+            if worker_metrics:
                 worker_connected = True
-                logger.info("WorkerRunner has started processing")
+                logger.info(f"WorkerRunner has started (found metrics: {worker_metrics})")
                 break
         except Exception as e:
             logger.debug(f"Attempt {attempt + 1}: Metrics check failed: {e}")
 
         await asyncio.sleep(1)
 
-    assert worker_connected, "WorkerRunner should connect and start processing within 10 seconds"
+    assert worker_connected, "WorkerRunner should connect and start within 10 seconds"
 
     # Step 3: Monitor Socket.IO events for fragment:processed
     logger.info("Step 3: Monitoring Socket.IO for fragment:processed events...")

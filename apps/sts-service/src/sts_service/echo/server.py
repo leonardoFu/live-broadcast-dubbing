@@ -48,10 +48,9 @@ class EchoServer:
             engineio_logger=False,
         )
 
-        # Create ASGI app
+        # Create ASGI app (using default socketio_path="/socket.io/")
         self.app = socketio.ASGIApp(
             self.sio,
-            socketio_path="/ws/sts",
         )
 
         # Register event handlers

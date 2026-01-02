@@ -79,7 +79,6 @@ services:
       - MEDIAMTX_RTSP_URL=rtsp://mediamtx:8554
       - MEDIAMTX_RTMP_URL=rtmp://mediamtx:1935
       - STS_URL=http://echo-sts:8000
-      - STS_SOCKETIO_PATH=/ws/sts
       - SEGMENT_DIR=/tmp/segments
       - METRICS_ENABLED=true
     volumes:

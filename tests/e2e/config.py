@@ -28,7 +28,7 @@ class EchoSTSConfig:
     """Echo STS Service configuration."""
 
     URL = "http://localhost:8000"
-    SOCKETIO_PATH = "/ws/sts"
+    SOCKETIO_PATH = "/socket.io/"  # Default Socket.IO path (changed from /ws/sts)
 
     # Container URL
     URL_INTERNAL = "http://echo-sts:8000"
