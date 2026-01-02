@@ -38,7 +38,7 @@ def sts_client():
     """Create an StsSocketIOClient instance."""
     return StsSocketIOClient(
         server_url="http://sts-service:8000",
-        namespace="/",  # Use default namespace
+        namespace="/sts",  # Use STS namespace
         reconnect_attempts=5,
         reconnect_delay=1.0,
     )

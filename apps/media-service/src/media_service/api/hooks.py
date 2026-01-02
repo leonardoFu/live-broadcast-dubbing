@@ -63,12 +63,13 @@ async def handle_ready_event(event: HookEvent, request: Request) -> JSONResponse
         # Only process input streams (direction=="in")
         if direction != "in":
             logger.debug(
-                f"Skipping worker creation for non-input stream: {stream_id} (direction={direction})"
+                f"Skipping worker creation for non-input stream: "
+                f"{stream_id} (direction={direction})"
             )
             return JSONResponse(
                 {
                     "status": "skipped",
-                    "message": f"Non-input stream, worker not created",
+                    "message": "Non-input stream, worker not created",
                     "stream_id": stream_id,
                     "direction": direction,
                 }
@@ -84,7 +85,7 @@ async def handle_ready_event(event: HookEvent, request: Request) -> JSONResponse
 
         config = WorkerConfig(
             stream_id=stream_id,
-            rtsp_url=f"rtsp://{mediamtx_host}:8554/live/{stream_id}/in",
+            rtmp_input_url=f"rtmp://{mediamtx_host}:1935/live/{stream_id}/in",
             rtmp_url=f"rtmp://{mediamtx_host}:1935/live/{stream_id}/out",
             sts_url=sts_url,
             segment_dir=segment_dir / stream_id,
@@ -173,7 +174,7 @@ async def handle_not_ready_event(event: HookEvent, request: Request) -> JSONResp
             return JSONResponse(
                 {
                     "status": "skipped",
-                    "message": f"Non-input stream, no worker to stop",
+                    "message": "Non-input stream, no worker to stop",
                     "stream_id": stream_id,
                     "direction": direction,
                 }

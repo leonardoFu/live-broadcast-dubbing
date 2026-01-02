@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Dict
 
 from media_service.worker.worker_runner import WorkerConfig, WorkerRunner
 
@@ -38,8 +37,8 @@ class WorkerManager:
 
     def __init__(self) -> None:
         """Initialize worker manager with empty registry."""
-        self._workers: Dict[str, WorkerRunner] = {}
-        self._locks: Dict[str, asyncio.Lock] = {}
+        self._workers: dict[str, WorkerRunner] = {}
+        self._locks: dict[str, asyncio.Lock] = {}
         logger.info("WorkerManager initialized")
 
     async def start_worker(self, stream_id: str, config: WorkerConfig) -> None:
@@ -73,7 +72,7 @@ class WorkerManager:
                 f"Starting worker for stream {stream_id}",
                 extra={
                     "stream_id": stream_id,
-                    "rtsp_url": config.rtsp_url,
+                    "rtmp_input_url": config.rtmp_input_url,
                     "rtmp_url": config.rtmp_url,
                     "sts_url": config.sts_url,
                 }

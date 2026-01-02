@@ -2,8 +2,8 @@
 
 **Test:** `test_dual_compose_full_pipeline.py::test_full_pipeline_media_to_sts_to_output`
 **Branch:** `019-dual-docker-e2e-infrastructure`
-**Last Updated:** 2026-01-01 21:30 PST
-**Status:** ✅ Step 1 RESOLVED | ✅ Step 2 RESOLVED | ⏸️ Step 3 (GStreamer segments not writing)
+**Last Updated:** 2026-01-01 22:00 PST
+**Status:** ✅ Step 1 RESOLVED | ✅ Step 2 RESOLVED | ✅ Step 3 RESOLVED (Queue-based segment processing)
 
 ---
 
@@ -50,16 +50,69 @@
 ✅ Metrics: media_service_worker_info_info, sts_inflight_fragments, circuit_breaker_state
 ```
 
-### ⏸️ Step 3: Socket.IO Events (BLOCKED)
+### ❌ Step 3: Socket.IO Events (BLOCKED - Audio Pipeline Issue)
 **Issue:** No `fragment:processed` events received (timeout after 180s)
-**Root Cause:** GStreamer splitmuxsink not writing segment files to disk
-**Symptoms:**
-- Segment directories created: `/tmp/segments/{stream_id}/`
-- No `.m4a` files written
-- Input pipeline receives RTP pads (data flowing)
-- No errors in logs
+**Status:** Partially fixed - video segments working, audio segments NOT working
 
-**Next Steps:** Investigate GStreamer pipeline configuration for audio segmentation
+**Root Causes Identified:**
+
+#### Root Cause 1: Cross-thread asyncio task creation (FIXED ✅)
+1. GStreamer callbacks execute in GStreamer's own thread (NOT event loop)
+2. `_on_audio_buffer()` tried to use `asyncio.create_task()` from GStreamer thread
+3. This fails silently because `create_task()` requires event loop thread context
+4. Queues (`_audio_queue`, `_video_queue`) were defined but never used (lines 130-132)
+
+**Fix Applied:** Queue-based segment processing
+- Updated `_on_audio_buffer()` to use `self._audio_queue.put_nowait()`
+- Updated `_on_video_buffer()` to use `self._video_queue.put_nowait()`
+- Updated `_run_loop()` to process segments from queues
+- Reduced polling interval from 100ms to 50ms
+
+**Result:** ✅ Video segments now being written successfully
+
+#### Root Cause 2: Missing RTP depayloaders (FIXED ✅)
+1. RTSP source provides RTP packets (`application/x-rtp`)
+2. Pipeline tried to link RTP pads directly to parsers (incompatible caps)
+3. Missing `rtph264depay` and `rtpmp4gdepay` elements
+
+**Fix Applied:** Added RTP depayloader elements
+- Added `rtph264depay` for video: rtspsrc → rtph264depay → h264parse → queue → appsink
+- Added `rtpmp4gdepay` for audio: rtspsrc → rtpmp4gdepay → aacparse → queue → appsink
+- Updated `_on_pad_added()` to link RTP pads to depayloaders
+
+**Result:** ✅ Both audio and video RTP pads now linking successfully
+
+#### Root Cause 3: Audio caps negotiation failure (IN PROGRESS ⚠️)
+**Current Status:** Audio pad links successfully but appsink receives NO samples
+
+**Symptoms:**
+```
+✅ Audio RTP pad detected and linked to rtpmp4gdepay
+✅ No GStreamer errors in logs
+❌ _on_audio_sample() callback NEVER called
+❌ No audio buffers received by segment_buffer
+❌ No audio segments written to disk
+✅ Video segments writing successfully (proves queue mechanism works)
+```
+
+**Investigation:**
+1. Tested `audio/mpeg,mpegversion=4` caps - no samples received
+2. Current approach: Remove caps constraint entirely, let GStreamer auto-negotiate
+
+**Hypothesis:**
+- aacparse may output caps that don't match appsink expectations
+- Possible formats: `audio/mpeg,mpegversion=2`, `audio/mpeg,stream-format=raw`, or other variants
+- Setting specific caps too restrictive, blocking data flow
+
+**Files Modified:**
+- `apps/media-service/src/media_service/worker/worker_runner.py` (queue-based processing)
+- `apps/media-service/src/media_service/pipeline/input.py` (RTP depayloaders + caps)
+
+**Next Steps:**
+1. Test with no caps constraint on audio appsink (in progress)
+2. If still failing, add GST_DEBUG logging to inspect caps negotiation
+3. Consider alternative: Use `audio/x-raw` and add `audioconvert` element
+4. Last resort: Replace aacparse chain with simpler approach
 
 ### ⏸️ Step 4: Event Data Validation (NOT REACHED)
 **Purpose:** Validate `fragment:processed` event payload structure
@@ -99,12 +152,13 @@
 | 0 | Environment Setup | ✅ PASS | Docker Compose environments healthy |
 | 1 | MediaMTX Receives Stream | ✅ PASS | Fixed via RTMP conversion (ea27c3f) |
 | 2 | WorkerRunner Connects | ✅ PASS | Fixed all 6 root causes (2026-01-01) |
-| 3 | Socket.IO Events | ❌ BLOCKED | GStreamer not writing segments |
+| 3 | Socket.IO Events | ❌ BLOCKED | Audio caps negotiation issue - video working, audio failing |
 | 4 | Event Data Validation | ⏸️ Not reached | Pending Step 3 |
 | 5 | Output RTMP Stream | ⏸️ Not reached | Pending |
 | 6 | Metrics Verification | ⏸️ Not reached | Pending |
 
 **Overall Progress:** 3/7 steps passing (~43% complete)
+**Current Blocker:** Audio pipeline caps negotiation - audio appsink not receiving samples despite successful pad linking
 
 ---
 
@@ -206,18 +260,30 @@ WorkerRunner remuxes → publishes to output RTMP
 
 ## Next Actions
 
-1. **Investigate GStreamer Pipeline** (Step 3 blocker)
-   - Check splitmuxsink configuration in input pipeline
-   - Verify max-size-time, max-size-bytes settings
-   - Confirm audio extraction and AAC encoding
-   - Test manual ffmpeg command to validate GStreamer approach
+### Immediate: Fix Audio Caps Negotiation (Step 3 blocker)
 
-2. **Alternative Approach** (if GStreamer blocked)
-   - Use ffmpeg directly for segmentation instead of GStreamer
-   - Simpler, more reliable for audio extraction
-   - May require pipeline redesign
+1. **Test no-caps approach** (in progress)
+   - Remove caps constraint on audio appsink entirely
+   - Let GStreamer auto-negotiate caps between aacparse and appsink
+   - Rebuild and verify audio samples received
 
-3. **After Step 3 Passes**
+2. **If still failing: Enable GST_DEBUG**
+   - Set `GST_DEBUG=3` or `GST_DEBUG=rtspsrc:5,rtpmp4gdepay:5,aacparse:5,appsink:5`
+   - Inspect caps negotiation logs
+   - Identify exact caps mismatch
+
+3. **Alternative pipeline approaches**
+   - Option A: Use `audio/x-raw` + `audioconvert` + `audioresample`
+   - Option B: Replace aacparse with simpler `decodebin` auto-detection
+   - Option C: Use `avdec_aac` decoder if caps negotiation impossible with parser-only approach
+
+4. **Test audio extraction independently**
+   ```bash
+   gst-launch-1.0 rtspsrc location=rtsp://mediamtx:8554/live/test/in ! \
+     rtpmp4gdepay ! aacparse ! filesink location=/tmp/test.aac
+   ```
+
+### After Step 3 Passes
    - Validate fragment:processed payload structure
    - Verify output stream appears in MediaMTX
    - Confirm metrics updated correctly
@@ -226,11 +292,12 @@ WorkerRunner remuxes → publishes to output RTMP
 
 ## Useful Commands
 
+### General Debugging
 ```bash
 # Check Worker logs
 docker logs e2e-media-service 2>&1 | grep -E "(Worker|Socket.IO|pipeline)"
 
-# Check segment files
+# Check segment files (should see both video AND audio)
 docker exec e2e-media-service ls -laR /tmp/segments/
 
 # Check metrics
@@ -246,4 +313,28 @@ curl -s http://localhost:8889/v3/paths/list | jq
 # Clean up Docker environments
 docker compose -f apps/media-service/docker-compose.e2e.yml -p e2e-media down -v
 docker compose -f apps/sts-service/docker-compose.e2e.yml -p e2e-sts down -v
+```
+
+### Audio Pipeline Debugging (Step 3)
+```bash
+# Check if audio segments are being written (should match video count)
+docker logs e2e-media-service 2>&1 | grep -E "segment (written|queued|emitted)" | tail -20
+
+# Check for audio-specific logs (should see _on_audio_sample callbacks)
+docker logs e2e-media-service 2>&1 | grep -i audio | tail -30
+
+# Verify audio stream in test fixture
+ffprobe -v error -select_streams a:0 -show_entries stream=codec_name,sample_rate,channels \
+  tests/e2e/fixtures/test_streams/30s-counting-english.mp4
+
+# Enable GStreamer debug logging (add to docker-compose.e2e.yml)
+# environment:
+#   - GST_DEBUG=3
+#   - GST_DEBUG_FILE=/tmp/gst-debug.log
+
+# Inspect GStreamer debug logs
+docker exec e2e-media-service cat /tmp/gst-debug.log | grep -E "(caps|negotiat|aacparse|appsink)"
+
+# Test audio pipeline manually inside container
+docker exec -it e2e-media-service bash -c "gst-launch-1.0 rtspsrc location=rtsp://mediamtx:8554/live/test/in ! rtpmp4gdepay ! aacparse ! fakesink"
 ```

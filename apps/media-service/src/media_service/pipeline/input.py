@@ -1,18 +1,21 @@
 """
-Input pipeline for RTSP stream consumption.
+Input pipeline for RTMP stream consumption.
 
-Pulls RTSP stream from MediaMTX, demuxes FLV container into
+Pulls RTMP stream from MediaMTX, demuxes FLV container into
 video (H.264) and audio (AAC) tracks via appsinks.
 
-Per spec 003:
+Per spec 020-rtmp-stream-pull:
+- Uses rtmpsrc + flvdemux for simplified RTMP pull (no RTP depayloading)
 - Video and audio are codec-copied (no re-encode)
 - Appsink callbacks for buffer processing
 - Pipeline state management (NULL -> READY -> PAUSED -> PLAYING)
+- Audio track validation (rejects video-only streams)
 """
 
 from __future__ import annotations
 
 import logging
+import time
 from collections.abc import Callable
 
 # GStreamer imports
@@ -38,62 +41,68 @@ BufferCallback = Callable[[bytes, int, int], None]  # (data, pts_ns, duration_ns
 
 
 class InputPipeline:
-    """RTSP input pipeline with video and audio appsinks.
+    """RTMP input pipeline with video and audio appsinks.
 
     Constructs a GStreamer pipeline that:
-    1. Pulls RTSP stream from MediaMTX
-    2. Demuxes FLV container into video (H.264) and audio (AAC)
+    1. Pulls RTMP stream from MediaMTX via rtmpsrc
+    2. Demuxes FLV container into video (H.264) and audio (AAC) via flvdemux
     3. Routes streams to appsinks for callback-based processing
 
     The pipeline preserves original codecs (no re-encoding).
 
     Attributes:
-        _rtsp_url: RTSP source URL
+        _rtmp_url: RTMP source URL
         _on_video_buffer: Callback for video buffer processing
         _on_audio_buffer: Callback for audio buffer processing
         _pipeline: GStreamer pipeline (after build)
         _state: Current pipeline state string
+        has_video_pad: Whether video pad has been linked
+        has_audio_pad: Whether audio pad has been linked
     """
 
     def __init__(
         self,
-        rtsp_url: str,
+        rtmp_url: str,
         on_video_buffer: BufferCallback,
         on_audio_buffer: BufferCallback,
-        latency: int = 200,
+        max_buffers: int = 10,
     ) -> None:
         """Initialize input pipeline.
 
         Args:
-            rtsp_url: RTSP URL (e.g., "rtsp://mediamtx:8554/live/stream/in")
+            rtmp_url: RTMP URL (e.g., "rtmp://mediamtx:1935/live/stream/in")
             on_video_buffer: Callback for video buffers (data, pts_ns, duration_ns)
             on_audio_buffer: Callback for audio buffers (data, pts_ns, duration_ns)
-            latency: RTSP jitter buffer latency in ms (default 200)
+            max_buffers: Maximum buffers for flvdemux queue (default 10)
 
         Raises:
-            ValueError: If RTSP URL is empty or invalid format
+            ValueError: If RTMP URL is empty or invalid format
         """
-        if not rtsp_url:
-            raise ValueError("RTSP URL cannot be empty")
+        if not rtmp_url:
+            raise ValueError("RTMP URL cannot be empty")
 
-        if not rtsp_url.startswith("rtsp://"):
-            raise ValueError(f"Invalid RTSP URL: must start with 'rtsp://' - got '{rtsp_url}'")
+        if not rtmp_url.startswith("rtmp://"):
+            raise ValueError(f"Invalid RTMP URL: must start with 'rtmp://' - got '{rtmp_url}'")
 
-        self._rtsp_url = rtsp_url
+        self._rtmp_url = rtmp_url
         self._on_video_buffer = on_video_buffer
         self._on_audio_buffer = on_audio_buffer
-        self._latency = latency
+        self._max_buffers = max_buffers
         self._pipeline: Gst.Pipeline | None = None
         self._state = "NULL"
         self._bus: Gst.Bus | None = None
         self._video_appsink: Gst.Element | None = None
         self._audio_appsink: Gst.Element | None = None
 
+        # Pad detection flags for audio validation
+        self.has_video_pad = False
+        self.has_audio_pad = False
+
     def build(self) -> None:
         """Build the GStreamer pipeline.
 
         Creates pipeline structure:
-        rtspsrc -> flvdemux -> video: h264parse -> queue -> appsink
+        rtmpsrc -> flvdemux -> video: h264parse -> queue -> appsink
                             -> audio: aacparse -> queue -> appsink
 
         Raises:
@@ -110,14 +119,17 @@ class InputPipeline:
         if self._pipeline is None:
             raise RuntimeError("Failed to create GStreamer pipeline")
 
-        # Create elements
-        rtspsrc = Gst.ElementFactory.make("rtspsrc", "rtspsrc")
-        if rtspsrc is None:
-            raise RuntimeError("Failed to create rtspsrc element")
+        # Create RTMP source elements
+        rtmpsrc = Gst.ElementFactory.make("rtmpsrc", "rtmpsrc")
+        if rtmpsrc is None:
+            raise RuntimeError("Failed to create rtmpsrc element")
 
-        rtspsrc.set_property("location", self._rtsp_url)
-        rtspsrc.set_property("protocols", "tcp")
-        rtspsrc.set_property("latency", self._latency)
+        rtmpsrc.set_property("location", self._rtmp_url)
+
+        # Create FLV demuxer
+        flvdemux = Gst.ElementFactory.make("flvdemux", "flvdemux")
+        if flvdemux is None:
+            raise RuntimeError("Failed to create flvdemux element")
 
         # Video path elements
         h264parse = Gst.ElementFactory.make("h264parse", "h264parse")
@@ -141,15 +153,18 @@ class InputPipeline:
             if elem is None:
                 raise RuntimeError(f"Failed to create {elem_name} element")
 
-        # Configure appsinks
-        for appsink in [self._video_appsink, self._audio_appsink]:
-            appsink.set_property("emit-signals", True)
-            appsink.set_property("sync", False)
-
-        # Set caps
+        # Configure video appsink
+        self._video_appsink.set_property("emit-signals", True)
+        self._video_appsink.set_property("sync", False)
         video_caps = Gst.Caps.from_string("video/x-h264")
         self._video_appsink.set_property("caps", video_caps)
 
+        # Configure audio appsink
+        self._audio_appsink.set_property("emit-signals", True)
+        self._audio_appsink.set_property("sync", False)
+        self._audio_appsink.set_property("async", False)
+        self._audio_appsink.set_property("max-buffers", 0)  # Unlimited buffering
+        self._audio_appsink.set_property("drop", False)
         audio_caps = Gst.Caps.from_string("audio/mpeg")
         self._audio_appsink.set_property("caps", audio_caps)
 
@@ -158,7 +173,8 @@ class InputPipeline:
         self._audio_appsink.connect("new-sample", self._on_audio_sample)
 
         # Add elements to pipeline
-        self._pipeline.add(rtspsrc)
+        self._pipeline.add(rtmpsrc)
+        self._pipeline.add(flvdemux)
         self._pipeline.add(h264parse)
         self._pipeline.add(video_queue)
         self._pipeline.add(self._video_appsink)
@@ -166,13 +182,17 @@ class InputPipeline:
         self._pipeline.add(audio_queue)
         self._pipeline.add(self._audio_appsink)
 
-        # Link static elements (video path)
+        # Link static source elements: rtmpsrc -> flvdemux
+        if not rtmpsrc.link(flvdemux):
+            raise RuntimeError("Failed to link rtmpsrc -> flvdemux")
+
+        # Link static video elements: h264parse -> queue -> sink
         if not h264parse.link(video_queue):
             raise RuntimeError("Failed to link h264parse -> video_queue")
         if not video_queue.link(self._video_appsink):
             raise RuntimeError("Failed to link video_queue -> video_sink")
 
-        # Link static elements (audio path)
+        # Link static audio elements: aacparse -> queue -> sink
         if not aacparse.link(audio_queue):
             raise RuntimeError("Failed to link aacparse -> audio_queue")
         if not audio_queue.link(self._audio_appsink):
@@ -181,9 +201,10 @@ class InputPipeline:
         # Store references for dynamic pad linking
         self._h264parse = h264parse
         self._aacparse = aacparse
+        self._flvdemux = flvdemux
 
-        # Connect rtspsrc pad-added signal for dynamic linking
-        rtspsrc.connect("pad-added", self._on_pad_added)
+        # Connect flvdemux pad-added signal for dynamic linking
+        flvdemux.connect("pad-added", self._on_pad_added)
 
         # Set up bus message handling
         self._bus = self._pipeline.get_bus()
@@ -192,17 +213,19 @@ class InputPipeline:
             self._bus.connect("message", self._on_bus_message)
 
         self._state = "READY"
-        logger.info(f"Input pipeline built for {self._rtsp_url}")
+        logger.info(f"Input pipeline built for {self._rtmp_url}")
 
     def _on_pad_added(
         self, element: Gst.Element, pad: Gst.Pad
     ) -> None:
-        """Handle dynamic pad creation from rtspsrc.
+        """Handle dynamic pad creation from flvdemux.
 
         Links newly created pads to appropriate parsers based on media type.
+        FLV demuxer outputs raw video/x-h264 and audio/mpeg caps directly
+        (no RTP wrapping, so no depayloading needed).
 
         Args:
-            element: Source element (rtspsrc)
+            element: Source element (flvdemux)
             pad: Newly created pad
         """
         caps = pad.get_current_caps()
@@ -217,23 +240,56 @@ class InputPipeline:
 
         logger.debug(f"Pad added: {pad.get_name()}, media type: {media_type}")
 
-        if media_type.startswith("video"):
+        # Handle FLV demuxed pads (direct codec formats, not RTP)
+        if media_type.startswith("video/x-h264"):
+            # Link to h264parse
             sink_pad = self._h264parse.get_static_pad("sink")
             if sink_pad and not sink_pad.is_linked():
                 result = pad.link(sink_pad)
                 if result == Gst.PadLinkReturn.OK:
-                    logger.info("Linked rtspsrc video pad to h264parse")
+                    self.has_video_pad = True
+                    logger.info("Linked flvdemux video pad to h264parse")
                 else:
                     logger.error(f"Failed to link video pad: {result}")
 
-        elif media_type.startswith("audio"):
+        elif media_type.startswith("audio/mpeg"):
+            # Link to aacparse
             sink_pad = self._aacparse.get_static_pad("sink")
             if sink_pad and not sink_pad.is_linked():
                 result = pad.link(sink_pad)
                 if result == Gst.PadLinkReturn.OK:
-                    logger.info("Linked rtspsrc audio pad to aacparse")
+                    self.has_audio_pad = True
+                    logger.info("Linked flvdemux audio pad to aacparse")
                 else:
                     logger.error(f"Failed to link audio pad: {result}")
+
+    def _validate_audio_track(self, timeout_ms: int = 2000) -> None:
+        """Validate audio track presence in the stream.
+
+        Waits for both video and audio pads to be detected within the timeout.
+        Raises RuntimeError if audio track is missing (video-only stream).
+
+        Args:
+            timeout_ms: Maximum wait time in milliseconds (default 2000ms)
+
+        Raises:
+            RuntimeError: If audio track is missing after timeout
+        """
+        start = time.time()
+        timeout_sec = timeout_ms / 1000.0
+
+        while (time.time() - start) < timeout_sec:
+            if self.has_audio_pad and self.has_video_pad:
+                logger.info("Audio track validation passed: both video and audio detected")
+                return
+            time.sleep(0.1)
+
+        # Timeout reached - check what's missing
+        if not self.has_audio_pad:
+            raise RuntimeError(
+                "Audio track required for dubbing pipeline - stream rejected. "
+                "Video-only streams are not supported."
+            )
 
     def _on_video_sample(self, appsink: Gst.Element) -> Gst.FlowReturn:
         """Handle new video sample from appsink.
@@ -383,4 +439,6 @@ class InputPipeline:
         self._pipeline = None
         self._video_appsink = None
         self._audio_appsink = None
+        self.has_video_pad = False
+        self.has_audio_pad = False
         logger.info("Pipeline cleaned up")
