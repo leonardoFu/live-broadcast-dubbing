@@ -461,7 +461,33 @@ make media-test-coverage
 # Focus on files with low coverage shown in red
 ```
 
-## Commit & Pull Request Guidelines
+## Git Workflow Guidelines
+
+### Git Worktrees
+
+When creating new git worktrees, **always** use the `.worktrees/` directory:
+
+```bash
+# Create a new worktree for a feature branch
+git worktree add .worktrees/feature-branch-name feature-branch-name
+
+# Create a new worktree and branch simultaneously
+git worktree add -b new-feature .worktrees/new-feature
+
+# List all worktrees
+git worktree list
+
+# Remove a worktree when done
+git worktree remove .worktrees/feature-branch-name
+```
+
+**Why `.worktrees/`?**
+- Keeps worktrees organized in a single location
+- Prevents clutter in the repository root
+- Already ignored by `.gitignore`
+- Makes cleanup easier
+
+### Commit & Pull Request Guidelines
 
 - Git history is not established yet; use Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`) going forward.
 - PRs should link the relevant spec (e.g., `specs/001-spec.md`) and describe: local run steps, latency/AV-sync impact, and any config changes.
