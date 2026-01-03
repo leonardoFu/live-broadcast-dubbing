@@ -28,8 +28,8 @@ logger = logging.getLogger(__name__)
 
 # Paths
 PROJECT_ROOT = Path(__file__).parent.parent.parent
-MEDIA_COMPOSE_FILE = PROJECT_ROOT / "apps/media-service/docker-compose.e2e.yml"
-STS_COMPOSE_FILE = PROJECT_ROOT / "apps/sts-service/docker-compose.e2e.yml"
+MEDIA_COMPOSE_FILE = PROJECT_ROOT / "apps/media-service/docker-compose.yml"
+STS_COMPOSE_FILE = PROJECT_ROOT / "apps/sts-service/docker-compose.yml"
 TEST_FIXTURE_PATH = Path(__file__).parent.parent / "fixtures/test-streams/1-min-nfl.mp4"
 
 
@@ -54,15 +54,52 @@ def media_compose_env() -> Generator[DockerComposeManager, None, None]:
         compose_file=MEDIA_COMPOSE_FILE,
         project_name="e2e-media",
         env={
+            # MediaMTX Ports
             "MEDIAMTX_RTSP_PORT": "8554",
             "MEDIAMTX_RTMP_PORT": "1935",
             "MEDIAMTX_API_PORT": "8889",
+            "MEDIAMTX_METRICS_PORT": "9998",
+            "MEDIAMTX_PLAYBACK_PORT": "9996",
+
+            # MediaMTX Container Config
+            "MEDIAMTX_CONTAINER_NAME": "e2e-mediamtx",
+            "MEDIAMTX_LOG_LEVEL": "info",
+            "MEDIAMTX_PROTOCOLS": "tcp",
+
+            # Media Service Config
             "MEDIA_SERVICE_PORT": "8080",
-            "STS_SERVICE_URL": "http://host.docker.internal:3000",
+            "MEDIA_SERVICE_CONTAINER_NAME": "e2e-media-service",
+            "MEDIA_SERVICE_IMAGE": "media-service:e2e",
+
+            # STS Service URL (use container name for E2E shared network)
+            "STS_SERVICE_URL": "http://e2e-echo-sts:3000",
+
+            # Orchestrator URL (for MediaMTX hooks)
+            "ORCHESTRATOR_URL": "http://media-service:8080",
+
+            # Logging
+            "LOG_LEVEL": "INFO",
+            # GStreamer Debug (for audio pipeline investigation)
+            "GST_DEBUG": "flvdemux:5,queue:6,appsink:6",  # Max debug for audio path
+
+            # Network (use default network name, will connect manually)
+            # "NETWORK_NAME": "dubbing-network",  # Let compose create its own network
+
+            # Volumes
+            "SEGMENTS_VOLUME_NAME": "e2e-media-segments",
+
+            # Circuit Breaker
+            "CIRCUIT_BREAKER_THRESHOLD": "5",
+            "CIRCUIT_BREAKER_TIMEOUT": "60",
+
+            # Segment Config
+            "SEGMENT_DIR": "/tmp/segments",
+            "MAX_CONCURRENT_STREAMS": "10",
+            "METRICS_ENABLED": "true",
         },
     )
 
-    # Trust Docker's built-in health checks (defined in docker-compose.e2e.yml)
+    # Trust Docker's built-in health checks (defined in docker-compose.yml)
     # No need for explicit endpoint verification since containers have HEALTHCHECK directives
 
     try:
@@ -80,32 +117,52 @@ def media_compose_env() -> Generator[DockerComposeManager, None, None]:
 def sts_compose_env() -> Generator[DockerComposeManager, None, None]:
     """Session-scoped STS service Docker Compose environment.
 
-    Starts real STS service once per test session.
-    Model loading (30s+) happens once, amortized across all tests.
+    Starts echo-sts service for E2E testing to verify media-service pipeline.
+    Uses echo-sts from docker-compose.yml for fast pipeline validation.
 
     Yields:
         DockerComposeManager for STS composition
     """
-    logger.info("Starting STS service Docker Compose environment...")
+    logger.info("Starting echo-sts Docker Compose environment...")
 
     manager = DockerComposeManager(
         compose_file=STS_COMPOSE_FILE,
         project_name="e2e-sts",
         env={
+            # Echo STS Service Config
+            "STS_CONTAINER_NAME": "e2e-echo-sts",
+            "STS_HOST": "0.0.0.0",
             "STS_PORT": "3000",
-            "HOST": "0.0.0.0",
-            "ASR_MODEL": "whisper-small",
-            "TTS_PROVIDER": "coqui",
+
+            # Logging
+            "LOG_LEVEL": "INFO",
+
+            # Processing Config (CPU-only for macOS)
             "DEVICE": "cpu",
+            "ASR_MODEL": "tiny",  # Smallest Whisper model for faster loading
+            "TTS_PROVIDER": "coqui",  # Use real Coqui TTS (no mocking)
+            "TRANSLATION_PROVIDER": "deepl",  # Use mock translation for E2E tests
+            "DEEPL_AUTH_KEY": "8e373354-4ca7-4fec-b563-93b2fa6930cc:fx",
+
+            # Network (use default network name, will connect manually)
+            # "NETWORK_NAME": "sts-network",  # Let compose create its own network
+
+            # Health Check
+            "HEALTHCHECK_INTERVAL": "10s",
+            "HEALTHCHECK_TIMEOUT": "5s",
+            "HEALTHCHECK_RETRIES": "3",
+            "HEALTHCHECK_START_PERIOD": "90s",  # Allow time for Whisper + Coqui TTS model loading
         },
     )
 
     # Trust Docker's built-in health checks
 
     try:
+        # Start echo-sts for pipeline validation
         manager.start(
             build=True,
-            timeout=90,  # Allow time for model loading
+            timeout=30,  # Echo service starts quickly
+            services=["echo-sts"],
         )
         yield manager
     finally:
@@ -122,10 +179,27 @@ def dual_compose_env(
 
     Ensures both compositions are running before tests.
     Tests use unique stream names for isolation.
+    Connects STS container to media network for inter-service communication.
 
     Returns:
         Dictionary with 'media' and 'sts' managers
     """
+    import subprocess
+
+    # Connect echo-sts container to media network for inter-service communication
+    logger.info("Connecting echo-sts container to media network...")
+    result = subprocess.run(
+        ["docker", "network", "connect", "dubbing-network", "e2e-echo-sts"],
+        capture_output=True,
+        text=True,
+    )
+
+    if result.returncode == 0:
+        logger.info("Successfully connected echo-sts to media network")
+    else:
+        # May already be connected, log warning but continue
+        logger.warning(f"Could not connect echo-sts to media network: {result.stderr}")
+
     logger.info("Dual compose environment ready")
     return {
         "media": media_compose_env,

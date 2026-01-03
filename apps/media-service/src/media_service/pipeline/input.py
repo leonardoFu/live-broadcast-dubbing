@@ -125,6 +125,7 @@ class InputPipeline:
             raise RuntimeError("Failed to create rtmpsrc element")
 
         rtmpsrc.set_property("location", self._rtmp_url)
+        rtmpsrc.set_property("timeout", 30)  # 30 second timeout for network operations
 
         # Create FLV demuxer
         flvdemux = Gst.ElementFactory.make("flvdemux", "flvdemux")
@@ -136,17 +137,30 @@ class InputPipeline:
         video_queue = Gst.ElementFactory.make("queue", "video_queue")
         self._video_appsink = Gst.ElementFactory.make("appsink", "video_sink")
 
+        # Configure video queue for better buffering
+        video_queue.set_property("max-size-buffers", 0)  # Unlimited buffers
+        video_queue.set_property("max-size-bytes", 0)    # Unlimited bytes
+        video_queue.set_property("max-size-time", 5 * Gst.SECOND)  # 5 seconds of data
+        video_queue.set_property("leaky", 2)  # Leak downstream (drop old data if full)
+
         # Audio path elements
-        aacparse = Gst.ElementFactory.make("aacparse", "aacparse")
+        # Note: flvdemux outputs framed=true AAC, so we can skip aacparse for input
+        # aacparse = Gst.ElementFactory.make("aacparse", "aacparse")
         audio_queue = Gst.ElementFactory.make("queue", "audio_queue")
         self._audio_appsink = Gst.ElementFactory.make("appsink", "audio_sink")
+
+        # Configure audio queue for better buffering
+        audio_queue.set_property("max-size-buffers", 0)  # Unlimited buffers
+        audio_queue.set_property("max-size-bytes", 0)    # Unlimited bytes
+        audio_queue.set_property("max-size-time", 5 * Gst.SECOND)  # 5 seconds of data
+        audio_queue.set_property("leaky", 2)  # Leak downstream (drop old data if full)
 
         # Verify all elements created
         for elem_name, elem in [
             ("h264parse", h264parse),
             ("video_queue", video_queue),
             ("video_sink", self._video_appsink),
-            ("aacparse", aacparse),
+            # ("aacparse", aacparse),  # Removed - using direct flvdemux → queue connection
             ("audio_queue", audio_queue),
             ("audio_sink", self._audio_appsink),
         ]:
@@ -162,12 +176,9 @@ class InputPipeline:
         # Configure audio appsink
         self._audio_appsink.set_property("emit-signals", True)
         self._audio_appsink.set_property("sync", False)
-        self._audio_appsink.set_property("async", False)
-        self._audio_appsink.set_property("max-buffers", 0)  # Unlimited buffering
-        self._audio_appsink.set_property("drop", False)
-        # NOTE: No caps constraint - let GStreamer auto-negotiate between aacparse and appsink
-        # aacparse output caps may vary (audio/mpeg,mpegversion=2/4, stream-format=raw/adts, etc.)
-        # Setting specific caps was blocking data flow (caps negotiation failure)
+        # Accept raw AAC from flvdemux (any rate, any channels)
+        audio_caps = Gst.Caps.from_string("audio/mpeg,mpegversion=4")
+        self._audio_appsink.set_property("caps", audio_caps)
 
         # Connect appsink signals
         self._video_appsink.connect("new-sample", self._on_video_sample)
@@ -179,7 +190,7 @@ class InputPipeline:
         self._pipeline.add(h264parse)
         self._pipeline.add(video_queue)
         self._pipeline.add(self._video_appsink)
-        self._pipeline.add(aacparse)
+        # self._pipeline.add(aacparse)  # Removed - using direct flvdemux → queue connection
         self._pipeline.add(audio_queue)
         self._pipeline.add(self._audio_appsink)
 
@@ -193,15 +204,13 @@ class InputPipeline:
         if not video_queue.link(self._video_appsink):
             raise RuntimeError("Failed to link video_queue -> video_sink")
 
-        # Link static audio elements: aacparse -> queue -> sink
-        if not aacparse.link(audio_queue):
-            raise RuntimeError("Failed to link aacparse -> audio_queue")
+        # Link static audio elements: queue -> sink (no aacparse needed for framed AAC)
         if not audio_queue.link(self._audio_appsink):
             raise RuntimeError("Failed to link audio_queue -> audio_sink")
 
         # Store references for dynamic pad linking
         self._h264parse = h264parse
-        self._aacparse = aacparse
+        self._audio_queue = audio_queue  # Changed from aacparse to audio_queue
         self._flvdemux = flvdemux
 
         # Connect flvdemux pad-added signal for dynamic linking
@@ -254,13 +263,13 @@ class InputPipeline:
                     logger.error(f"Failed to link video pad: {result}")
 
         elif media_type.startswith("audio/mpeg"):
-            # Link to aacparse
-            sink_pad = self._aacparse.get_static_pad("sink")
+            # Link directly to audio_queue (flvdemux outputs framed AAC, no parsing needed)
+            sink_pad = self._audio_queue.get_static_pad("sink")
             if sink_pad and not sink_pad.is_linked():
                 result = pad.link(sink_pad)
                 if result == Gst.PadLinkReturn.OK:
                     self.has_audio_pad = True
-                    logger.info("Linked flvdemux audio pad to aacparse")
+                    logger.info("Linked flvdemux audio pad to audio_queue")
                 else:
                     logger.error(f"Failed to link audio pad: {result}")
 

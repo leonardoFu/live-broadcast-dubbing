@@ -131,8 +131,9 @@ class OutputPipeline:
         self._video_appsrc.set_property("do-timestamp", False)
 
         # Configure audio appsrc
+        # Use ADTS format (self-describing, no codec_data needed) instead of raw
         audio_caps = Gst.Caps.from_string(
-            "audio/mpeg,mpegversion=4,stream-format=raw,channels=2,rate=48000"
+            "audio/mpeg,mpegversion=4,stream-format=adts,channels=2,rate=48000"
         )
         self._audio_appsrc.set_property("caps", audio_caps)
         self._audio_appsrc.set_property("is-live", True)

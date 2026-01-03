@@ -90,6 +90,7 @@ services:
     environment:
       - PORT=8080
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - GST_DEBUG=${GST_DEBUG:-0}  # GStreamer debug level (0=none, 3=FIXME, 5=DEBUG)
       - MEDIAMTX_RTSP_URL=${MEDIAMTX_RTSP_URL:-rtsp://mediamtx:8554}
       - MEDIAMTX_RTMP_URL=${MEDIAMTX_RTMP_URL:-rtmp://mediamtx:1935}
       - STS_SERVICE_URL=${STS_SERVICE_URL}  # Required for production

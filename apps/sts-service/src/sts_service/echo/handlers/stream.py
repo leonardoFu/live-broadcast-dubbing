@@ -89,6 +89,7 @@ async def handle_stream_init(
             "stream:ready",
             response.model_dump(),
             to=sid,
+            namespace="/sts",
         )
 
         logger.info(
@@ -106,7 +107,7 @@ async def handle_stream_init(
             stream_id=data.get("stream_id"),
         )
 
-        await sio.emit("error", error.model_dump(), to=sid)
+        await sio.emit("error", error.model_dump(), to=sid, namespace="/sts")
 
     except Exception as e:
         # Unexpected error
@@ -120,7 +121,7 @@ async def handle_stream_init(
             stream_id=data.get("stream_id"),
         )
 
-        await sio.emit("error", error.model_dump(), to=sid)
+        await sio.emit("error", error.model_dump(), to=sid, namespace="/sts")
 
 
 async def handle_stream_pause(
@@ -149,7 +150,7 @@ async def handle_stream_pause(
             code="STREAM_NOT_FOUND",
             stream_id=stream_id,
         )
-        await sio.emit("error", error.model_dump(), to=sid)
+        await sio.emit("error", error.model_dump(), to=sid, namespace="/sts")
         return
 
     if session.transition_to("paused"):
@@ -184,7 +185,7 @@ async def handle_stream_resume(
             code="STREAM_NOT_FOUND",
             stream_id=stream_id,
         )
-        await sio.emit("error", error.model_dump(), to=sid)
+        await sio.emit("error", error.model_dump(), to=sid, namespace="/sts")
         return
 
     if session.transition_to("active"):
@@ -221,7 +222,7 @@ async def handle_stream_end(
             code="STREAM_NOT_FOUND",
             stream_id=stream_id,
         )
-        await sio.emit("error", error.model_dump(), to=sid)
+        await sio.emit("error", error.model_dump(), to=sid, namespace="/sts")
         return
 
     # Mark stream as ending
@@ -277,6 +278,7 @@ async def _send_stream_complete(
         "stream:complete",
         response.model_dump(),
         to=sid,
+        namespace="/sts",
     )
 
     logger.info(
@@ -314,25 +316,25 @@ def register_stream_handlers(
     sio: Any,
     session_store: SessionStore,
 ) -> None:
-    """Register stream lifecycle event handlers.
+    """Register stream lifecycle event handlers on /sts namespace.
 
     Args:
         sio: Socket.IO server instance.
         session_store: Session store instance.
     """
 
-    @sio.on("stream:init")
+    @sio.on("stream:init", namespace="/sts")
     async def on_stream_init(sid: str, data: dict[str, Any]) -> None:
         await handle_stream_init(sio, sid, data, session_store)
 
-    @sio.on("stream:pause")
+    @sio.on("stream:pause", namespace="/sts")
     async def on_stream_pause(sid: str, data: dict[str, Any]) -> None:
         await handle_stream_pause(sio, sid, data, session_store)
 
-    @sio.on("stream:resume")
+    @sio.on("stream:resume", namespace="/sts")
     async def on_stream_resume(sid: str, data: dict[str, Any]) -> None:
         await handle_stream_resume(sio, sid, data, session_store)
 
-    @sio.on("stream:end")
+    @sio.on("stream:end", namespace="/sts")
     async def on_stream_end(sid: str, data: dict[str, Any]) -> None:
         await handle_stream_end(sio, sid, data, session_store)

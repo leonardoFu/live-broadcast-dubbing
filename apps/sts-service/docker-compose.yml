@@ -1,55 +1,166 @@
 version: "3.8"
 
-# Docker Compose for STS Service development
+# STS Service - Production-Ready Configuration
+# Purpose: Speech-to-Speech processing service (ASR → Translation → TTS)
 #
 # Services:
-#   - sts-service: Full GPU-enabled STS service (requires NVIDIA runtime)
-#   - echo-sts: Lightweight echo service for E2E testing (no GPU required)
+#   - sts-service: Real STS service (production/development)
+#   - echo-sts: Lightweight echo service (E2E testing only)
 #
 # Usage:
-#   docker compose up echo-sts    # Start echo service only
-#   docker compose up              # Start all services
+#   Production (GPU):     docker compose up sts-service -d
+#   Development (CPU):    docker compose --profile dev up sts-service -d
+#   E2E Testing (mock):   docker compose up echo-sts -d
+#   Custom config:        docker compose --env-file .env.production up -d
+#
+# IMPORTANT: Only ONE service can run at a time (both use port 3000)
+#
+# Environment Variables (see .env.example for full list):
+#   STS_PORT - Service port (default: 3000)
+#   DEVICE - Processing device: cuda, cpu (default: cpu)
+#   ASR_MODEL - Whisper model: tiny, base, small, medium, large (default: base)
+#   TTS_PROVIDER - TTS provider: coqui, mock (default: coqui)
+#   TRANSLATION_PROVIDER - Translation: deepl, mock (default: mock)
 
 services:
-  # Echo STS Service - for E2E testing without GPU
-  echo-sts:
+  # Production STS Service
+  sts-service:
     build:
       context: .
-      dockerfile: deploy/Dockerfile.echo
-    ports:
-      - "8000:8000"
-    environment:
-      - ECHO_HOST=0.0.0.0
-      - ECHO_PORT=8000
-      - LOG_LEVEL=INFO
-      - BACKPRESSURE_ENABLED=false
-      - ECHO_PROCESSING_DELAY_MS=0
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/socket.io/"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 5s
+      dockerfile: deploy/Dockerfile
+      args:
+        - BUILD_ENV=${BUILD_ENV:-production}
+    image: ${STS_SERVICE_IMAGE:-sts-service:latest}
+    container_name: ${STS_CONTAINER_NAME:-sts-service}
     restart: unless-stopped
 
-  # Full STS Service - requires NVIDIA GPU runtime
-  # Uncomment when GPU support is needed
-  # sts-service:
-  #   build:
-  #     context: .
-  #     dockerfile: deploy/Dockerfile
-  #   ports:
-  #     - "8001:8000"
-  #   environment:
-  #     - ECHO_PORT=8000
-  #   deploy:
-  #     resources:
-  #       reservations:
-  #         devices:
-  #           - driver: nvidia
-  #             count: 1
-  #             capabilities: [gpu]
+    # Port Mappings
+    ports:
+      - "${STS_PORT:-3000}:3000"
 
+    # Environment Variables
+    environment:
+      # Server Config
+      - HOST=${STS_HOST:-0.0.0.0}
+      - PORT=3000
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+
+      # Processing Config
+      - DEVICE=${DEVICE:-cpu}
+      - ASR_MODEL=${ASR_MODEL:-base}
+      - TTS_PROVIDER=${TTS_PROVIDER:-coqui}
+      - TRANSLATION_PROVIDER=${TRANSLATION_PROVIDER:-mock}
+
+      # API Keys (required for production)
+      - DEEPL_AUTH_KEY=${DEEPL_AUTH_KEY}
+
+      # Performance Tuning
+      - MAX_CONCURRENT_SESSIONS=${MAX_CONCURRENT_SESSIONS:-10}
+      - MODEL_CACHE_DIR=${MODEL_CACHE_DIR:-/app/.cache}
+
+      # Socket.IO Config
+      - WS_MAX_CONNECTIONS=${WS_MAX_CONNECTIONS:-50}
+      - WS_MAX_BUFFER_SIZE=${WS_MAX_BUFFER_SIZE:-52428800}  # 50MB
+      - WS_PING_INTERVAL=${WS_PING_INTERVAL:-25}
+      - WS_PING_TIMEOUT=${WS_PING_TIMEOUT:-10}
+
+    # Volume Mounts
+    volumes:
+      - model-cache:/app/.cache
+      - ${CONFIG_DIR:-./config}:/app/config:ro  # Optional config directory
+
+    # Networking
+    networks:
+      - sts-network
+
+    # Resource Limits (production)
+    deploy:
+      resources:
+        limits:
+          cpus: '${STS_CPU_LIMIT:-4.0}'
+          memory: ${STS_MEMORY_LIMIT:-8G}
+        reservations:
+          cpus: '${STS_CPU_RESERVATION:-2.0}'
+          memory: ${STS_MEMORY_RESERVATION:-4G}
+
+    # Health Check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: ${HEALTHCHECK_INTERVAL:-10s}
+      timeout: ${HEALTHCHECK_TIMEOUT:-5s}
+      retries: ${HEALTHCHECK_RETRIES:-3}
+      start_period: ${HEALTHCHECK_START_PERIOD:-60s}  # Allow time for model loading
+
+    # Logging Configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "${LOG_MAX_SIZE:-10m}"
+        max-file: "${LOG_MAX_FILES:-3}"
+
+    # GPU Support (uncomment for NVIDIA GPU)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: ${GPU_COUNT:-1}
+    #           capabilities: [gpu]
+
+  # Echo STS Service - for E2E testing without real processing
+  echo-sts:
+    build:
+      context: ../..
+      dockerfile: apps/sts-service/deploy/Dockerfile.echo
+    container_name: ${STS_CONTAINER_NAME:-echo-sts}
+    restart: unless-stopped
+
+    # Port Mappings
+    ports:
+      - "${STS_PORT:-3000}:3000"
+
+    # Environment Variables
+    environment:
+      - ECHO_HOST=${STS_HOST:-0.0.0.0}
+      - ECHO_PORT=3000
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - BACKPRESSURE_ENABLED=${BACKPRESSURE_ENABLED:-false}
+      - ECHO_PROCESSING_DELAY_MS=${ECHO_PROCESSING_DELAY_MS:-0}
+
+    # Networking
+    networks:
+      - sts-network
+
+    # Resource Limits (testing - minimal)
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+    # Health Check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: ${HEALTHCHECK_INTERVAL:-10s}
+      timeout: ${HEALTHCHECK_TIMEOUT:-5s}
+      retries: ${HEALTHCHECK_RETRIES:-3}
+      start_period: ${HEALTHCHECK_START_PERIOD:-5s}
+
+    # Logging Configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# Custom Network for Service Discovery
 networks:
-  default:
-    name: sts-network
+  sts-network:
+    driver: bridge
+    name: ${NETWORK_NAME:-sts-network}
+
+# Volumes for persistent data
+volumes:
+  model-cache:
+    driver: local
+    name: ${MODEL_CACHE_VOLUME_NAME:-sts-model-cache}

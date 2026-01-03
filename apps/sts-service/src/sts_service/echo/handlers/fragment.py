@@ -59,7 +59,7 @@ async def handle_fragment_data(
             stream_id=data.get("stream_id"),
             fragment_id=data.get("fragment_id"),
         )
-        await sio.emit("error", error.model_dump(), to=sid)
+        await sio.emit("error", error.model_dump(), to=sid, namespace="/sts")
         return
 
     # Check if session can accept fragments
@@ -70,7 +70,7 @@ async def handle_fragment_data(
             stream_id=session.stream_id,
             fragment_id=data.get("fragment_id"),
         )
-        await sio.emit("error", error.model_dump(), to=sid)
+        await sio.emit("error", error.model_dump(), to=sid, namespace="/sts")
         return
 
     # Check fragment size before validation
@@ -82,7 +82,7 @@ async def handle_fragment_data(
             stream_id=session.stream_id,
             fragment_id=data.get("fragment_id"),
         )
-        await sio.emit("error", error.model_dump(), to=sid)
+        await sio.emit("error", error.model_dump(), to=sid, namespace="/sts")
         return
 
     try:
@@ -97,7 +97,7 @@ async def handle_fragment_data(
             stream_id=data.get("stream_id"),
             fragment_id=data.get("fragment_id"),
         )
-        await sio.emit("error", error.model_dump(), to=sid)
+        await sio.emit("error", error.model_dump(), to=sid, namespace="/sts")
         return
 
     # Track in-flight
@@ -175,7 +175,7 @@ async def handle_fragment_data(
     # not here, to ensure end-to-end acknowledgment tracking
     fragments_to_emit = session.get_fragments_to_emit()
     for fragment in fragments_to_emit:
-        await sio.emit("fragment:processed", fragment.model_dump(), to=sid)
+        await sio.emit("fragment:processed", fragment.model_dump(), to=sid, namespace="/sts")
 
     # Check if stream should complete
     if session.is_complete():
@@ -307,7 +307,7 @@ async def _check_and_emit_backpressure(
                 queue_depth=len(session.pending_fragments),
                 action=action,
             )
-            await sio.emit("backpressure", bp_payload.model_dump(), to=sid)
+            await sio.emit("backpressure", bp_payload.model_dump(), to=sid, namespace="/sts")
         return
 
     # Emit backpressure event
@@ -332,17 +332,17 @@ def register_fragment_handlers(
     sio: Any,
     session_store: SessionStore,
 ) -> None:
-    """Register fragment event handlers.
+    """Register fragment event handlers on /sts namespace.
 
     Args:
         sio: Socket.IO server instance.
         session_store: Session store instance.
     """
 
-    @sio.on("fragment:data")
+    @sio.on("fragment:data", namespace="/sts")
     async def on_fragment_data(sid: str, data: dict[str, Any]) -> None:
         await handle_fragment_data(sio, sid, data, session_store)
 
-    @sio.on("fragment:ack")
+    @sio.on("fragment:ack", namespace="/sts")
     async def on_fragment_ack(sid: str, data: dict[str, Any]) -> None:
         await handle_fragment_ack(sio, sid, data, session_store)

@@ -56,7 +56,7 @@ class DockerComposeManager:
 
     Usage:
         manager = DockerComposeManager(
-            compose_file=Path("apps/media-service/docker-compose.e2e.yml"),
+            compose_file=Path("apps/media-service/docker-compose.yml"),
             project_name="e2e-media"
         )
         manager.start()
@@ -142,6 +142,7 @@ class DockerComposeManager:
         build: bool = True,
         timeout: int = 60,
         health_check_endpoints: list[tuple[str, str]] | None = None,
+        services: list[str] | None = None,
     ) -> None:
         """Start Docker Compose services.
 
@@ -149,6 +150,7 @@ class DockerComposeManager:
             build: Whether to rebuild images
             timeout: Startup timeout in seconds
             health_check_endpoints: Optional list of (url, name) tuples for health checks
+            services: Optional list of service names to start (default: all services)
         """
         if self._started:
             logger.warning(f"Docker composition {self.project_name} already started")
@@ -160,6 +162,10 @@ class DockerComposeManager:
         args = ["up", "-d"]
         if build:
             args.append("--build")
+
+        # Add specific services if provided
+        if services:
+            args.extend(services)
 
         self._run_compose(*args)
 
