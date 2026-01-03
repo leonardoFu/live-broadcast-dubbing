@@ -59,11 +59,11 @@ services:
 
       # ASR configuration
       - ASR_MODEL_SIZE=${ASR_MODEL_SIZE:-medium}
-      - ASR_DEVICE=${ASR_DEVICE:-cuda}
+      - ASR_DEVICE=${ASR_DEVICE:-cpu}
       - ASR_TIMEOUT_MS=${ASR_TIMEOUT_MS:-5000}
 
       # TTS configuration
-      - TTS_DEVICE=${TTS_DEVICE:-cuda}
+      - TTS_DEVICE=${TTS_DEVICE:-cpu}
       - TTS_TIMEOUT_MS=${TTS_TIMEOUT_MS:-10000}
 
       # Translation configuration
@@ -102,13 +102,14 @@ services:
       # - ./models/faster-whisper:/models/faster-whisper:ro
       # - ./models/xtts_v2:/models/xtts_v2:ro
 
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
+    # GPU deployment (disabled for CPU mode on Apple Silicon)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
 
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]

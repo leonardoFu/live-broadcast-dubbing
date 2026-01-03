@@ -21,7 +21,13 @@ from sts_service.translation.models import TextAsset, TranslationStatus
 from sts_service.tts.models import AudioAsset as TTSAudioAsset
 from sts_service.tts.models import AudioStatus
 
-from .models.asset import AssetStatus, AudioAsset, TranscriptAsset, TranslationAsset
+from .models.asset import (
+    AssetStatus,
+    AudioAsset,
+    DurationMatchMetadata,
+    TranscriptAsset,
+    TranslationAsset,
+)
 from .models.error import ErrorCode, ErrorResponse, ErrorStage
 from .models.fragment import (
     AudioData,
@@ -289,6 +295,7 @@ class PipelineCoordinator:
         try:
             # Step 1: Decode audio from base64
             audio_bytes_encoded = base64.b64decode(fragment_data.audio.data_base64)
+            logger.info(f"DEBUG pipeline: Encoded audio size: {len(audio_bytes_encoded)} bytes, format={fragment_data.audio.format}, reported duration={fragment_data.audio.duration_ms}ms")
 
             # Step 1.5: Decode M4A/AAC to PCM if needed
             audio_bytes = self._decode_audio_to_pcm(
@@ -297,6 +304,11 @@ class PipelineCoordinator:
                 sample_rate=16000,  # ASR always uses 16kHz
                 channels=1,  # ASR always uses mono
             )
+
+            # DEBUG: Check decoded audio size
+            expected_samples = 16000 * (fragment_data.audio.duration_ms / 1000.0)
+            actual_samples = len(audio_bytes) / 4  # 4 bytes per f32le sample
+            logger.info(f"DEBUG pipeline: Decoded PCM size: {len(audio_bytes)} bytes ({actual_samples} samples), expected: {expected_samples} samples for {fragment_data.audio.duration_ms}ms")
 
             # Step 2: ASR transcription
             logger.info("asr_started")
@@ -307,7 +319,7 @@ class PipelineCoordinator:
                 sequence_number=fragment_data.sequence_number,
                 start_time_ms=0,
                 end_time_ms=fragment_data.audio.duration_ms,
-                sample_rate_hz=fragment_data.audio.sample_rate_hz,
+                sample_rate_hz=16000,  # PCM was decoded to 16kHz above
                 domain=session.domain_hints[0] if session.domain_hints else "general",
                 language=session.source_language,
             )
@@ -315,6 +327,10 @@ class PipelineCoordinator:
 
             logger.info("asr_completed", latency_ms=stage_timings.asr_ms)
             record_stage_timing("asr", stage_timings.asr_ms)
+
+            # DEBUG: Log ASR result
+            logger.info(f"DEBUG: ASR result has {len(getattr(asr_result, 'segments', []))} segments")
+            logger.info(f"DEBUG: ASR total_text: '{getattr(asr_result, 'total_text', 'NO ATTR')}'")
 
             # Check ASR status
             if self._is_failed(asr_result.status):
@@ -351,18 +367,19 @@ class PipelineCoordinator:
             # Log transcript artifact if enabled
             if self.artifact_logger:
                 transcript_asset = TranscriptAsset(
+                    asset_id=f"transcript-{fragment_data.fragment_id}",
+                    fragment_id=fragment_data.fragment_id,
+                    stream_id=fragment_data.stream_id,
                     status=AssetStatus.SUCCESS,
                     transcript=transcript,
                     segments=[],
                     confidence=getattr(asr_result, 'confidence', 0.0),
+                    language=session.source_language,
+                    audio_duration_ms=fragment_data.audio.duration_ms,
                     parent_asset_ids=[],
                     latency_ms=stage_timings.asr_ms,
                 )
-                await self.artifact_logger.log_transcript(
-                    stream_id=fragment_data.stream_id,
-                    fragment_id=fragment_data.fragment_id,
-                    transcript_asset=transcript_asset,
-                )
+                self.artifact_logger.log_transcript(transcript_asset)
 
             # Step 3: Translation
             logger.info("translation_started")
@@ -398,19 +415,26 @@ class PipelineCoordinator:
 
             # Log translation artifact if enabled
             if self.artifact_logger:
+                # Calculate word expansion ratio
+                source_words = len(transcript.split()) if transcript else 1
+                target_words = len(translated_text.split()) if translated_text else 0
+                expansion_ratio = target_words / source_words if source_words > 0 else 1.0
+
                 translation_asset = TranslationAsset(
+                    asset_id=f"translation-{fragment_data.fragment_id}",
+                    fragment_id=fragment_data.fragment_id,
+                    stream_id=fragment_data.stream_id,
                     status=AssetStatus.SUCCESS,
                     translated_text=translated_text,
                     source_text=transcript,
-                    language_pair=f"{session.source_language}-{session.target_language}",
-                    parent_asset_ids=[],
+                    source_language=session.source_language,
+                    target_language=session.target_language,
+                    character_count=len(translated_text),
+                    word_expansion_ratio=expansion_ratio,
+                    parent_asset_ids=[f"transcript-{fragment_data.fragment_id}"],
                     latency_ms=stage_timings.translation_ms,
                 )
-                await self.artifact_logger.log_translation(
-                    stream_id=fragment_data.stream_id,
-                    fragment_id=fragment_data.fragment_id,
-                    translation_asset=translation_asset,
-                )
+                self.artifact_logger.log_translation(translation_asset)
 
             # Step 4: TTS synthesis
             logger.info("tts_started")
@@ -484,56 +508,69 @@ class PipelineCoordinator:
             # Log artifacts if enabled
             if self.artifact_logger:
                 # Log dubbed audio
+                # Convert duration_metadata to DurationMatchMetadata if needed
+                duration_match_meta = None
+                if duration_metadata:
+                    duration_match_meta = DurationMatchMetadata(
+                        original_duration_ms=duration_metadata.original_duration_ms,
+                        raw_duration_ms=duration_metadata.original_duration_ms,
+                        final_duration_ms=duration_metadata.dubbed_duration_ms,
+                        duration_variance_percent=duration_metadata.duration_variance_percent,
+                        speed_ratio=duration_metadata.speed_ratio,
+                        speed_clamped=False,
+                    )
+
                 dubbed_audio_asset = AudioAsset(
+                    asset_id=f"audio-dubbed-{fragment_data.fragment_id}",
+                    fragment_id=fragment_data.fragment_id,
+                    stream_id=fragment_data.stream_id,
                     status=AssetStatus.SUCCESS if status == ProcessingStatus.SUCCESS else AssetStatus.PARTIAL,
-                    audio=audio_bytes_out,
+                    audio_bytes=audio_bytes_out,
+                    format=dubbed_audio.format,
                     sample_rate_hz=dubbed_audio.sample_rate_hz,
+                    channels=dubbed_audio.channels,
                     duration_ms=dubbed_audio.duration_ms,
-                    duration_metadata=duration_metadata,
-                    parent_asset_ids=[],
+                    duration_metadata=duration_match_meta,
+                    voice_profile="default",
+                    text_input=translated_text,
+                    parent_asset_ids=[f"translation-{fragment_data.fragment_id}"],
                     latency_ms=stage_timings.tts_ms,
                 )
-                await self.artifact_logger.log_dubbed_audio(
-                    stream_id=fragment_data.stream_id,
-                    fragment_id=fragment_data.fragment_id,
-                    audio_asset=dubbed_audio_asset,
-                )
+                self.artifact_logger.log_dubbed_audio(dubbed_audio_asset)
 
                 # Log original audio
                 original_audio_asset = AudioAsset(
+                    asset_id=f"audio-original-{fragment_data.fragment_id}",
+                    fragment_id=fragment_data.fragment_id,
+                    stream_id=fragment_data.stream_id,
                     status=AssetStatus.SUCCESS,
-                    audio=audio_bytes,
+                    audio_bytes=audio_bytes,
+                    format=fragment_data.audio.format,
                     sample_rate_hz=fragment_data.audio.sample_rate_hz,
+                    channels=fragment_data.audio.channels,
                     duration_ms=fragment_data.audio.duration_ms,
                     duration_metadata=None,
+                    voice_profile="original",
+                    text_input="",
                     parent_asset_ids=[],
                     latency_ms=0,
                 )
-                await self.artifact_logger.log_original_audio(
-                    stream_id=fragment_data.stream_id,
-                    fragment_id=fragment_data.fragment_id,
-                    audio_asset=original_audio_asset,
-                )
+                self.artifact_logger.log_original_audio(original_audio_asset)
 
                 # Log metadata
-                await self.artifact_logger.log_metadata(
-                    stream_id=fragment_data.stream_id,
+                self.artifact_logger.log_metadata(
                     fragment_id=fragment_data.fragment_id,
-                    metadata={
-                        "transcript": transcript,
-                        "translated_text": translated_text,
-                        "stage_timings": {
-                            "asr_ms": stage_timings.asr_ms,
-                            "translation_ms": stage_timings.translation_ms,
-                            "tts_ms": stage_timings.tts_ms,
-                        },
-                        "duration_metadata": {
-                            "original_duration_ms": duration_metadata.original_duration_ms if duration_metadata else 0,
-                            "dubbed_duration_ms": duration_metadata.dubbed_duration_ms if duration_metadata else 0,
-                            "duration_variance_percent": duration_metadata.duration_variance_percent if duration_metadata else 0.0,
-                            "speed_ratio": duration_metadata.speed_ratio if duration_metadata else 1.0,
-                        },
+                    stream_id=fragment_data.stream_id,
+                    status=status.value,
+                    processing_time_ms=self._elapsed_ms(start_time),
+                    stage_timings={
+                        "asr_ms": stage_timings.asr_ms,
+                        "translation_ms": stage_timings.translation_ms,
+                        "tts_ms": stage_timings.tts_ms,
                     },
+                    transcript_asset_id=f"transcript-{fragment_data.fragment_id}",
+                    translation_asset_id=f"translation-{fragment_data.fragment_id}",
+                    audio_asset_id=f"audio-dubbed-{fragment_data.fragment_id}",
                 )
 
         except Exception as e:

@@ -136,7 +136,10 @@ class CoquiTTSComponent(BaseTTSComponent):
 
         # Use voice profile or create default
         if voice_profile is None:
-            voice_profile = VoiceProfile(language=text_asset.target_language)
+            voice_profile = VoiceProfile(
+                language=text_asset.target_language,
+                fast_mode=self._fast_mode  # Inherit fast_mode from component
+            )
 
         # Preprocess text (placeholder - will be implemented in Phase 6)
         preprocessed_text = self._preprocess_text(text)
@@ -242,8 +245,25 @@ class CoquiTTSComponent(BaseTTSComponent):
                 language=voice_profile.language,
             )
         else:
-            # Default synthesis
-            wav = tts.tts(text=text, language=voice_profile.language)
+            # Default synthesis - select default speaker for multi-speaker models
+            # Multi-speaker models (like XTTS v2 and VITS) require a speaker parameter
+            # Use model-specific default speakers:
+            # - VITS (VCTK): Use "p225" (female British English speaker), no language param
+            # - XTTS: Would need voice cloning with speaker_wav
+            model_name = self._get_model_name(voice_profile)
+            if 'vctk' in model_name.lower() or 'vits' in model_name.lower():
+                # VITS models: language-specific, don't pass language parameter
+                wav = tts.tts(
+                    text=text,
+                    speaker='p225',  # VCTK default speaker
+                )
+            else:
+                # Multilingual models (XTTS): pass language parameter
+                wav = tts.tts(
+                    text=text,
+                    speaker=None,
+                    language=voice_profile.language,
+                )
 
         # Convert to bytes
         sample_rate = tts.synthesizer.output_sample_rate

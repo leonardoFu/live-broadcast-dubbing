@@ -26,15 +26,23 @@ ENV DEBIAN_FRONTEND=noninteractive
 WORKDIR /app
 
 # Install system dependencies
-# - Python 3.10
+# - Python 3.11 (required for TTS with newer numpy)
 # - GStreamer for RTMP support (future)
 # - Rubberband for audio time-stretching
 # - Build tools for Python packages
 RUN apt-get update && apt-get install -y --no-install-recommends \
     # Python
-    python3.10 \
-    python3.10-dev \
+    software-properties-common \
+    && add-apt-repository ppa:deadsnakes/ppa \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+    python3.11 \
+    python3.11-dev \
+    python3.11-distutils \
     python3-pip \
+    # Rust compiler (needed for sudachipy in TTS)
+    cargo \
+    rustc \
     # GStreamer (for future RTMP support)
     gstreamer1.0-tools \
     gstreamer1.0-plugins-base \
@@ -59,7 +67,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Create symbolic link for python
-RUN ln -sf /usr/bin/python3.10 /usr/bin/python
+RUN ln -sf /usr/bin/python3.11 /usr/bin/python
 
 # Upgrade pip
 RUN python -m pip install --no-cache-dir --upgrade pip setuptools wheel
@@ -78,6 +86,7 @@ COPY apps/sts-service/src/ ./src/
 
 # Install Python dependencies
 # Note: This includes torch with CUDA support, faster-whisper, TTS, etc.
+# Rust compiler is already installed, so sudachipy will build successfully
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Install the package
@@ -93,8 +102,8 @@ RUN pip install --no-cache-dir --no-deps -e .
 # Create directories for artifacts and config
 RUN mkdir -p /tmp/sts-artifacts /config
 
-# Copy default voice profiles (if they exist)
-COPY apps/sts-service/config/voices.json /config/voices.json 2>/dev/null || echo '{}' > /config/voices.json
+# Create default voice profiles file
+RUN echo '{}' > /config/voices.json
 
 # Environment variables (can be overridden at runtime)
 ENV HOST=0.0.0.0

@@ -2,7 +2,7 @@
 name = "dubbing-contracts"
 version = "0.1.0"
 description = "API contracts and event schemas for live broadcast dubbing"
-requires-python = ">=3.10,<3.11"
+requires-python = ">=3.10,<3.12"
 dependencies = [
     "pydantic>=2.0",
 ]

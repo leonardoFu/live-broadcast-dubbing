@@ -2,7 +2,7 @@
 name = "sts-service"
 version = "0.1.0"
 description = "RunPod GPU service for speech-to-speech processing (ASR + Translation + TTS)"
-requires-python = ">=3.10,<3.11"
+requires-python = ">=3.10,<3.12"
 dependencies = [
     "numpy<2.0",
     "scipy",

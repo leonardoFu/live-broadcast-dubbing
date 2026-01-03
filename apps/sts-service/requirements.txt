@@ -5,64 +5,67 @@
 # pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu121
 
 # Core Python packages
-numpy>=1.24.0,<2.0  # Pin to <2.0 for compatibility
-scipy>=1.10.0
-pyyaml>=6.0
-pydantic>=2.0,<3.0
+numpy==1.26.4  # Pin exact version to avoid backtracking
+scipy==1.13.1
+pyyaml==6.0.3
+pydantic==2.12.5
 
 # Audio processing
-soundfile>=0.12.0
-pydub>=0.25.0
-librosa>=0.10.0  # For audio analysis
+soundfile==0.12.1
+pydub==0.25.1
+librosa==0.10.2.post1  # For audio analysis
 
 # PyTorch (CUDA 12.1 support)
 # Note: Install from PyTorch index for CUDA support
-torch>=2.0.0
-torchaudio>=2.0.0
+torch==2.9.1
+torchaudio==2.9.1
 
 # ASR (Automatic Speech Recognition)
-faster-whisper>=0.10.0
+faster-whisper==1.2.1
 # faster-whisper dependencies
-ctranslate2>=3.20.0
-tokenizers>=0.13.0
+ctranslate2==4.6.2
+tokenizers==0.22.1
 
 # Translation
-deepl>=1.15.0
+deepl==1.27.0
 
 # TTS (Text-to-Speech)
-TTS>=0.20.0  # Coqui TTS with XTTS v2 support
+TTS==0.22.0  # Coqui TTS with XTTS v2 support
 # TTS dependencies
-transformers>=4.35.0
-sentencepiece>=0.1.99
-inflect>=7.0.0
-librosa>=0.10.0
+transformers==4.57.3
+sentencepiece==0.2.1
+inflect==7.5.0
+
+# Explicitly skip sudachipy (Japanese NLP, not needed for English→Spanish)
+# This package fails to build on ARM64 and is optional for TTS
 
 # Audio time-stretching
-rubberband-py>=0.3.0  # Python wrapper for rubberband
+# Note: Uses rubberband CLI tool (installed as system package in Docker)
+# No Python wrapper needed - code uses subprocess to call rubberband command
 
 # Socket.IO server
-python-socketio[asyncio]>=5.0,<6.0
-# Socket.IO dependencies
-python-engineio>=4.8.0
-aiohttp>=3.9.0
+python-socketio==5.16.0
+# Socket.IO async dependencies (no [asyncio] extra needed - install manually)
+python-engineio==4.13.0
+aiohttp==3.13.2
 
 # Web framework
-fastapi>=0.104.0,<1.0
-uvicorn[standard]>=0.24.0,<1.0
-starlette>=0.27.0,<1.0
+fastapi==0.128.0
+uvicorn[standard]==0.40.0
+starlette==0.50.0
 
 # Observability - Prometheus metrics
-prometheus-client>=0.18.0,<1.0
+prometheus-client==0.23.1
 
 # Observability - Structured logging
-structlog>=23.0.0,<24.0
-python-json-logger>=2.0.0
+structlog==23.3.0
+python-json-logger==4.0.0
 
 # GPU monitoring
-pynvml>=11.5.0  # NVIDIA GPU monitoring
+pynvml==13.0.1  # NVIDIA GPU monitoring
 
 # Utilities
-rich>=13.0.0  # Pretty console output
+rich==14.2.0  # Pretty console output
 
 # Required by dubbing-common and dubbing-contracts
 # These are installed from local packages, but list their deps here for reference
