@@ -259,6 +259,11 @@ class AudioAsset(AssetIdentifiers):
         ..., description="Reference to PCM bytes (mem:// or file://)"
     )
 
+    # Audio bytes (actual synthesized audio data)
+    audio_bytes: bytes = Field(
+        default=b"", description="Raw audio bytes (PCM format)"
+    )
+
     # Language metadata
     language: str = Field(..., description="Synthesis language (ISO 639-1)")
 

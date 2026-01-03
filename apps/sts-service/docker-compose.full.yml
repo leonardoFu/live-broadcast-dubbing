@@ -1,0 +1,135 @@
+version: "3.8"
+
+# Docker Compose for Full STS Service with GPU support
+#
+# This configuration runs the full production-ready STS service with:
+# - NVIDIA GPU support for ASR and TTS
+# - DeepL translation
+# - Prometheus metrics endpoint
+# - Artifact logging
+# - Model caching via volumes
+#
+# Prerequisites:
+#   1. NVIDIA Docker runtime installed (https://github.com/NVIDIA/nvidia-docker)
+#   2. DEEPL_AUTH_KEY environment variable set or in .env file
+#   3. GPU with CUDA 12.1+ support
+#
+# Usage:
+#   # Create .env file with DEEPL_AUTH_KEY
+#   echo "DEEPL_AUTH_KEY=your-key-here" > .env
+#
+#   # Start service
+#   docker compose -f docker-compose.full.yml up
+#
+#   # Start in background
+#   docker compose -f docker-compose.full.yml up -d
+#
+#   # View logs
+#   docker compose -f docker-compose.full.yml logs -f
+#
+#   # Stop service
+#   docker compose -f docker-compose.full.yml down
+#
+# Testing:
+#   # Health check
+#   curl http://localhost:8000/health
+#
+#   # Metrics
+#   curl http://localhost:8000/metrics
+#
+#   # Socket.IO connection test (requires python-socketio client)
+#   python tests/e2e/helpers/socketio_monitor.py
+
+services:
+  full-sts-service:
+    build:
+      context: ../..
+      dockerfile: apps/sts-service/deploy/Dockerfile.full
+    container_name: full-sts-service
+    ports:
+      - "8000:8000"
+    environment:
+      # Server configuration
+      - HOST=0.0.0.0
+      - PORT=8000
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+
+      # Required: DeepL API key for translation
+      - DEEPL_AUTH_KEY=${DEEPL_AUTH_KEY:?DEEPL_AUTH_KEY is required - set in .env file}
+
+      # ASR configuration
+      - ASR_MODEL_SIZE=${ASR_MODEL_SIZE:-medium}
+      - ASR_DEVICE=${ASR_DEVICE:-cpu}
+      - ASR_TIMEOUT_MS=${ASR_TIMEOUT_MS:-5000}
+
+      # TTS configuration
+      - TTS_DEVICE=${TTS_DEVICE:-cpu}
+      - TTS_TIMEOUT_MS=${TTS_TIMEOUT_MS:-10000}
+
+      # Translation configuration
+      - TRANSLATION_TIMEOUT_MS=${TRANSLATION_TIMEOUT_MS:-5000}
+
+      # Duration matching thresholds
+      - DURATION_VARIANCE_SUCCESS_MAX=${DURATION_VARIANCE_SUCCESS_MAX:-0.10}
+      - DURATION_VARIANCE_PARTIAL_MAX=${DURATION_VARIANCE_PARTIAL_MAX:-0.20}
+
+      # Backpressure thresholds
+      - BACKPRESSURE_THRESHOLD_LOW=${BACKPRESSURE_THRESHOLD_LOW:-3}
+      - BACKPRESSURE_THRESHOLD_MEDIUM=${BACKPRESSURE_THRESHOLD_MEDIUM:-6}
+      - BACKPRESSURE_THRESHOLD_HIGH=${BACKPRESSURE_THRESHOLD_HIGH:-10}
+      - BACKPRESSURE_THRESHOLD_CRITICAL=${BACKPRESSURE_THRESHOLD_CRITICAL:-10}
+
+      # Artifact logging
+      - ENABLE_ARTIFACT_LOGGING=${ENABLE_ARTIFACT_LOGGING:-true}
+      - ARTIFACTS_PATH=/tmp/sts-artifacts
+      - ARTIFACT_RETENTION_HOURS=${ARTIFACT_RETENTION_HOURS:-24}
+      - ARTIFACT_MAX_COUNT=${ARTIFACT_MAX_COUNT:-1000}
+
+      # Model paths
+      - VOICE_PROFILES_PATH=/config/voices.json
+
+    volumes:
+      # Model cache (speeds up startup by caching downloaded models)
+      - huggingface-cache:/root/.cache/huggingface
+
+      # Artifacts directory (for debugging)
+      - ./artifacts:/tmp/sts-artifacts
+
+      # Voice profiles configuration
+      - ./config/voices.json:/config/voices.json:ro
+
+      # Optional: Pre-downloaded models (uncomment to use local models)
+      # - ./models/faster-whisper:/models/faster-whisper:ro
+      # - ./models/xtts_v2:/models/xtts_v2:ro
+
+    # GPU deployment (disabled for CPU mode on Apple Silicon)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+    restart: unless-stopped
+
+    networks:
+      - full-sts-network
+
+volumes:
+  # Persistent cache for Hugging Face models
+  # This prevents re-downloading models on every container restart
+  huggingface-cache:
+    driver: local
+
+networks:
+  full-sts-network:
+    name: full-sts-network
+    driver: bridge

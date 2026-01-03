@@ -1,0 +1,137 @@
+# Dockerfile for Full STS Service with GPU support
+#
+# This container includes:
+# - CUDA 12.1 runtime for GPU acceleration
+# - faster-whisper (ASR)
+# - DeepL translation
+# - Coqui TTS (XTTS v2)
+# - GStreamer (for future RTMP support)
+# - Rubberband (audio time-stretching)
+#
+# Build:
+#   docker build -f apps/sts-service/deploy/Dockerfile.full -t full-sts-service:latest .
+#
+# Run:
+#   docker run --gpus all -p 8000:8000 \
+#     -e DEEPL_AUTH_KEY=your-key \
+#     -v ~/.cache/huggingface:/root/.cache/huggingface \
+#     full-sts-service:latest
+
+FROM nvidia/cuda:12.1.0-runtime-ubuntu22.04
+
+# Prevent interactive prompts during package installation
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+# - Python 3.11 (required for TTS with newer numpy)
+# - GStreamer for RTMP support (future)
+# - Rubberband for audio time-stretching
+# - Build tools for Python packages
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Python
+    software-properties-common \
+    && add-apt-repository ppa:deadsnakes/ppa \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+    python3.11 \
+    python3.11-dev \
+    python3.11-distutils \
+    python3-pip \
+    # GStreamer (for future RTMP support)
+    gstreamer1.0-tools \
+    gstreamer1.0-plugins-base \
+    gstreamer1.0-plugins-good \
+    gstreamer1.0-plugins-bad \
+    gstreamer1.0-plugins-ugly \
+    gstreamer1.0-libav \
+    python3-gi \
+    libgstreamer1.0-dev \
+    libgstreamer-plugins-base1.0-dev \
+    # Rubberband for time-stretching
+    rubberband-cli \
+    librubberband-dev \
+    # Audio libraries
+    ffmpeg \
+    libsndfile1 \
+    # Build tools
+    build-essential \
+    git \
+    curl \
+    # Cleanup
+    && rm -rf /var/lib/apt/lists/*
+
+# Create symbolic link for python
+RUN ln -sf /usr/bin/python3.11 /usr/bin/python
+
+# Install Rust via rustup (needed for sudachipy in TTS - requires Rust 1.82+)
+ENV RUSTUP_HOME=/usr/local/rustup
+ENV CARGO_HOME=/usr/local/cargo
+ENV PATH=/usr/local/cargo/bin:$PATH
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable \
+    && rustc --version
+
+# Upgrade pip
+RUN python -m pip install --no-cache-dir --upgrade pip setuptools wheel
+
+# Copy shared libraries first (from monorepo root)
+COPY libs/common /app/libs/common
+COPY libs/contracts /app/libs/contracts
+
+# Install shared libraries
+RUN pip install --no-cache-dir -e /app/libs/common -e /app/libs/contracts
+
+# Copy application files
+COPY apps/sts-service/pyproject.toml ./
+COPY apps/sts-service/requirements.txt ./
+COPY apps/sts-service/src/ ./src/
+
+# Install Python dependencies
+# Note: This includes torch with CUDA support, faster-whisper, TTS, etc.
+# Rust 1.82+ is installed via rustup above, so sudachipy will build successfully
+# Force remove blinker distutils package to avoid conflict
+RUN pip uninstall -y blinker 2>/dev/null || true && rm -rf /usr/lib/python3/dist-packages/blinker* \
+    && pip install --no-cache-dir -r requirements.txt
+
+# Install the package
+RUN pip install --no-cache-dir --no-deps -e .
+
+# Download models at build time (optional - can also mount as volume)
+# This speeds up first startup but increases image size
+# Uncomment if you want models baked into the image:
+#
+# RUN python -c "from faster_whisper import WhisperModel; WhisperModel('medium', device='cpu', compute_type='int8')"
+# RUN python -c "from TTS.api import TTS; TTS('tts_models/multilingual/multi-dataset/xtts_v2', gpu=False)"
+
+# Create directories for artifacts and config
+RUN mkdir -p /tmp/sts-artifacts /config
+
+# Create default voice profiles file
+RUN echo '{}' > /config/voices.json
+
+# Environment variables (can be overridden at runtime)
+ENV HOST=0.0.0.0
+ENV PORT=8000
+ENV LOG_LEVEL=INFO
+# Auto-accept Coqui TTS license for XTTS-v2 model
+ENV COQUI_TOS_AGREED=1
+ENV ARTIFACTS_PATH=/tmp/sts-artifacts
+ENV ENABLE_ARTIFACT_LOGGING=true
+ENV ARTIFACT_RETENTION_HOURS=24
+ENV ARTIFACT_MAX_COUNT=1000
+ENV VOICE_PROFILES_PATH=/config/voices.json
+ENV ASR_MODEL_SIZE=medium
+ENV ASR_DEVICE=cuda
+ENV TTS_DEVICE=cuda
+
+# Expose port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=10s --timeout=5s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Run the full STS service
+CMD ["python", "-m", "sts_service.full"]

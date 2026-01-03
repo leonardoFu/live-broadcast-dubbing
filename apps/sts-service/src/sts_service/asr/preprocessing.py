@@ -49,25 +49,34 @@ def preprocess_audio(
 
     # Convert bytes to float32 array
     audio = bytes_to_float32_array(audio_bytes)
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"DEBUG preprocess: After bytes_to_float32: {len(audio)} samples")
 
     # Convert stereo to mono if needed
     if channels == 2:
         audio = stereo_to_mono(audio)
+        logger.info(f"DEBUG preprocess: After stereo_to_mono: {len(audio)} samples")
 
     # Resample if needed
     if sample_rate != target_sample_rate:
+        logger.info(f"DEBUG preprocess: Resampling {len(audio)} samples from {sample_rate}Hz to {target_sample_rate}Hz")
         audio = resample_audio(audio, orig_sr=sample_rate, target_sr=target_sample_rate)
+        logger.info(f"DEBUG preprocess: After resample: {len(audio)} samples")
 
     # Apply filters if requested
     if apply_filters:
         # High-pass filter to remove low-frequency rumble
         audio = apply_highpass_filter(audio, sample_rate=target_sample_rate, cutoff_hz=80)
+        logger.info(f"DEBUG preprocess: After highpass: {len(audio)} samples")
 
         # Pre-emphasis to boost high frequencies
         audio = apply_preemphasis(audio, coefficient=0.97)
+        logger.info(f"DEBUG preprocess: After preemphasis: {len(audio)} samples")
 
     # Normalize amplitude
     audio = normalize_audio(audio)
+    logger.info(f"DEBUG preprocess: After normalize: {len(audio)} samples")
 
     return audio.astype(np.float32)
 

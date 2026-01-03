@@ -1,0 +1,111 @@
+{
+  "agent": "debug-researcher",
+  "status": "success",
+  "timestamp": "2026-01-03T20:15:00Z",
+  "execution_time_ms": 4523,
+  "result": {
+    "debug_id": "debug-20260103-tts-module",
+    "iteration": 2,
+    "context_file": "/Users/leonardofu/dev/back-end/live-broadcast-dubbing-cloud/.worktrees/sts-service-main/specs/debug-20260103-tts-module/context.md",
+    "error_analysis": {
+      "error_type": "LogicError",
+      "error_message": "TTS synthesizes audio but discards it - AudioAsset returned without audio_bytes field",
+      "file_location": "apps/sts-service/src/sts_service/tts/coqui_provider.py:148-188",
+      "stack_trace_summary": "coqui_provider.synthesize() -> _synthesize_with_coqui() -> AudioAsset (no audio_bytes) -> pipeline gets empty bytes"
+    },
+    "findings": [
+      {
+        "category": "ROOT_CAUSE",
+        "description": "Synthesized audio_data is never attached to returned AudioAsset",
+        "location": "apps/sts-service/src/sts_service/tts/coqui_provider.py:148-188",
+        "evidence": "Lines 150-152 call _synthesize_with_coqui() and store audio_data, but lines 173-188 create AudioAsset with only payload_ref - audio_data is discarded",
+        "confidence": "HIGH"
+      },
+      {
+        "category": "ROOT_CAUSE",
+        "description": "TTS AudioAsset model lacks audio_bytes field required by pipeline",
+        "location": "apps/sts-service/src/sts_service/tts/models.py:237-331",
+        "evidence": "TTS model has payload_ref (line 258) but no audio_bytes field. Full pipeline model has audio_bytes (full/models/asset.py:297)",
+        "confidence": "HIGH"
+      },
+      {
+        "category": "SYMPTOM",
+        "description": "Pipeline falls back to 6s silence when audio_bytes is missing",
+        "location": "apps/sts-service/src/sts_service/full/pipeline.py:471-474",
+        "evidence": "Line 471: audio_bytes_out = getattr(tts_result, 'audio_bytes', b''). Line 474: fallback to silence if empty",
+        "confidence": "HIGH"
+      }
+    ],
+    "recommended_operations": [
+      {
+        "priority": 1,
+        "operation": "MODIFY_CODE",
+        "target_file": "apps/sts-service/src/sts_service/tts/models.py",
+        "target_line": 260,
+        "description": "Add audio_bytes field to AudioAsset model after payload_ref",
+        "rationale": "TTS AudioAsset must include actual audio data for pipeline consumption",
+        "code_change": {
+          "insert_after_line": 260,
+          "code": "    audio_bytes: bytes | None = Field(\n        default=None,\n        description=\"Raw PCM audio bytes (optional - use payload_ref for lazy loading)\"\n    )"
+        }
+      },
+      {
+        "priority": 2,
+        "operation": "MODIFY_CODE",
+        "target_file": "apps/sts-service/src/sts_service/tts/coqui_provider.py",
+        "target_line": 173,
+        "description": "Attach audio_data to AudioAsset before returning",
+        "rationale": "Synthesized audio must be included in the returned asset",
+        "code_change": {
+          "old": "            return AudioAsset(\n                stream_id=text_asset.stream_id,\n                sequence_number=text_asset.sequence_number,\n                parent_asset_ids=[text_asset.asset_id],\n                component_instance=self.component_instance,\n                audio_format=AudioFormat.PCM_F32LE,\n                sample_rate_hz=output_sample_rate_hz,\n                channels=output_channels,\n                duration_ms=duration_ms,\n                payload_ref=payload_ref,\n                language=text_asset.target_language,\n                status=AudioStatus.SUCCESS,\n                processing_time_ms=processing_time_ms,\n                voice_cloning_used=voice_profile.use_voice_cloning,\n                preprocessed_text=preprocessed_text,\n            )",
+          "new": "            return AudioAsset(\n                stream_id=text_asset.stream_id,\n                sequence_number=text_asset.sequence_number,\n                parent_asset_ids=[text_asset.asset_id],\n                component_instance=self.component_instance,\n                audio_format=AudioFormat.PCM_F32LE,\n                sample_rate_hz=output_sample_rate_hz,\n                channels=output_channels,\n                duration_ms=duration_ms,\n                payload_ref=payload_ref,\n                audio_bytes=audio_data if self._tts_available else None,\n                language=text_asset.target_language,\n                status=AudioStatus.SUCCESS,\n                processing_time_ms=processing_time_ms,\n                voice_cloning_used=voice_profile.use_voice_cloning,\n                preprocessed_text=preprocessed_text,\n            )"
+        }
+      },
+      {
+        "priority": 3,
+        "operation": "MODIFY_CODE",
+        "target_file": "apps/sts-service/src/sts_service/tts/coqui_provider.py",
+        "target_line": 148,
+        "description": "Initialize audio_data variable before conditional block",
+        "rationale": "Ensure audio_data is defined for both code paths (real TTS and mock)",
+        "code_change": {
+          "old": "        try:\n            if self._tts_available:",
+          "new": "        try:\n            # Initialize audio_data for both paths\n            audio_data: bytes | None = None\n            \n            if self._tts_available:"
+        }
+      },
+      {
+        "priority": 4,
+        "operation": "MODIFY_CODE",
+        "target_file": "apps/sts-service/src/sts_service/tts/coqui_provider.py",
+        "target_line": 154,
+        "description": "Assign mock synthesis result to audio_data variable",
+        "rationale": "Mock path should also populate audio_data for consistency",
+        "code_change": {
+          "old": "            else:\n                # Fallback to mock synthesis (sine wave)\n                self._synthesize_mock(\n                    preprocessed_text, output_sample_rate_hz, output_channels\n                )",
+          "new": "            else:\n                # Fallback to mock synthesis (sine wave)\n                audio_data = self._synthesize_mock(\n                    preprocessed_text, output_sample_rate_hz, output_channels\n                )"
+        }
+      },
+      {
+        "priority": 5,
+        "operation": "ADD_LOG",
+        "target_file": "apps/sts-service/src/sts_service/tts/coqui_provider.py",
+        "target_line": 152,
+        "description": "Log audio data size for verification",
+        "rationale": "Verify synthesized audio has actual content (not empty)",
+        "code_change": {
+          "insert_after_line": 152,
+          "code": "                logger.info(f\"[DEBUG-SOLVER] Synthesized audio: {len(audio_data)} bytes @ {synthesis_sample_rate}Hz\")"
+        }
+      }
+    ],
+    "files_analyzed": [
+      "apps/sts-service/src/sts_service/tts/coqui_provider.py",
+      "apps/sts-service/src/sts_service/tts/models.py",
+      "apps/sts-service/src/sts_service/full/models/asset.py",
+      "apps/sts-service/src/sts_service/full/pipeline.py",
+      "apps/sts-service/src/sts_service/tts/mock.py"
+    ],
+    "confidence_level": "HIGH",
+    "investigation_notes": "Root cause clearly identified: TTS synthesizes audio correctly but discards it due to model mismatch. The TTS AudioAsset model lacks the audio_bytes field that the pipeline expects. Fix requires: (1) Add audio_bytes field to TTS model, (2) Populate audio_data in both real and mock synthesis paths, (3) Attach audio_data to returned AudioAsset. This explains why dubbed_audio.m4a is silent - pipeline receives empty audio_bytes and falls back to 6s silence."
+  }
+}

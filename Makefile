@@ -43,6 +43,10 @@ help:
 	@echo "  make media-test-coverage - Run media-service tests with coverage"
 	@echo ""
 	@echo "STS Service:"
+	@echo "  make sts-full           - Start Full STS Service (ASR+Translation+TTS) on port 8003"
+	@echo "  make sts-full-stop      - Stop Full STS Service"
+	@echo "  make sts-full-logs      - View Full STS Service logs in real-time"
+	@echo "  make sts-full-status    - Check Full STS Service status"
 	@echo "  make sts-echo           - Start Echo STS Service (for E2E testing)"
 	@echo "  make sts-test           - Run all sts-service tests"
 	@echo "  make sts-test-unit      - Run sts-service unit tests"
@@ -170,7 +174,7 @@ media-test-coverage:
 # =============================================================================
 STS_SERVICE := apps/sts-service
 
-.PHONY: sts-test sts-test-unit sts-test-e2e sts-test-coverage sts-echo
+.PHONY: sts-test sts-test-unit sts-test-e2e sts-test-coverage sts-echo sts-full sts-full-stop sts-full-logs sts-full-status
 
 sts-test:
 	$(VENV_PYTHON) -m pytest $(STS_SERVICE)/tests/ -v
@@ -187,6 +191,119 @@ sts-test-coverage:
 sts-echo:
 	@echo "Starting Echo STS Service..."
 	$(VENV_PYTHON) -m sts_service.echo
+
+# Full STS Service (ASR + Translation + TTS)
+STS_PORT ?= 8003
+STS_LOG_FILE := /tmp/claude/sts-service.log
+STS_ARTIFACTS_PATH := /tmp/claude/sts-artifacts
+
+sts-full:
+	@echo "Starting Full STS Service on port $(STS_PORT)..."
+	@mkdir -p /tmp/claude
+	@# Kill old instances if running
+	@for port in 8000 8001 8002 8003; do \
+		pid=$$(lsof -ti:$$port 2>/dev/null || echo ""); \
+		if [ -n "$$pid" ]; then \
+			echo "  Stopping old instance on port $$port (PID $$pid)..."; \
+			kill $$pid 2>/dev/null || true; \
+		fi \
+	done
+	@# Wait for ports to be released
+	@echo "  Waiting for ports to be released..."
+	@for i in 1 2 3 4 5; do \
+		if lsof -ti:$(STS_PORT) >/dev/null 2>&1; then \
+			sleep 1; \
+		else \
+			break; \
+		fi \
+	done
+	@# Final check
+	@if lsof -ti:$(STS_PORT) >/dev/null 2>&1; then \
+		echo "❌ Port $(STS_PORT) still in use after 5 seconds"; \
+		echo "   Try manually: make sts-full-stop"; \
+		exit 1; \
+	fi
+	@echo "  Starting Full STS Service..."
+	@PORT=$(STS_PORT) \
+		ENABLE_ARTIFACT_LOGGING=true \
+		ARTIFACTS_PATH=$(STS_ARTIFACTS_PATH) \
+		nohup $(VENV_PYTHON) -m sts_service.full > $(STS_LOG_FILE) 2>&1 & \
+		echo $$! > /tmp/claude/sts-service.pid
+	@sleep 2
+	@if lsof -ti:$(STS_PORT) >/dev/null 2>&1; then \
+		echo "✅ Full STS Service started successfully!"; \
+		echo "   Port: $(STS_PORT)"; \
+		echo "   PID: $$(cat /tmp/claude/sts-service.pid)"; \
+		echo "   Logs: $(STS_LOG_FILE)"; \
+		echo "   Artifacts: $(STS_ARTIFACTS_PATH)"; \
+		echo ""; \
+		echo "Monitor logs: make sts-full-logs"; \
+		echo "Check status: make sts-full-status"; \
+		echo "Stop service: make sts-full-stop"; \
+	else \
+		echo "❌ Failed to start Full STS Service"; \
+		echo "Check logs: tail -50 $(STS_LOG_FILE)"; \
+		exit 1; \
+	fi
+
+sts-full-stop:
+	@echo "Stopping Full STS Service..."
+	@if [ -f /tmp/claude/sts-service.pid ]; then \
+		pid=$$(cat /tmp/claude/sts-service.pid); \
+		if kill $$pid 2>/dev/null; then \
+			echo "✅ Service stopped (PID $$pid)"; \
+			rm /tmp/claude/sts-service.pid; \
+		else \
+			echo "⚠️  Process not found (PID $$pid)"; \
+			rm /tmp/claude/sts-service.pid; \
+		fi \
+	else \
+		echo "⚠️  No PID file found. Checking ports..."; \
+		for port in 8000 8001 8002 8003; do \
+			pid=$$(lsof -ti:$$port 2>/dev/null || echo ""); \
+			if [ -n "$$pid" ]; then \
+				echo "  Killing process on port $$port (PID $$pid)..."; \
+				kill $$pid 2>/dev/null || true; \
+			fi \
+		done; \
+		echo "✅ Cleanup complete"; \
+	fi
+
+sts-full-logs:
+	@echo "📋 Tailing Full STS Service logs ($(STS_LOG_FILE))..."
+	@echo "   Press Ctrl+C to exit"
+	@echo ""
+	@tail -f $(STS_LOG_FILE)
+
+sts-full-status:
+	@echo "=== Full STS Service Status ==="
+	@if [ -f /tmp/claude/sts-service.pid ]; then \
+		pid=$$(cat /tmp/claude/sts-service.pid); \
+		if ps -p $$pid > /dev/null 2>&1; then \
+			echo "Status: ✅ RUNNING"; \
+			echo "PID: $$pid"; \
+			port=$$(lsof -nP -p $$pid 2>/dev/null | grep LISTEN | awk '{print $$9}' | cut -d: -f2 | head -1); \
+			if [ -n "$$port" ]; then \
+				echo "Port: $$port"; \
+			fi; \
+		else \
+			echo "Status: ❌ NOT RUNNING (stale PID file)"; \
+			rm /tmp/claude/sts-service.pid; \
+		fi \
+	else \
+		echo "Status: ❌ NOT RUNNING"; \
+		echo ""; \
+		echo "Checking for orphaned processes..."; \
+		for port in 8000 8001 8002 8003; do \
+			pid=$$(lsof -ti:$$port 2>/dev/null || echo ""); \
+			if [ -n "$$pid" ]; then \
+				echo "  Found orphaned process on port $$port (PID $$pid)"; \
+			fi \
+		done; \
+	fi
+	@echo ""
+	@echo "Logs: $(STS_LOG_FILE)"
+	@echo "Artifacts: $(STS_ARTIFACTS_PATH)"
 
 # =============================================================================
 # E2E Testing (Cross-Service)

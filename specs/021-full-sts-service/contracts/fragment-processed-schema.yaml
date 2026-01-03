@@ -1,0 +1,343 @@
+# Fragment Processed Event Schema
+# Defines the structure of fragment:processed events emitted by Full STS Service
+# Based on specs/016-websocket-audio-protocol.md Section 5.2
+
+fragment_processed:
+  description: "Deliver a processed audio fragment after ASR → Translation → TTS pipeline"
+
+  payload:
+    fragment_id:
+      type: string
+      description: "Original fragment ID from fragment:data"
+      required: true
+      example: "550e8400-e29b-41d4-a716-446655440000"
+
+    stream_id:
+      type: string
+      description: "Stream identifier"
+      required: true
+      example: "stream-abc-123"
+
+    sequence_number:
+      type: integer
+      description: "Original sequence number from fragment:data"
+      required: true
+      minimum: 0
+      example: 42
+
+    status:
+      type: string
+      description: "Processing result status"
+      required: true
+      enum: ["success", "partial", "failed"]
+      examples:
+        success: "All stages completed successfully"
+        partial: "Completed with warnings (e.g., clamped speed ratio in TTS)"
+        failed: "Processing failed at one or more stages"
+
+    # Processing results (present if status is "success" or "partial")
+    dubbed_audio:
+      type: object
+      description: "Synthesized dubbed audio"
+      required: false  # Only present for success/partial status
+      properties:
+        format:
+          type: string
+          description: "Audio format (always pcm_s16le)"
+          required: true
+          example: "pcm_s16le"
+
+        sample_rate_hz:
+          type: integer
+          description: "Audio sample rate"
+          required: true
+          example: 48000
+
+        channels:
+          type: integer
+          description: "Number of audio channels (1=mono, 2=stereo)"
+          required: true
+          enum: [1, 2]
+          example: 1
+
+        duration_ms:
+          type: integer
+          description: "Actual dubbed audio duration in milliseconds"
+          required: true
+          minimum: 0
+          example: 6050
+
+        data_base64:
+          type: string
+          description: "Base64-encoded PCM audio data"
+          required: true
+          format: "base64"
+          max_size: "10MB (base64-encoded)"
+
+    # Intermediate results (optional, for debugging/logging)
+    transcript:
+      type: string
+      description: "ASR transcription output (source language)"
+      required: false
+      example: "Hello, welcome to the game."
+
+    translated_text:
+      type: string
+      description: "Translation output (target language)"
+      required: false
+      example: "Hola, bienvenido al juego."
+
+    # Processing metadata (always present)
+    processing_time_ms:
+      type: integer
+      description: "Total processing time in milliseconds (ASR + Translation + TTS)"
+      required: true
+      minimum: 0
+      example: 4500
+
+    stage_timings:
+      type: object
+      description: "Per-stage timing breakdown"
+      required: false
+      properties:
+        asr_ms:
+          type: integer
+          description: "ASR processing time in milliseconds"
+          minimum: 0
+          example: 1200
+
+        translation_ms:
+          type: integer
+          description: "Translation processing time in milliseconds"
+          minimum: 0
+          example: 150
+
+        tts_ms:
+          type: integer
+          description: "TTS synthesis time in milliseconds"
+          minimum: 0
+          example: 3100
+
+    # Error information (present if status is "failed" or "partial")
+    error:
+      type: object
+      description: "Error details for failed or partial processing"
+      required: false  # Only present for failed/partial status
+      properties:
+        code:
+          type: string
+          description: "Error code"
+          required: true
+          examples:
+            - "TIMEOUT"
+            - "ASR_FAILED"
+            - "TRANSLATION_FAILED"
+            - "TTS_SYNTHESIS_FAILED"
+            - "INVALID_AUDIO_FORMAT"
+            - "RATE_LIMIT_EXCEEDED"
+            - "GPU_OOM"
+
+        message:
+          type: string
+          description: "Human-readable error description"
+          required: true
+          example: "ASR processing timed out after 5000ms"
+
+        stage:
+          type: string
+          description: "Pipeline stage where error occurred"
+          required: true
+          enum: ["asr", "translation", "tts"]
+          example: "asr"
+
+        retryable:
+          type: boolean
+          description: "Whether the error is transient and retryable"
+          required: true
+          examples:
+            true_cases:
+              - "TIMEOUT"
+              - "RATE_LIMIT_EXCEEDED"
+              - "NETWORK_ERROR"
+            false_cases:
+              - "INVALID_AUDIO_FORMAT"
+              - "UNSUPPORTED_LANGUAGE"
+              - "TTS_SYNTHESIS_FAILED"
+
+    # Model metadata (optional, for observability)
+    metadata:
+      type: object
+      description: "Model and processing metadata"
+      required: false
+      properties:
+        asr_model:
+          type: string
+          description: "ASR model identifier"
+          example: "faster-whisper-base"
+
+        translation_model:
+          type: string
+          description: "Translation provider/model"
+          example: "deepl-api-v2"
+
+        tts_model:
+          type: string
+          description: "TTS model identifier"
+          example: "coqui-xtts-v2"
+
+        gpu_utilization:
+          type: number
+          description: "GPU utilization percentage during processing"
+          minimum: 0
+          maximum: 100
+          example: 85.5
+
+# Example Payloads
+
+examples:
+  success_case:
+    fragment_id: "550e8400-e29b-41d4-a716-446655440000"
+    stream_id: "stream-abc-123"
+    sequence_number: 42
+    status: "success"
+    dubbed_audio:
+      format: "pcm_s16le"
+      sample_rate_hz: 48000
+      channels: 1
+      duration_ms: 6050
+      data_base64: "AQIDBAU..."  # truncated for example
+    transcript: "Hello, welcome to the game."
+    translated_text: "Hola, bienvenido al juego."
+    processing_time_ms: 4500
+    stage_timings:
+      asr_ms: 1200
+      translation_ms: 150
+      tts_ms: 3100
+    metadata:
+      asr_model: "faster-whisper-base"
+      translation_model: "deepl-api-v2"
+      tts_model: "coqui-xtts-v2"
+      gpu_utilization: 85.5
+
+  partial_case:
+    fragment_id: "550e8400-e29b-41d4-a716-446655440001"
+    stream_id: "stream-abc-123"
+    sequence_number: 43
+    status: "partial"
+    dubbed_audio:
+      format: "pcm_s16le"
+      sample_rate_hz: 48000
+      channels: 1
+      duration_ms: 12100  # Exceeded target duration due to long translation
+      data_base64: "AQIDBAU..."
+    transcript: "This is a very long sentence with lots of detail."
+    translated_text: "Esta es una oración muy larga con muchos detalles adicionales."
+    processing_time_ms: 5200
+    stage_timings:
+      asr_ms: 1300
+      translation_ms: 180
+      tts_ms: 3700
+    error:
+      code: "DURATION_MISMATCH"
+      message: "TTS output duration 12100ms exceeds target 6000ms by >10%. Speed ratio clamped to 2.0x."
+      stage: "tts"
+      retryable: false
+
+  failed_asr_timeout:
+    fragment_id: "550e8400-e29b-41d4-a716-446655440002"
+    stream_id: "stream-abc-123"
+    sequence_number: 44
+    status: "failed"
+    processing_time_ms: 5100
+    stage_timings:
+      asr_ms: 5000  # Timed out
+      translation_ms: 0
+      tts_ms: 0
+    error:
+      code: "TIMEOUT"
+      message: "ASR processing timed out after 5000ms"
+      stage: "asr"
+      retryable: true
+
+  failed_translation_api:
+    fragment_id: "550e8400-e29b-41d4-a716-446655440003"
+    stream_id: "stream-abc-123"
+    sequence_number: 45
+    status: "failed"
+    transcript: "Hello, welcome to the game."
+    processing_time_ms: 1850
+    stage_timings:
+      asr_ms: 1200
+      translation_ms: 650
+      tts_ms: 0
+    error:
+      code: "RATE_LIMIT_EXCEEDED"
+      message: "DeepL API rate limit exceeded. Retry after 60s."
+      stage: "translation"
+      retryable: true
+
+  failed_tts_synthesis:
+    fragment_id: "550e8400-e29b-41d4-a716-446655440004"
+    stream_id: "stream-abc-123"
+    sequence_number: 46
+    status: "failed"
+    transcript: "Hello, welcome."
+    translated_text: "Hola, bienvenido."
+    processing_time_ms: 2100
+    stage_timings:
+      asr_ms: 1100
+      translation_ms: 140
+      tts_ms: 850
+    error:
+      code: "TTS_SYNTHESIS_FAILED"
+      message: "Coqui TTS synthesis failed: Invalid phoneme sequence"
+      stage: "tts"
+      retryable: false
+
+# Contract Tests
+
+contract_tests:
+  - name: "fragment_processed_success_schema"
+    description: "Validate fragment:processed payload for successful processing"
+    test_case: "examples.success_case"
+    assertions:
+      - "fragment_id is UUID format"
+      - "status is 'success'"
+      - "dubbed_audio is present and valid"
+      - "dubbed_audio.data_base64 is valid base64"
+      - "processing_time_ms > 0"
+      - "stage_timings.asr_ms + stage_timings.translation_ms + stage_timings.tts_ms <= processing_time_ms"
+
+  - name: "fragment_processed_partial_schema"
+    description: "Validate fragment:processed payload for partial processing (with warnings)"
+    test_case: "examples.partial_case"
+    assertions:
+      - "status is 'partial'"
+      - "dubbed_audio is present"
+      - "error is present"
+      - "error.retryable is boolean"
+
+  - name: "fragment_processed_failed_schema"
+    description: "Validate fragment:processed payload for failed processing"
+    test_case: "examples.failed_asr_timeout"
+    assertions:
+      - "status is 'failed'"
+      - "dubbed_audio is absent"
+      - "error is present"
+      - "error.code is string"
+      - "error.stage in ['asr', 'translation', 'tts']"
+      - "error.retryable is boolean"
+
+  - name: "in_order_delivery"
+    description: "Validate fragment:processed events are emitted in sequence_number order"
+    test_case: "Send fragments with sequence_numbers [0, 1, 2, 3, 4] and verify processed events emitted in same order"
+    assertions:
+      - "Event emission order matches sequence_number order"
+      - "No out-of-order events"
+
+  - name: "duration_matching_accuracy"
+    description: "Validate dubbed audio duration is within ±10% of original duration"
+    test_case: "Original audio 6000ms, dubbed audio should be 5400-6600ms"
+    assertions:
+      - "dubbed_audio.duration_ms >= original_duration * 0.9"
+      - "dubbed_audio.duration_ms <= original_duration * 1.1"

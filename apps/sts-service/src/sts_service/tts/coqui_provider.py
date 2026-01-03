@@ -136,12 +136,19 @@ class CoquiTTSComponent(BaseTTSComponent):
 
         # Use voice profile or create default
         if voice_profile is None:
-            voice_profile = VoiceProfile(language=text_asset.target_language)
+            voice_profile = VoiceProfile(
+                language=text_asset.target_language,
+                fast_mode=self._fast_mode  # Inherit fast_mode from component
+            )
 
         # Preprocess text (placeholder - will be implemented in Phase 6)
         preprocessed_text = self._preprocess_text(text)
 
         try:
+            # Initialize audio_data before if/else to ensure it's always set
+            audio_data: bytes = b""
+            synthesis_sample_rate = output_sample_rate_hz
+
             if self._tts_available:
                 # Use real Coqui TTS synthesis
                 audio_data, synthesis_sample_rate = self._synthesize_with_coqui(
@@ -149,17 +156,24 @@ class CoquiTTSComponent(BaseTTSComponent):
                 )
             else:
                 # Fallback to mock synthesis (sine wave)
-                self._synthesize_mock(
+                audio_data = self._synthesize_mock(
                     preprocessed_text, output_sample_rate_hz, output_channels
                 )
 
-            # Calculate duration from audio data
-            if target_duration_ms is None:
-                # Estimate duration: ~100ms per word
+            # Calculate duration from actual audio data length
+            # PCM F32LE: 4 bytes per sample per channel
+            bytes_per_sample = 4 * output_channels
+            num_samples = len(audio_data) // bytes_per_sample if audio_data else 0
+            calculated_duration_ms = int(num_samples * 1000 / synthesis_sample_rate) if num_samples > 0 else 0
+
+            if calculated_duration_ms > 0:
+                duration_ms = calculated_duration_ms
+            elif target_duration_ms is not None:
+                duration_ms = target_duration_ms
+            else:
+                # Fallback: estimate duration from word count
                 word_count = len(preprocessed_text.split())
                 duration_ms = max(500, word_count * 100)
-            else:
-                duration_ms = target_duration_ms
 
             # Create payload reference
             payload_ref = f"mem://fragments/{text_asset.stream_id}/{text_asset.sequence_number}"
@@ -177,6 +191,7 @@ class CoquiTTSComponent(BaseTTSComponent):
                 channels=output_channels,
                 duration_ms=duration_ms,
                 payload_ref=payload_ref,
+                audio_bytes=audio_data,  # Attach synthesized audio data
                 language=text_asset.target_language,
                 status=AudioStatus.SUCCESS,
                 processing_time_ms=processing_time_ms,
@@ -242,8 +257,20 @@ class CoquiTTSComponent(BaseTTSComponent):
                 language=voice_profile.language,
             )
         else:
-            # Default synthesis
-            wav = tts.tts(text=text, language=voice_profile.language)
+            # Default synthesis - handle different model types
+            model_name = self._get_model_name(voice_profile)
+
+            # Check if model has speakers (multi-speaker model)
+            if hasattr(tts, 'speakers') and tts.speakers:
+                # Multi-speaker model - use first speaker or p225 for VCTK
+                if 'vctk' in model_name.lower():
+                    wav = tts.tts(text=text, speaker='p225')
+                else:
+                    wav = tts.tts(text=text, speaker=tts.speakers[0])
+            else:
+                # Single-speaker model (e.g., CSS10 VITS for Spanish/French/German)
+                # These models don't need speaker parameter
+                wav = tts.tts(text=text)
 
         # Convert to bytes
         sample_rate = tts.synthesizer.output_sample_rate
@@ -288,22 +315,34 @@ class CoquiTTSComponent(BaseTTSComponent):
         return f"{voice_profile.language}_{mode}"
 
     def _get_model_name(self, voice_profile: VoiceProfile) -> str:
-        """Get TTS model name based on voice profile."""
+        """Get TTS model name based on voice profile.
+
+        Note: XTTS-v2 requires voice cloning (speaker_wav), which needs a reference audio.
+        For production without reference audio, we use language-specific VITS models.
+        XTTS-v2 is only used when voice_sample_path is provided for voice cloning.
+        """
         if voice_profile.model_name:
             return voice_profile.model_name
 
-        if voice_profile.fast_mode:
-            # Fast mode: use VITS model
-            fast_models = {
-                "en": "tts_models/en/vctk/vits",
-                "es": "tts_models/es/css10/vits",
-            }
-            return fast_models.get(
-                voice_profile.language, "tts_models/multilingual/multi-dataset/xtts_v2"
-            )
-        else:
-            # Quality mode: use XTTS-v2
+        # Language-specific models that work without voice cloning
+        # These are single-speaker or multi-speaker models with built-in speakers
+        language_models = {
+            "en": "tts_models/en/vctk/vits",      # Multi-speaker VITS (p225 default)
+            "es": "tts_models/es/css10/vits",      # Spanish CSS10 VITS
+            "de": "tts_models/de/css10/vits-neon", # German VITS
+            "fr": "tts_models/fr/css10/vits",      # French CSS10 VITS
+        }
+
+        # Use XTTS only if voice cloning is enabled with a sample
+        if voice_profile.use_voice_cloning and voice_profile.voice_sample_path:
             return "tts_models/multilingual/multi-dataset/xtts_v2"
+
+        # Otherwise use language-specific model (no voice cloning needed)
+        return language_models.get(
+            voice_profile.language,
+            # Fallback to English VITS for unsupported languages
+            "tts_models/en/vctk/vits"
+        )
 
     def _create_failed_asset(
         self,

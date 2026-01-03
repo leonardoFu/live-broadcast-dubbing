@@ -2,7 +2,7 @@
 name = "sts-service"
 version = "0.1.0"
 description = "RunPod GPU service for speech-to-speech processing (ASR + Translation + TTS)"
-requires-python = ">=3.10,<3.11"
+requires-python = ">=3.10,<3.12"
 dependencies = [
     "numpy<2.0",
     "scipy",
@@ -46,3 +46,33 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+# Test configuration
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+# Markers
+markers = [
+    "e2e: End-to-end tests requiring Docker services (slow)",
+    "integration: Integration tests requiring external services",
+    "unit: Fast unit tests with mocked dependencies",
+]
+
+# Async support
+asyncio_mode = "auto"
+
+# Coverage
+addopts = [
+    "-v",
+    "--strict-markers",
+    "--tb=short",
+]
+
+# Logging
+log_cli = true
+log_cli_level = "INFO"
+log_cli_format = "%(asctime)s [%(levelname)8s] %(name)s - %(message)s"
+log_cli_date_format = "%Y-%m-%d %H:%M:%S"
