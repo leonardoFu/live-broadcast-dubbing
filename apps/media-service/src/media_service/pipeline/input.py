@@ -185,8 +185,10 @@ class InputPipeline:
         # Configure audio appsink
         self._audio_appsink.set_property("emit-signals", True)
         self._audio_appsink.set_property("sync", False)
-        # Accept raw AAC from flvdemux (any rate, any channels)
-        audio_caps = Gst.Caps.from_string("audio/mpeg,mpegversion=4")
+        # Request ADTS format from aacparse. FLV contains raw AAC frames, but aacparse
+        # will convert them to ADTS (self-describing format with headers) for the output.
+        # This ensures the data is consistent throughout the pipeline.
+        audio_caps = Gst.Caps.from_string("audio/mpeg,mpegversion=4,stream-format=adts")
         self._audio_appsink.set_property("caps", audio_caps)
 
         # Connect appsink signals

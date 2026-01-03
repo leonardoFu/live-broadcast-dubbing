@@ -271,15 +271,18 @@ class WorkerRunner:
     ) -> None:
         """Process video segment.
 
-        Writes to disk and queues for A/V sync.
+        T033: Skip MP4 file writing - use in-memory data directly for output.
+        Video data flows: input pipeline -> segment buffer -> A/V sync -> output pipeline
+        No disk I/O needed in this path.
         """
         try:
-            # Write segment to disk as MP4
-            segment = await self.video_writer.write_with_mux(segment, data)
+            # T033: Skip writing to disk - we use in-memory data for output
+            # Just update segment metadata with data size for metrics
+            segment.file_size = len(data)
 
-            self.metrics.record_segment_processed("video", segment.file_size)
+            self.metrics.record_segment_processed("video", len(data))
 
-            # Push to A/V sync
+            # Push to A/V sync with in-memory data
             pair = await self.av_sync.push_video(segment, data)
             if pair:
                 await self._output_pair(pair)
@@ -456,11 +459,18 @@ class WorkerRunner:
         try:
             # Push video/audio data directly from SyncPair (no file I/O needed)
             # T033: Use in-memory buffers instead of push_segment_files()
+
+            # Video is already in H.264 byte-stream format from input pipeline
             video_ok = self.output_pipeline.push_video(
                 pair.video_data,
                 pair.pts_ns,
                 pair.video_segment.duration_ns,
             )
+
+            # Audio is already in raw AAC format (from aacparse in input pipeline).
+            # The segment writer saves raw AAC bytes to .m4a files (not proper container),
+            # so the data is already in a format the output pipeline's aacparse can handle.
+            # No conversion needed.
             audio_ok = self.output_pipeline.push_audio(
                 pair.audio_data,
                 pair.pts_ns,

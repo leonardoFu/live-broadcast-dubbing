@@ -96,6 +96,11 @@ class OutputPipeline:
         h264parse = Gst.ElementFactory.make("h264parse", "h264parse")
         video_queue = Gst.ElementFactory.make("queue", "video_queue")
 
+        # Configure h264parse to insert SPS/PPS before each IDR frame.
+        # This is critical for RTMP streaming where the decoder may join mid-stream
+        # and needs the codec configuration data to start decoding.
+        h264parse.set_property("config-interval", -1)  # -1 = insert before every IDR
+
         # Create audio path elements
         self._audio_appsrc = Gst.ElementFactory.make("appsrc", "audio_src")
         aacparse = Gst.ElementFactory.make("aacparse", "aacparse")
@@ -131,9 +136,10 @@ class OutputPipeline:
         self._video_appsrc.set_property("do-timestamp", False)
 
         # Configure audio appsrc
-        # Use ADTS format (self-describing, no codec_data needed) instead of raw
+        # Use flexible caps - aacparse will determine sample rate and channels from ADTS headers.
+        # Don't hardcode rate/channels to avoid mismatch with input (which may be 44100 Hz).
         audio_caps = Gst.Caps.from_string(
-            "audio/mpeg,mpegversion=4,stream-format=adts,channels=2,rate=48000"
+            "audio/mpeg,mpegversion=4,stream-format=adts"
         )
         self._audio_appsrc.set_property("caps", audio_caps)
         self._audio_appsrc.set_property("is-live", True)
@@ -372,6 +378,85 @@ class OutputPipeline:
 
         logger.debug(f"✅ Read {len(video_data)} bytes of H.264 from {mp4_path}")
         return bytes(video_data)
+
+    def convert_m4a_bytes_to_adts(self, m4a_data: bytes) -> bytes:
+        """Convert M4A container bytes to raw ADTS AAC frames.
+
+        Uses GStreamer to demux M4A and extract AAC in ADTS format.
+        This is needed when audio data is in M4A format (from STS service)
+        but the output pipeline expects raw ADTS frames.
+
+        Args:
+            m4a_data: M4A container data (in memory)
+
+        Returns:
+            AAC audio data in ADTS format (self-describing)
+        """
+        if not GST_AVAILABLE or Gst is None:
+            raise RuntimeError("GStreamer not available")
+
+        import tempfile
+        import os
+
+        # Write M4A to temp file (GStreamer qtdemux requires seekable source)
+        with tempfile.NamedTemporaryFile(suffix=".m4a", delete=False) as tmp:
+            tmp.write(m4a_data)
+            tmp_path = tmp.name
+
+        try:
+            logger.debug(f"🔊 Converting M4A bytes ({len(m4a_data)} bytes) to ADTS")
+
+            # Create a pipeline to read and convert the audio
+            pipeline_str = (
+                f"filesrc location={tmp_path} ! "
+                "qtdemux name=demux demux.audio_0 ! "
+                "aacparse ! "
+                "audio/mpeg,mpegversion=4,stream-format=adts ! "
+                "appsink name=sink emit-signals=true sync=false"
+            )
+
+            pipeline = Gst.parse_launch(pipeline_str)
+            appsink = pipeline.get_by_name("sink")
+
+            # Collect all buffers
+            audio_data = bytearray()
+
+            def on_new_sample(sink):
+                sample = sink.emit("pull-sample")
+                if sample:
+                    buffer = sample.get_buffer()
+                    success, map_info = buffer.map(Gst.MapFlags.READ)
+                    if success:
+                        audio_data.extend(map_info.data)
+                        buffer.unmap(map_info)
+                return Gst.FlowReturn.OK
+
+            appsink.connect("new-sample", on_new_sample)
+
+            # Run pipeline
+            pipeline.set_state(Gst.State.PLAYING)
+            bus = pipeline.get_bus()
+            msg = bus.timed_pop_filtered(
+                5 * Gst.SECOND,  # 5 second timeout
+                Gst.MessageType.EOS | Gst.MessageType.ERROR
+            )
+
+            if msg and msg.type == Gst.MessageType.ERROR:
+                err, debug = msg.parse_error()
+                pipeline.set_state(Gst.State.NULL)
+                logger.error(f"❌ GStreamer error converting M4A: {err.message}")
+                raise RuntimeError(f"Error converting M4A: {err.message}")
+
+            pipeline.set_state(Gst.State.NULL)
+
+            logger.debug(f"✅ Converted M4A to {len(audio_data)} bytes of ADTS")
+            return bytes(audio_data)
+        finally:
+            # Clean up temp file
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
 
     def _read_m4a_audio(self, m4a_path: str) -> bytes:
         """Read AAC audio data from M4A file in correct format.

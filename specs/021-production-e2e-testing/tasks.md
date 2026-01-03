@@ -1069,9 +1069,11 @@ def push_video(self, data: bytes, pts_ns: int, duration_ns: int = 0) -> bool:
 
 ---
 
-### 🔧 T033: Simplify Output Pipeline - Skip MP4 File I/O (PRIORITY - 2026-01-03)
+### ✅ T033: Simplify Output Pipeline - Skip MP4 File I/O (COMPLETED - 2026-01-03)
 
 **Goal**: Eliminate unnecessary disk I/O by using in-memory buffers directly for RTMP output
+
+**Status**: ✅ COMPLETED
 
 **Problem Analysis**:
 
@@ -1156,22 +1158,44 @@ The data is already available - we just need to use it!
 **Files to Modify**:
 - `apps/media-service/src/media_service/worker/worker_runner.py` (lines 437-477)
 
-**Test Script**: `scripts/manual-e2e-test.sh`
-```bash
-# Start services
-./scripts/manual-e2e-test.sh start
+**Test Approach**: 
 
-# Publish test stream (in separate terminal)
-STREAM_ID=test-fix ./scripts/manual-e2e-test.sh publish &
+### Start services
+Start media service and sts service from Make file
 
-# Watch for output stream
-STREAM_ID=test-fix ./scripts/manual-e2e-test.sh watch
+#### Publish test stream (in separate terminal)
+Enter the same network and publish the test stream using ffmpeg command and use the file tests/fixtures/test-streams/1-min-nfl.mp4
 
-# Verify output
-STREAM_ID=test-fix ./scripts/manual-e2e-test.sh probe-output
-```
+#### Watch for output stream
+query the metrics from mediaMTX and use ffprobe to verify the mediaMTX output stream is on
+
+
 
 **Expected Duration**: 15-30 minutes
+
+**Implementation Summary** (2026-01-03):
+
+The following fixes were applied to make the output pipeline work with in-memory data:
+
+1. **worker_runner.py** - Changed `_output_pair()` to use `pair.video_data` and `pair.audio_data` directly instead of calling `push_segment_files()`.
+
+2. **input.py** - Changed audio appsink caps to request ADTS format:
+   ```python
+   audio_caps = Gst.Caps.from_string("audio/mpeg,mpegversion=4,stream-format=adts")
+   ```
+   This ensures the audio data flowing through the system is in ADTS format (self-describing), which the output pipeline's aacparse can handle correctly.
+
+3. **output.py** - Added h264parse config-interval property:
+   ```python
+   h264parse.set_property("config-interval", -1)  # Insert SPS/PPS before every IDR
+   ```
+   This ensures proper H.264 stream configuration for RTMP output.
+
+**Verification Results**:
+- Output pipeline transitions to PLAYING state: ✅
+- Video and audio pushed successfully: ✅
+- MediaMTX receives output stream with 2 tracks (H264, MPEG-4 Audio): ✅
+- No file read operations in output path: ✅
 
 ---
 
@@ -1180,7 +1204,7 @@ STREAM_ID=test-fix ./scripts/manual-e2e-test.sh probe-output
 1. ~~Complete T024-T030 to resolve audio pipeline issue~~ ✅ Done
 2. ~~Investigate T031 output stream issue~~ ✅ Root cause found
 3. ~~Implement T032 output pipeline fix~~ ✅ Polling-based bus handling added
-4. **Implement T033 simplification** ← Current (skip MP4 file I/O)
+4. ~~Implement T033 simplification~~ ✅ Done (skip MP4 file I/O, use in-memory data)
 5. Run manual E2E test with `scripts/manual-e2e-test.sh`
 6. Run `make e2e-test-p1` to verify integration
 7. Add test to CI/CD pipeline
