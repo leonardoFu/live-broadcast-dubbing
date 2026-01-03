@@ -134,8 +134,8 @@ async def main():
 
     # Run test
     try:
-        # Connect (use port from environment or default to 8003)
-        port = os.getenv("STS_PORT", "8003")
+        # Connect (use port from environment or default to 8000 for docker-compose.full.yml)
+        port = os.getenv("STS_PORT", "8000")
         print(f"\n🔌 Connecting to http://localhost:{port}...")
         await sio.connect(f"http://localhost:{port}")
         await asyncio.sleep(1)
@@ -181,9 +181,9 @@ async def main():
         }
         await sio.emit("fragment:data", fragment_data)
 
-        # Wait for processing
-        print("\n⏳ Waiting for processing (up to 25 seconds)...")
-        await asyncio.sleep(25)
+        # Wait for processing (longer on first run due to model download)
+        print("\n⏳ Waiting for processing (up to 180 seconds for model download on first run)...")
+        await asyncio.sleep(180)
 
         # End stream
         print("\n🛑 Ending stream...")

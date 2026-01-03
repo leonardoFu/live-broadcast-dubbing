@@ -17,14 +17,17 @@ librosa==0.10.2.post1  # For audio analysis
 
 # PyTorch (CUDA 12.1 support)
 # Note: Install from PyTorch index for CUDA support
-torch==2.9.1
-torchaudio==2.9.1
+# Pin to 2.2.x for compatibility with TTS 0.22.0 (weights_only pickle security issue)
+torch==2.2.2
+torchaudio==2.2.2
 
 # ASR (Automatic Speech Recognition)
 faster-whisper==1.2.1
 # faster-whisper dependencies
 ctranslate2==4.6.2
-tokenizers==0.22.1
+# tokenizers is installed as dependency of faster-whisper and transformers
+# Let pip resolve the compatible version
+tokenizers>=0.19,<0.20
 
 # Translation
 deepl==1.27.0
@@ -32,7 +35,8 @@ deepl==1.27.0
 # TTS (Text-to-Speech)
 TTS==0.22.0  # Coqui TTS with XTTS v2 support
 # TTS dependencies
-transformers==4.57.3
+# Pin transformers to version compatible with TTS 0.22.0 (BeamSearchScorer issue)
+transformers==4.43.3
 sentencepiece==0.2.1
 inflect==7.5.0
 

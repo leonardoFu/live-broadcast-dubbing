@@ -450,6 +450,14 @@ class PipelineCoordinator:
             logger.info("tts_completed", latency_ms=stage_timings.tts_ms)
             record_stage_timing("tts", stage_timings.tts_ms)
 
+            # DEBUG: Log TTS result details
+            logger.info(
+                "DEBUG: TTS result",
+                tts_status=str(tts_result.status),
+                audio_bytes_len=len(getattr(tts_result, 'audio_bytes', b'')),
+                duration_ms=getattr(tts_result, 'duration_ms', 0),
+            )
+
             # Check TTS status
             if self._is_failed(tts_result.status):
                 return self._create_failed_result(
@@ -468,7 +476,9 @@ class PipelineCoordinator:
                 status = ProcessingStatus.PARTIAL
 
             # Step 5: Encode audio to base64
+            logger.info("DEBUG: Step 5 - Encoding audio to base64")
             audio_bytes_out = getattr(tts_result, 'audio_bytes', b'')
+            logger.info("DEBUG: audio_bytes_out len", audio_len=len(audio_bytes_out))
             if not audio_bytes_out:
                 # Try to get from payload_ref (mock may not set audio_bytes)
                 audio_bytes_out = b'\x00\x00' * (session.sample_rate_hz * 6)  # 6s silence fallback

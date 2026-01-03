@@ -1,5 +1,13 @@
 {
+  "default": {
+    "model": "tts_models/en/vctk/vits",
+    "speaker": "p225",
+    "language": "en",
+    "description": "Default English voice - VITS VCTK p225"
+  },
   "spanish_male_1": {
+    "model": "tts_models/multilingual/multi-dataset/xtts_v2",
+    "speaker": null,
     "language": "es",
     "gender": "male",
     "description": "Spanish male voice - default XTTS speaker",

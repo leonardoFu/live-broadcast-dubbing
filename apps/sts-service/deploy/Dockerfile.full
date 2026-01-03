@@ -40,9 +40,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3.11-dev \
     python3.11-distutils \
     python3-pip \
-    # Rust compiler (needed for sudachipy in TTS)
-    cargo \
-    rustc \
     # GStreamer (for future RTMP support)
     gstreamer1.0-tools \
     gstreamer1.0-plugins-base \
@@ -69,6 +66,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Create symbolic link for python
 RUN ln -sf /usr/bin/python3.11 /usr/bin/python
 
+# Install Rust via rustup (needed for sudachipy in TTS - requires Rust 1.82+)
+ENV RUSTUP_HOME=/usr/local/rustup
+ENV CARGO_HOME=/usr/local/cargo
+ENV PATH=/usr/local/cargo/bin:$PATH
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable \
+    && rustc --version
+
 # Upgrade pip
 RUN python -m pip install --no-cache-dir --upgrade pip setuptools wheel
 
@@ -86,8 +90,10 @@ COPY apps/sts-service/src/ ./src/
 
 # Install Python dependencies
 # Note: This includes torch with CUDA support, faster-whisper, TTS, etc.
-# Rust compiler is already installed, so sudachipy will build successfully
-RUN pip install --no-cache-dir -r requirements.txt
+# Rust 1.82+ is installed via rustup above, so sudachipy will build successfully
+# Force remove blinker distutils package to avoid conflict
+RUN pip uninstall -y blinker 2>/dev/null || true && rm -rf /usr/lib/python3/dist-packages/blinker* \
+    && pip install --no-cache-dir -r requirements.txt
 
 # Install the package
 RUN pip install --no-cache-dir --no-deps -e .
@@ -109,6 +115,8 @@ RUN echo '{}' > /config/voices.json
 ENV HOST=0.0.0.0
 ENV PORT=8000
 ENV LOG_LEVEL=INFO
+# Auto-accept Coqui TTS license for XTTS-v2 model
+ENV COQUI_TOS_AGREED=1
 ENV ARTIFACTS_PATH=/tmp/sts-artifacts
 ENV ENABLE_ARTIFACT_LOGGING=true
 ENV ARTIFACT_RETENTION_HOURS=24

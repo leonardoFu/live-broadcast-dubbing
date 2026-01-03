@@ -14,7 +14,7 @@ from pydantic import ValidationError
 from sts_service.full.backpressure_tracker import BackpressureTracker
 from sts_service.full.models.asset import AssetStatus
 from sts_service.full.models.error import ErrorResponse
-from sts_service.full.models.fragment import AckStatus, FragmentAck, FragmentData, FragmentResult
+from sts_service.full.models.fragment import AckStatus, FragmentAck, FragmentData, FragmentResult, ProcessingStatus
 from sts_service.full.models.stream import StreamState
 from sts_service.full.observability.metrics import decrement_inflight, increment_inflight
 from sts_service.full.session import SessionStore, StreamSession
@@ -207,7 +207,7 @@ async def _process_fragment_async(
             fragment_id=fragment_data.fragment_id,
             stream_id=fragment_data.stream_id,
             sequence_number=fragment_data.sequence_number,
-            status=AssetStatus.FAILED,
+            status=ProcessingStatus.FAILED,
             processing_time_ms=0,
             error=ProcessingError(
                 stage="pipeline",
@@ -262,7 +262,7 @@ async def emit_fragment_processed(
     decrement_inflight(session.stream_id)  # Always decrement even if processing failed
 
     # Update statistics
-    status_str = "success" if fragment_result.status == AssetStatus.SUCCESS else "failed"
+    status_str = "success" if fragment_result.status == ProcessingStatus.SUCCESS else "failed"
     session.statistics.record_fragment(
         status=status_str,
         processing_time_ms=fragment_result.processing_time_ms,
