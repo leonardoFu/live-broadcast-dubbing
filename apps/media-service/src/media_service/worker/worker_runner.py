@@ -243,14 +243,24 @@ class WorkerRunner:
         """Handle audio buffer from input pipeline.
 
         Accumulates data and emits segments when ready.
+
+        Note: Duration should be calculated in input pipeline from caps.
+        This is a final fallback if duration is still missing.
         """
+        if duration_ns == 0:
+            logger.warning(
+                f"Audio buffer received with duration_ns=0 (size={len(data)}). "
+                "This should be calculated from caps in input pipeline."
+            )
+
+        logger.debug(f"Audio buffer: size={len(data)}, pts_ns={pts_ns}, duration_ns={duration_ns}")
         segment, segment_data = self.segment_buffer.push_audio(data, pts_ns, duration_ns)
 
         if segment is not None:
             # Thread-safe queue operation
             try:
                 self._audio_queue.put_nowait((segment, segment_data))
-                logger.debug(f"Audio segment queued: batch={segment.batch_number}")
+                logger.info(f"Audio segment queued: batch={segment.batch_number}")
             except asyncio.QueueFull:
                 logger.warning(f"Audio queue full, dropping segment {segment.batch_number}")
 

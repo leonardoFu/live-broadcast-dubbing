@@ -78,7 +78,7 @@ def media_compose_env() -> Generator[DockerComposeManager, None, None]:
             "ORCHESTRATOR_URL": "http://media-service:8080",
 
             # Logging
-            "LOG_LEVEL": "INFO",
+            "LOG_LEVEL": "DEBUG",
             # GStreamer Debug (for audio pipeline investigation)
             # Include GST_PADS for linking and GST_CAPS for caps negotiation
             "GST_DEBUG": "flvdemux:5,aacparse:5,queue:6,appsink:6,GST_PADS:5,GST_CAPS:5",

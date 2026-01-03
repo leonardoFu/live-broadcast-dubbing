@@ -372,6 +372,17 @@ class InputPipeline:
             pts_ns = buffer.pts if buffer.pts != Gst.CLOCK_TIME_NONE else 0
             duration_ns = buffer.duration if buffer.duration != Gst.CLOCK_TIME_NONE else 0
 
+            # If duration is missing, calculate from caps (sample rate)
+            if duration_ns == 0:
+                caps = sample.get_caps()
+                if caps and not caps.is_empty():
+                    structure = caps.get_structure(0)
+                    sample_rate = structure.get_int("rate")[1] if structure.has_field("rate") else 44100
+                    # AAC-LC: 1024 samples per frame
+                    # Duration = samples_per_frame / sample_rate * 1e9 ns
+                    duration_ns = int((1024 / sample_rate) * 1_000_000_000)
+                    logger.debug(f"Calculated audio buffer duration from caps: sample_rate={sample_rate}Hz, duration={duration_ns}ns ({duration_ns/1e6:.2f}ms)")
+
             try:
                 self._on_audio_buffer(data, pts_ns, duration_ns)
             except Exception as e:

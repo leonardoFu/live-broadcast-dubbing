@@ -886,14 +886,49 @@ elif msg_type == Gst.MessageType.ASYNC_DONE:
 **Resolution**: Fixed `flvdemux -> aacparse` linking, re-added aacparse, enhanced debug logging
 **Next Action**: Full E2E test validation (all 10 fragment events)
 
-**Progress**: 5 issues fixed:
+**Progress**: 6 issues fixed:
 1. ✅ Network isolation (manual docker network connect)
 2. ✅ Socket.IO namespace mismatch (updated to `/sts`)
 3. ✅ GStreamer buffering (configured 5s queues with leaky mode)
 4. ✅ Output audio format (changed to ADTS)
 5. ✅ **Audio pipeline linking logic** (flvdemux -> aacparse connection)
+6. ✅ **Audio buffer duration missing** (AAC frame duration calculation)
 
 **Remaining**: Verify test passes → Run full E2E suite → Documentation
+
+---
+
+### ✅ T030: RESOLVED - Audio Buffer Duration Missing (AAC)
+
+**Problem**: Audio segments never created despite audio buffers flowing through pipeline.
+
+**Root Cause**: GStreamer AAC buffers had `duration_ns=0`, so accumulated duration stayed at 0:
+```python
+acc.duration_ns += 0  # Never reaches 6s threshold
+if acc.duration_ns >= 6_000_000_000:  # Always FALSE
+```
+
+**Fix**: Extract sample rate from GStreamer caps and calculate duration dynamically (`input.py:375-384`):
+```python
+if duration_ns == 0:
+    caps = sample.get_caps()
+    if caps and not caps.is_empty():
+        structure = caps.get_structure(0)
+        sample_rate = structure.get_int("rate")[1] if structure.has_field("rate") else 44100
+        # AAC-LC: 1024 samples per frame
+        duration_ns = int((1024 / sample_rate) * 1_000_000_000)
+```
+
+**Verification** (Manual Test - 2026-01-03):
+```
+✅ Audio segment emitted: batch=0, duration=6.01s, buffers=259
+✅ segments_processed_total{type="audio"} 4.0
+✅ fragments_sent_total 4.0
+✅ fragments_processed_total{status="success"} 4.0
+✅ Dynamic duration calculation working (no hardcoded 44.1kHz assumption)
+```
+
+**Status**: ✅ Complete audio pipeline functional (buffers → segments → STS → output)
 
 ---
 
