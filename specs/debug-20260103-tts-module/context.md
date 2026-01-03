@@ -2,8 +2,8 @@
 
 **Debug ID**: debug-20260103-tts-module
 **Created**: 2026-01-03T00:00:00Z
-**Status**: investigating
-**Iteration**: 1 / 5
+**Status**: RESOLVED
+**Iteration**: 2 / 5
 
 ## Issue Description
 
@@ -288,5 +288,94 @@ ffplay artifacts/manual-test-stream/manual-test-001/dubbed_audio.m4a
 **Success Criteria**:
 - dubbed_audio.m4a should contain audible Spanish speech
 - Not silence, not sine wave tone
+
+---
+
+## Iteration 2 - Resolution
+
+**Timestamp**: 2026-01-03T21:50:00Z
+**Status**: RESOLVED
+
+### Applied Fixes (by debug-executor)
+
+The TTS audio_bytes field was already correctly implemented. Two additional bugs were found and fixed:
+
+**Bug 1: log_original_audio Signature Mismatch**
+
+**File**: `apps/sts-service/src/sts_service/full/pipeline.py` (line 551-568)
+
+The pipeline was calling `log_original_audio(original_audio_asset)` passing an AudioAsset object, but the method expected individual parameters:
+
+```python
+# BEFORE (incorrect):
+self.artifact_logger.log_original_audio(original_audio_asset)
+
+# AFTER (correct):
+self.artifact_logger.log_original_audio(
+    fragment_id=fragment_data.fragment_id,
+    stream_id=fragment_data.stream_id,
+    audio_base64=fragment_data.audio.data_base64,
+    sample_rate=fragment_data.audio.sample_rate_hz,
+    channels=fragment_data.audio.channels,
+)
+```
+
+**Bug 2: record_fragment_success Missing Argument**
+
+**File**: `apps/sts-service/src/sts_service/full/pipeline.py` (line 590)
+
+The metrics function was called with only 2 arguments, but requires 3:
+
+```python
+# BEFORE (incorrect):
+record_fragment_success(session.stream_id, int(total_time * 1000))
+
+# AFTER (correct):
+record_fragment_success(
+    session.stream_id,
+    int(total_time * 1000),
+    {
+        "asr_ms": stage_timings.asr_ms,
+        "translation_ms": stage_timings.translation_ms,
+        "tts_ms": stage_timings.tts_ms,
+    }
+)
+```
+
+### Verification Results
+
+| Criterion | Status | Evidence |
+|-----------|--------|----------|
+| SC-001: TTS produces audible speech | PASSED | mean_volume: -8.1 dB (not silent) |
+| SC-002: dubbed_audio.m4a has speech | PASSED | 7.56 seconds Spanish speech |
+| SC-003: ffprobe non-zero audio | PASSED | mean_volume: -8.1 dB, max: 0.0 dB |
+
+### Manual Test Output
+
+```
+Status: success
+Processing time: 15457ms
+Has transcript: True
+Has translation: True
+Has dubbed audio: True
+
+Transcript: It's like that's real nasty because two of those came from JJ McCarthy...
+Translation: Es como si eso fuera realmente desagradable porque dos de ellos vinieron de JJ McCarthy...
+Dubbed Audio: 7558ms, pcm_s16le @ 44100Hz
+```
+
+### Files Modified
+
+1. `/Users/leonardofu/dev/back-end/live-broadcast-dubbing-cloud/.worktrees/sts-service-main/apps/sts-service/src/sts_service/full/pipeline.py`
+   - Line 551-558: Fixed log_original_audio call signature
+   - Line 590-598: Fixed record_fragment_success call with stage_timings
+
+### Resolution Summary
+
+The TTS module is now working correctly. The root cause issues were:
+1. A method signature mismatch causing silent TypeError exception
+2. A missing argument to the metrics recording function
+
+Both exceptions were raised inside the pipeline's outer try block, causing it to return a "failed" result even though the actual audio synthesis was successful. After fixing both issues, the pipeline now correctly returns the synthesized audio to the client.
 
 ---

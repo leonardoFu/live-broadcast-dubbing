@@ -549,23 +549,13 @@ class PipelineCoordinator:
                 self.artifact_logger.log_dubbed_audio(dubbed_audio_asset)
 
                 # Log original audio
-                original_audio_asset = AudioAsset(
-                    asset_id=f"audio-original-{fragment_data.fragment_id}",
+                self.artifact_logger.log_original_audio(
                     fragment_id=fragment_data.fragment_id,
                     stream_id=fragment_data.stream_id,
-                    status=AssetStatus.SUCCESS,
-                    audio_bytes=audio_bytes,
-                    format=fragment_data.audio.format,
-                    sample_rate_hz=fragment_data.audio.sample_rate_hz,
+                    audio_base64=fragment_data.audio.data_base64,
+                    sample_rate=fragment_data.audio.sample_rate_hz,
                     channels=fragment_data.audio.channels,
-                    duration_ms=fragment_data.audio.duration_ms,
-                    duration_metadata=None,
-                    voice_profile="original",
-                    text_input="",
-                    parent_asset_ids=[],
-                    latency_ms=0,
                 )
-                self.artifact_logger.log_original_audio(original_audio_asset)
 
                 # Log metadata
                 self.artifact_logger.log_metadata(
@@ -597,7 +587,15 @@ class PipelineCoordinator:
         # Step 6: Record final metrics and build result
         total_time = time.perf_counter() - start_time
         # observe_fragment_latency(total_time)  # TODO: Add this metric
-        record_fragment_success(session.stream_id, int(total_time * 1000))
+        record_fragment_success(
+            session.stream_id,
+            int(total_time * 1000),
+            {
+                "asr_ms": stage_timings.asr_ms,
+                "translation_ms": stage_timings.translation_ms,
+                "tts_ms": stage_timings.tts_ms,
+            }
+        )
 
         logger.info(
             "fragment_processed",
