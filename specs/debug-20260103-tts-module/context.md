@@ -188,3 +188,105 @@ Response serialization in Socket.IO handler shows "failed" status despite succes
 **Confidence**: HIGH - Direct evidence of audio data being generated but not returned
 
 ---
+
+## CURRENT STATUS: PAUSED - READY TO FIX
+
+**Last Updated**: 2026-01-03T20:00:00Z
+**Status**: ROOT CAUSE IDENTIFIED, FIX NOT YET APPLIED
+**Commit**: ef491f9 (pushed to origin/sts-service-main)
+
+### What's Working
+- ✅ Docker container builds and runs
+- ✅ Coqui TTS library loads successfully
+- ✅ TTS model downloads and initializes
+- ✅ DeepL translation works
+- ✅ ASR transcription works
+- ✅ Artifacts are written (transcript.txt, translation.txt, dubbed_audio.m4a)
+
+### What's NOT Working
+- ❌ dubbed_audio.m4a is SILENT (no audible speech)
+- ❌ Socket.IO response shows "failed" status
+
+---
+
+## FIX INSTRUCTIONS FOR CLAUDE CODE
+
+To fix the silent audio issue, apply these changes:
+
+### Fix 1: Add audio_bytes field to TTS AudioAsset model
+
+**File**: `apps/sts-service/src/sts_service/tts/models.py`
+
+Find the `AudioAsset` dataclass and add `audio_bytes` field:
+
+```python
+@dataclass
+class AudioAsset:
+    # ... existing fields ...
+    payload_ref: str
+    audio_bytes: bytes = b''  # ADD THIS LINE
+    # ... rest of fields ...
+```
+
+### Fix 2: Attach synthesized audio to AudioAsset return value
+
+**File**: `apps/sts-service/src/sts_service/tts/coqui_provider.py`
+
+In the `synthesize()` method, change the code to:
+
+1. Initialize `audio_data` before the if/else block:
+```python
+audio_data = b''  # Initialize before if/else
+```
+
+2. Capture mock synthesis result:
+```python
+else:
+    # Fallback to mock synthesis (sine wave)
+    audio_data = self._synthesize_mock(  # CAPTURE the return value
+        preprocessed_text, output_sample_rate_hz, output_channels
+    )
+```
+
+3. Add `audio_bytes` to the AudioAsset constructor:
+```python
+return AudioAsset(
+    # ... existing fields ...
+    payload_ref=payload_ref,
+    audio_bytes=audio_data,  # ADD THIS LINE
+    # ... rest of fields ...
+)
+```
+
+### Fix 3: Update _synthesize_mock to return bytes (if not already)
+
+**File**: `apps/sts-service/src/sts_service/tts/coqui_provider.py`
+
+Ensure `_synthesize_mock()` method returns the audio bytes:
+```python
+def _synthesize_mock(...) -> bytes:
+    # ... generate samples ...
+    return struct.pack(f"<{len(samples)}f", *samples)  # RETURN the bytes
+```
+
+### Verification
+
+After applying fixes:
+
+```bash
+cd apps/sts-service
+docker compose -f docker-compose.full.yml down
+docker compose -f docker-compose.full.yml build full-sts-service
+docker compose -f docker-compose.full.yml up -d
+sleep 60  # Wait for model to load
+python manual_test_client.py
+
+# Check if audio is audible:
+ffplay artifacts/manual-test-stream/manual-test-001/dubbed_audio.m4a
+```
+
+**Success Criteria**:
+- dubbed_audio.m4a should contain audible Spanish speech
+- Not silence, not sine wave tone
+
+---
