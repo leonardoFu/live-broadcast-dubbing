@@ -853,21 +853,95 @@ def _on_audio_sample(self, appsink: Gst.Element) -> Gst.FlowReturn:
 
 ---
 
+## Phase 5: Simplify Output Pipeline (T033 - Added 2026-01-03)
+
+### Task 5.1: Skip MP4 File I/O in Output Path
+
+**Goal**: Use in-memory buffers directly instead of write→read file cycle
+
+**Problem**: Current flow writes video/audio to files, then immediately reads them back:
+```
+SyncPair.video_data → Write MP4 → Read MP4 → push_video() → RTMP  ❌ Wasteful
+```
+
+**Solution**: Use SyncPair data directly:
+```
+SyncPair.video_data → push_video() → RTMP  ✅ Direct
+```
+
+**Implementation**:
+
+1. **Modify `worker_runner.py:_output_pair()`** (lines 453-461):
+
+```python
+# BEFORE (reads from files):
+success = self.output_pipeline.push_segment_files(
+    str(pair.video_segment.file_path),
+    str(pair.audio_segment.file_path),
+    pair.pts_ns,
+    pair.video_segment.duration_ns,
+    pair.audio_segment.duration_ns,
+)
+
+# AFTER (uses in-memory data):
+video_ok = self.output_pipeline.push_video(
+    pair.video_data,
+    pair.pts_ns,
+    pair.video_segment.duration_ns,
+)
+audio_ok = self.output_pipeline.push_audio(
+    pair.audio_data,
+    pair.pts_ns,
+    pair.audio_segment.duration_ns,
+)
+success = video_ok and audio_ok
+```
+
+**Files to Modify**:
+- `apps/media-service/src/media_service/worker/worker_runner.py`
+
+### Task 5.2: Manual E2E Test Verification
+
+**Test Script**: `scripts/manual-e2e-test.sh`
+
+```bash
+# Terminal 1: Start services (if not already running)
+./scripts/manual-e2e-test.sh status
+
+# Terminal 2: Publish test stream
+STREAM_ID=test-simplify ./scripts/manual-e2e-test.sh publish
+
+# Terminal 3: Watch for output stream
+STREAM_ID=test-simplify ./scripts/manual-e2e-test.sh watch
+
+# Verify output appears
+STREAM_ID=test-simplify ./scripts/manual-e2e-test.sh probe-output
+```
+
+**Success Criteria**:
+- ✅ Output stream appears in MediaMTX (`/live/{stream}/out`)
+- ✅ No file read operations in logs for output path
+- ✅ ffprobe shows H.264 video + AAC audio
+- ✅ Stream playable with ffplay
+
+---
+
 ## Next Steps After Plan Approval
 
-1. **Review plan** with stakeholders
-2. **Create test fixture** or document requirements
-3. **Make code changes** (2 files, minimal changes)
-4. **Run test** and iterate on failures
-5. **Validate success criteria** and document results
-6. **Update README** with E2E test instructions
+1. ~~Review plan with stakeholders~~ ✅
+2. ~~Create test fixture~~ ✅ (exists at `tests/fixtures/test-streams/1-min-nfl.mp4`)
+3. ~~Fix audio pipeline~~ ✅ (T023, T030 completed)
+4. ~~Fix output pipeline bus handling~~ ✅ (T032 completed - polling-based)
+5. **Implement T033 simplification** ← Current
+6. **Run manual E2E test** with `scripts/manual-e2e-test.sh`
+7. Run `make e2e-test-p1` to verify full integration
+8. Update README with E2E test instructions
 
 ## Estimated Effort
 
-- **Code changes**: 15 minutes (2 files, 3 line changes)
-- **Test fixture creation**: 30-60 minutes (depends on source video availability)
-- **Initial test run**: 5 minutes (plus 2-3 minutes per iteration)
-- **Debug iterations**: 1-3 hours (estimated 2-4 iterations to resolve issues)
-- **Documentation**: 30 minutes (README updates, troubleshooting guide)
+- **T033 Implementation**: 15-30 minutes
+- **Manual E2E verification**: 10-15 minutes
+- **Full E2E test run**: 3-5 minutes
+- **Documentation updates**: 15 minutes
 
-**Total estimated time**: 3-5 hours for complete implementation and validation.
+**Remaining time**: ~1 hour for complete implementation and validation.

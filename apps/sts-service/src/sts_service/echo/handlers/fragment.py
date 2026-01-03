@@ -49,6 +49,7 @@ async def handle_fragment_data(
         data: The fragment:data payload.
         session_store: Session store instance.
     """
+    logger.info(f"📨 Received fragment:data: fragment_id={data.get('fragment_id')}, sid={sid}")
     start_time = time.monotonic()
 
     # Get session
@@ -109,7 +110,7 @@ async def handle_fragment_data(
         status="queued",
         queue_position=session.inflight_count - 1,
     )
-    await sio.emit("fragment:ack", ack.model_dump(), to=sid)
+    await sio.emit("fragment:ack", ack.model_dump(), to=sid, namespace="/sts")
 
     # Check backpressure
     await _check_and_emit_backpressure(sio, sid, session)
@@ -175,6 +176,7 @@ async def handle_fragment_data(
     # not here, to ensure end-to-end acknowledgment tracking
     fragments_to_emit = session.get_fragments_to_emit()
     for fragment in fragments_to_emit:
+        logger.info(f"📤 Emitting fragment:processed: fragment_id={fragment.fragment_id}, sid={sid}")
         await sio.emit("fragment:processed", fragment.model_dump(), to=sid, namespace="/sts")
 
     # Check if stream should complete
@@ -321,7 +323,7 @@ async def _check_and_emit_backpressure(
     )
 
     session.backpressure_active = True
-    await sio.emit("backpressure", bp_payload.model_dump(), to=sid)
+    await sio.emit("backpressure", bp_payload.model_dump(), to=sid, namespace="/sts")
 
     logger.debug(
         f"Backpressure emitted: stream_id={session.stream_id}, severity={severity}, action={action}"

@@ -284,6 +284,21 @@ Specifically:
 **Choice**: Focus on making `test_full_pipeline_media_to_sts_to_output()` pass
 **Rationale**: Simplicity. One clear goal makes success criteria unambiguous. Additional E2E tests can be added later using the same infrastructure (DualComposeManager, fixtures, helpers).
 
+### Decision 8: Skip MP4 File Output in Output Pipeline (Added 2026-01-03)
+
+**Choice**: Use in-memory buffers directly for RTMP output instead of write→read file cycle
+**Rationale**:
+- `SyncPair` already contains `video_data` (raw H.264) and `audio_data` (dubbed AAC) in memory
+- Writing to MP4/M4A files then immediately reading them back is unnecessary I/O
+- Simplifies the output path: `SyncPair.video_data` → `push_video()` → RTMP
+- Reduces latency and complexity in the hot path
+- Audio files still written for STS service input (required), but dubbed audio used directly from STS response
+
+**Implementation**:
+- Modify `worker_runner.py:_output_pair()` to call `push_video(pair.video_data)` and `push_audio(pair.audio_data)` directly
+- Remove dependency on `push_segment_files()` which reads from disk
+- Video MP4 writing can be skipped entirely (data stays in memory via A/V sync)
+
 ## Assumptions
 
 - Docker Engine and Docker Compose are installed on test host (macOS)

@@ -274,8 +274,8 @@ class WorkerRunner:
         Writes to disk and queues for A/V sync.
         """
         try:
-            # Write segment to disk
-            segment = await self.video_writer.write(segment, data)
+            # Write segment to disk as MP4
+            segment = await self.video_writer.write_with_mux(segment, data)
 
             self.metrics.record_segment_processed("video", segment.file_size)
 
@@ -437,26 +437,38 @@ class WorkerRunner:
     async def _output_pair(self, pair: SyncPair) -> None:
         """Output synchronized video/audio pair.
 
+        Uses in-memory data directly from SyncPair instead of reading from files.
+        This eliminates unnecessary disk I/O in the output path (T033 simplification).
+
         Args:
-            pair: SyncPair to output
+            pair: SyncPair to output (contains video_data and audio_data bytes)
         """
         if self.output_pipeline is None:
+            logger.warning("⚠️ Output pipeline is None, skipping pair output")
             return
 
+        logger.info(
+            f"🎬 OUTPUTTING PAIR: batch={pair.video_segment.batch_number}, "
+            f"pts={pair.pts_ns / 1e9:.2f}s, "
+            f"video_size={len(pair.video_data)}, audio_size={len(pair.audio_data)}"
+        )
+
         try:
-            # Push video
-            self.output_pipeline.push_video(
+            # Push video/audio data directly from SyncPair (no file I/O needed)
+            # T033: Use in-memory buffers instead of push_segment_files()
+            video_ok = self.output_pipeline.push_video(
                 pair.video_data,
                 pair.pts_ns,
                 pair.video_segment.duration_ns,
             )
-
-            # Push audio
-            self.output_pipeline.push_audio(
+            audio_ok = self.output_pipeline.push_audio(
                 pair.audio_data,
                 pair.pts_ns,
                 pair.audio_segment.duration_ns,
             )
+            success = video_ok and audio_ok
+
+            logger.info(f"Push result: video_ok={video_ok}, audio_ok={audio_ok}")
 
             # Update metrics
             self.metrics.set_av_sync_delta(self.av_sync.sync_delta_ms)
@@ -469,7 +481,7 @@ class WorkerRunner:
                 self.metrics.record_av_sync_correction()
 
         except Exception as e:
-            logger.error(f"Error outputting sync pair: {e}")
+            logger.error(f"Error outputting sync pair: {e}", exc_info=True)
             self.metrics.record_error("output")
 
     async def _run_loop(self) -> None:

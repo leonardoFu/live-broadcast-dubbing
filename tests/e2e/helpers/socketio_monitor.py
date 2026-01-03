@@ -50,15 +50,18 @@ class SocketIOMonitor:
         self,
         sts_url: str,
         socketio_path: str = "/socket.io",
+        namespace: str = "/sts",
     ) -> None:
         """Initialize Socket.IO monitor.
 
         Args:
             sts_url: STS service URL (e.g., http://localhost:3000)
             socketio_path: Socket.IO endpoint path
+            namespace: Socket.IO namespace (default /sts)
         """
         self.sts_url = sts_url
         self.socketio_path = socketio_path
+        self.namespace = namespace
         self.client = socketio.AsyncClient()
 
         # Event storage
@@ -72,23 +75,23 @@ class SocketIOMonitor:
     def _setup_handlers(self) -> None:
         """Setup Socket.IO event handlers."""
 
-        @self.client.event
+        @self.client.on("connect", namespace=self.namespace)
         async def connect():
             """Handle Socket.IO connection."""
-            logger.info(f"Socket.IO connected to {self.sts_url}")
+            logger.info(f"Socket.IO connected to {self.sts_url} (namespace={self.namespace})")
 
-        @self.client.event
+        @self.client.on("disconnect", namespace=self.namespace)
         async def disconnect():
             """Handle Socket.IO disconnection."""
             logger.info(f"Socket.IO disconnected from {self.sts_url}")
 
-        @self.client.event
+        @self.client.on("connect_error", namespace=self.namespace)
         async def connect_error(data):
             """Handle Socket.IO connection error."""
             logger.error(f"Socket.IO connection error: {data}")
 
         # Wildcard handler to capture all events
-        @self.client.on("*")
+        @self.client.on("*", namespace=self.namespace)
         async def catch_all(event_name: str, *args):
             """Capture all Socket.IO events."""
             # Skip internal events
@@ -124,6 +127,7 @@ class SocketIOMonitor:
             await self.client.connect(
                 self.sts_url,
                 socketio_path=self.socketio_path,
+                namespaces=[self.namespace],
             )
             # Wait a bit for connection to stabilize
             await asyncio.sleep(0.5)

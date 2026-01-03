@@ -79,9 +79,11 @@ def media_compose_env() -> Generator[DockerComposeManager, None, None]:
 
             # Logging
             "LOG_LEVEL": "DEBUG",
-            # GStreamer Debug (for audio pipeline investigation)
-            # Include GST_PADS for linking and GST_CAPS for caps negotiation
-            "GST_DEBUG": "flvdemux:5,aacparse:5,queue:6,appsink:6,GST_PADS:5,GST_CAPS:5",
+            # GStreamer Debug (for audio/output pipeline investigation)
+            # Include GST_PADS for linking, GST_CAPS for caps negotiation
+            # rtmpsink:6 and flvmux:5 for output stream debugging
+            # appsrc:6 for output pipeline buffer flow
+            "GST_DEBUG": "flvdemux:5,aacparse:5,queue:6,appsink:6,appsrc:6,h264parse:5,GST_PADS:5,GST_CAPS:5,rtmpsink:6,flvmux:5",
 
             # Network (use default network name, will connect manually)
             # "NETWORK_NAME": "dubbing-network",  # Let compose create its own network

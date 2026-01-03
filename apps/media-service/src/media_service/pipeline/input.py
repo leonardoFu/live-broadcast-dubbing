@@ -174,7 +174,12 @@ class InputPipeline:
         # Configure video appsink
         self._video_appsink.set_property("emit-signals", True)
         self._video_appsink.set_property("sync", False)
-        video_caps = Gst.Caps.from_string("video/x-h264")
+        # Request byte-stream format with AU alignment
+        # This forces h264parse to convert AVC (from flvdemux) to byte-stream
+        # with SPS/PPS embedded inline, alignment=au for mp4mux compatibility
+        video_caps = Gst.Caps.from_string(
+            "video/x-h264,stream-format=byte-stream,alignment=au"
+        )
         self._video_appsink.set_property("caps", video_caps)
 
         # Configure audio appsink
