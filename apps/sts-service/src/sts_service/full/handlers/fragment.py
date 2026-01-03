@@ -98,6 +98,8 @@ async def handle_fragment_data(
             timestamp=int(time.time() * 1000),
         )
         await sio.emit("fragment:ack", ack.model_dump(), to=sid)
+        # CRITICAL: Force event loop to process the emit in ASGI mode
+        await sio.sleep(0)
 
         # Increment in-flight count and track metrics
         session.increment_inflight()
@@ -250,6 +252,8 @@ async def emit_fragment_processed(
         fragment_result.model_dump(),
         to=sid,
     )
+    # CRITICAL: Force event loop to process the emit in ASGI mode
+    await sio.sleep(0)
 
     # Decrement in-flight count and track metrics
     session.decrement_inflight()

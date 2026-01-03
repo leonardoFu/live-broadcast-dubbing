@@ -6,6 +6,7 @@ This script sends audio chunks to the running STS service and displays results.
 """
 import asyncio
 import base64
+import os
 import subprocess
 import sys
 import time
@@ -65,20 +66,20 @@ async def main():
     async def disconnect():
         print("\n❌ Disconnected from server")
 
-    @sio.event
-    async def stream_ready(data):
+    @sio.on('stream:ready')
+    async def on_stream_ready(data):
         print(f"\n🎬 Stream Ready!")
         print(f"   Session ID: {data.get('session_id')}")
         print(f"   Capabilities: {data.get('capabilities', {})}")
 
-    @sio.event
-    async def fragment_ack(data):
+    @sio.on('fragment:ack')
+    async def on_fragment_ack(data):
         print(f"\n✓ Fragment ACK received:")
         print(f"   Fragment ID: {data.get('fragment_id')}")
         print(f"   Timestamp: {data.get('timestamp')}")
 
-    @sio.event
-    async def fragment_processed(data):
+    @sio.on('fragment:processed')
+    async def on_fragment_processed(data):
         print(f"\n📦 Fragment Processed:")
         print(f"   Fragment ID: {data.get('fragment_id')}")
         print(f"   Status: {data.get('status')}")
@@ -120,12 +121,12 @@ async def main():
 
         results.append(data)
 
-    @sio.event
-    async def backpressure_state(data):
+    @sio.on('backpressure')
+    async def on_backpressure(data):
         print(f"\n   ⚠️  Backpressure: {data.get('severity')} - {data.get('current_inflight')} in-flight")
 
-    @sio.event
-    async def error(data):
+    @sio.on('error')
+    async def on_error(data):
         print(f"\n❌ Error received:")
         print(f"   Code: {data.get('code')}")
         print(f"   Message: {data.get('message')}")
@@ -133,9 +134,10 @@ async def main():
 
     # Run test
     try:
-        # Connect
-        print("\n🔌 Connecting to http://localhost:8003...")
-        await sio.connect("http://localhost:8003")
+        # Connect (use port from environment or default to 8003)
+        port = os.getenv("STS_PORT", "8003")
+        print(f"\n🔌 Connecting to http://localhost:{port}...")
+        await sio.connect(f"http://localhost:{port}")
         await asyncio.sleep(1)
 
         # Init stream

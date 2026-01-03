@@ -170,6 +170,8 @@ async def handle_stream_init(
             response.model_dump(),
             to=sid,
         )
+        # CRITICAL: Force event loop to process the emit in ASGI mode
+        await sio.sleep(0)
 
         logger.info(
             f"Stream initialized: stream_id={payload.stream_id}, "
