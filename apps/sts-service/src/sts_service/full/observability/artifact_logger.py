@@ -127,11 +127,79 @@ class ArtifactLogger:
         Note:
             Uses pydub and ffmpeg for encoding. If encoding fails, returns
             raw PCM audio as fallback.
+
+            Handles both int16 (2 bytes/sample) and float32 (4 bytes/sample) input.
+            Float32 audio is converted to int16 before encoding.
         """
         try:
+            import numpy as np
             from pydub import AudioSegment
 
-            # Create AudioSegment from raw PCM
+            # Detect if input is float32 (4 bytes per sample) vs int16 (2 bytes per sample)
+            # Calculate expected sample count for each format
+            bytes_per_sample_int16 = 2 * channels
+            bytes_per_sample_float32 = 4 * channels
+
+            is_float32 = False
+
+            logger.debug(
+                f"PCM audio analysis: {len(pcm_audio)} bytes, channels={channels}, "
+                f"divisible_by_4={len(pcm_audio) % bytes_per_sample_float32 == 0}"
+            )
+
+            # Check if the byte length is a valid multiple of float32 format
+            if len(pcm_audio) % bytes_per_sample_float32 == 0 and len(pcm_audio) >= 4:
+                # Try interpreting as float32 and check value statistics
+                try:
+                    test_array = np.frombuffer(
+                        pcm_audio[:min(4000, len(pcm_audio))], dtype=np.float32
+                    )
+                    # Float32 audio should have:
+                    # 1. Most values in reasonable audio range (not NaN/Inf)
+                    # 2. Max value reasonable for normalized audio
+                    # Int16 data interpreted as float32 would have huge/weird values
+                    # (int16 values look like very large or very small floats)
+                    valid_values = test_array[np.isfinite(test_array)]
+                    if len(valid_values) > 0:
+                        max_abs = np.max(np.abs(valid_values))
+                        # Key insight: float32 audio from TTS has max_abs typically < 10.0
+                        # Int16 data interpreted as float32 has:
+                        # - Either very large values (> 1e10) if bytes align as exponent
+                        # - Or very small values (< 1e-30) if bytes align as mantissa
+                        # - Or NaN/Inf values from invalid float patterns
+                        #
+                        # So if max_abs is in a "reasonable" audio range (< 10.0), it's float32
+                        # We don't check std_dev as very quiet audio can have tiny std
+                        if max_abs < 10.0:
+                            is_float32 = True
+                            logger.info(
+                                f"Detected float32 audio (max_abs={max_abs:.6f})"
+                            )
+                        else:
+                            logger.debug(
+                                f"Not float32: max_abs={max_abs:.4f} (>= 10.0)"
+                            )
+                    else:
+                        logger.debug("No valid values in test array")
+                except Exception as e:
+                    logger.warning(f"Float32 detection failed: {e}")
+                    is_float32 = False
+
+            if is_float32:
+                logger.info(
+                    f"Converting float32 PCM ({len(pcm_audio)} bytes) to int16 for M4A encoding"
+                )
+                # Convert float32 to int16
+                float_array = np.frombuffer(pcm_audio, dtype=np.float32)
+                # Clip to valid range [-1.0, 1.0]
+                float_array = np.clip(float_array, -1.0, 1.0)
+                # Scale to int16 range [-32768, 32767]
+                int16_array = (float_array * 32767).astype(np.int16)
+                # Convert back to bytes
+                pcm_audio = int16_array.tobytes()
+                logger.info(f"Converted to int16 PCM ({len(pcm_audio)} bytes)")
+
+            # Create AudioSegment from raw PCM (now guaranteed to be int16)
             audio = AudioSegment(
                 data=pcm_audio,
                 sample_width=2,  # 16-bit PCM
@@ -247,10 +315,21 @@ class ArtifactLogger:
             self._ensure_directory(fragment_dir)
 
             # Decode base64 audio
-            pcm_audio = base64.b64decode(audio_base64)
+            audio_data = base64.b64decode(audio_base64)
 
-            # Convert PCM to M4A
-            m4a_audio = self._pcm_to_m4a(pcm_audio, sample_rate, channels)
+            # Check if input is already M4A/MP4 format (starts with ftyp box)
+            # M4A files typically start with: 00 00 00 XX 66 74 79 70 (ftyp)
+            is_already_m4a = (
+                len(audio_data) >= 8
+                and audio_data[4:8] == b"ftyp"
+            )
+
+            if is_already_m4a:
+                logger.debug("Original audio is already M4A format, saving directly")
+                m4a_audio = audio_data
+            else:
+                # Convert PCM to M4A
+                m4a_audio = self._pcm_to_m4a(audio_data, sample_rate, channels)
 
             # Write original audio
             original_audio_path = fragment_dir / "original_audio.m4a"
