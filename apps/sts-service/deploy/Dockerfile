@@ -43,4 +43,5 @@ HEALTHCHECK --interval=5s --timeout=3s --start-period=30s --retries=10 \
     CMD curl -f http://localhost:3000/health || exit 1
 
 # Run STS service
-CMD ["python3", "-m", "uvicorn", "sts_service.main:sio_app", "--host", "0.0.0.0", "--port", "3000", "--log-level", "info"]
+# Port is configurable via STS_PORT environment variable
+CMD ["sh", "-c", "python3 -m uvicorn sts_service.main:sio_app --host ${STS_HOST:-0.0.0.0} --port ${STS_PORT:-3000} --log-level ${LOG_LEVEL:-info}"]

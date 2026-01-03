@@ -49,15 +49,15 @@ help:
 	@echo "  make sts-test-coverage  - Run sts-service tests with coverage"
 	@echo ""
 	@echo "Testing (E2E - Cross-Service):"
-	@echo "  make e2e-up             - Start E2E Docker services"
+	@echo "  make e2e-up             - Start E2E Docker services (MediaMTX + echo-sts + media-service)"
 	@echo "  make e2e-down           - Stop E2E Docker services"
 	@echo "  make e2e-logs           - View E2E Docker logs"
 	@echo "  make e2e-ps             - List E2E Docker containers"
 	@echo "  make e2e-test           - Run E2E tests (services must be running)"
 	@echo "  make e2e-test-full      - Run E2E tests with auto service management"
-	@echo "  make e2e-test-p1        - Run P1 E2E tests (full pipeline + A/V sync)"
-	@echo "  make e2e-test-p2        - Run P2 E2E tests (resilience)"
-	@echo "  make e2e-test-p3        - Run P3 E2E tests (reconnection)"
+	@echo "  make e2e-test-p1        - Run P1 E2E tests (critical: full pipeline + A/V sync)"
+	@echo "  make e2e-test-p2        - Run P2 E2E tests (resilience: circuit breaker + backpressure)"
+	@echo "  make e2e-test-p3        - Run P3 E2E tests (reconnection resilience)"
 	@echo ""
 
 # Monorepo setup target
@@ -189,9 +189,11 @@ sts-echo:
 # =============================================================================
 # E2E Testing (Cross-Service)
 # =============================================================================
-.PHONY: e2e-test e2e-up e2e-down e2e-logs e2e-ps
+# Current implementation: specs/019 - docker-compose with echo-sts (fast, reliable)
+# Future work: specs/021 - independent Docker containers with real STS (production-like)
+.PHONY: e2e-test e2e-up e2e-down e2e-logs e2e-ps e2e-test-full e2e-test-p1 e2e-test-p2 e2e-test-p3
 
-# E2E Docker Compose management
+# E2E Docker Compose management (specs/019 architecture)
 e2e-up:
 	@echo "Starting E2E test services (MediaMTX + echo-sts + media-service)..."
 	docker compose -f tests/e2e/docker-compose.yml up -d --build
@@ -206,9 +208,9 @@ e2e-logs:
 e2e-ps:
 	docker compose -f tests/e2e/docker-compose.yml ps
 
-# Run E2E tests (requires services to be running)
+# Run E2E tests (requires services to be running via e2e-up)
 e2e-test:
-	@echo "Running cross-service E2E tests (media-service + sts-service)..."
+	@echo "Running cross-service E2E tests (media-service + echo-sts)..."
 	$(VENV_PYTHON) -m pytest tests/e2e/ -v -m e2e --log-cli-level=INFO
 
 # Run E2E tests with automatic service management
@@ -218,17 +220,17 @@ e2e-test-full:
 	$(VENV_PYTHON) -m pytest tests/e2e/ -v -m e2e --log-cli-level=INFO || true
 	docker compose -f tests/e2e/docker-compose.yml down -v --remove-orphans
 
-# Run only P1 (critical) E2E tests
+# Run only P1 (critical) E2E tests - Full dubbing pipeline with echo-sts
 e2e-test-p1:
-	@echo "Running P1 E2E tests (full pipeline + A/V sync)..."
+	@echo "Running P1 E2E tests (critical: full pipeline + A/V sync)..."
 	$(VENV_PYTHON) -m pytest tests/e2e/ -v -m "e2e and p1" --log-cli-level=INFO
 
-# Run P2 (resilience) E2E tests
+# Run P2 (resilience) E2E tests - Fault tolerance with circuit breaker and backpressure
 e2e-test-p2:
-	@echo "Running P2 E2E tests (circuit breaker + backpressure + fragment tracker)..."
+	@echo "Running P2 E2E tests (resilience: circuit breaker + backpressure + fragment tracker)..."
 	$(VENV_PYTHON) -m pytest tests/e2e/ -v -m "e2e and p2" --log-cli-level=INFO
 
-# Run P3 (reconnection) E2E tests
+# Run P3 (reconnection) E2E tests - Connection resilience
 e2e-test-p3:
-	@echo "Running P3 E2E tests (reconnection resilience)..."
+	@echo "Running P3 E2E tests (reconnection: MediaMTX + STS recovery)..."
 	$(VENV_PYTHON) -m pytest tests/e2e/ -v -m "e2e and p3" --log-cli-level=INFO

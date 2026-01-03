@@ -54,7 +54,11 @@ services:
     environment:
       - PORT=8080
       - LOG_LEVEL=INFO
-      - SKIP_STS_CONNECTION=true  # Skip STS for integration tests (no STS in docker-compose)
+      - STS_SERVICE_URL=${STS_SERVICE_URL:-http://host.docker.internal:3000}  # Connect to STS service
+      - SEGMENT_DIR=/tmp/segments
+      - METRICS_ENABLED=true
+      - CIRCUIT_BREAKER_THRESHOLD=5
+      - CIRCUIT_BREAKER_TIMEOUT=60
 
     # Networking
     networks:

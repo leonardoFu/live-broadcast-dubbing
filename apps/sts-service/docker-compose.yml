@@ -32,23 +32,29 @@ services:
       start_period: 5s
     restart: unless-stopped
 
-  # Full STS Service - requires NVIDIA GPU runtime
-  # Uncomment when GPU support is needed
-  # sts-service:
-  #   build:
-  #     context: .
-  #     dockerfile: deploy/Dockerfile
-  #   ports:
-  #     - "8001:8000"
-  #   environment:
-  #     - ECHO_PORT=8000
-  #   deploy:
-  #     resources:
-  #       reservations:
-  #         devices:
-  #           - driver: nvidia
-  #             count: 1
-  #             capabilities: [gpu]
+  # Full STS Service - CPU mode for E2E testing (no GPU required)
+  sts-service:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - STS_HOST=0.0.0.0
+      - STS_PORT=3000
+      - LOG_LEVEL=INFO
+      - DEVICE=cpu
+      - ASR_MODEL=tiny
+      - TTS_PROVIDER=coqui
+      - TRANSLATION_PROVIDER=deepl
+      - DEEPL_AUTH_KEY=8e373354-4ca7-4fec-b563-93b2fa6930cc:fx
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 90s
+    restart: unless-stopped
 
 networks:
   default:
