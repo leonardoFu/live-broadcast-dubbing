@@ -1,79 +1,152 @@
-# Media Service - Local Development Environment
-# Purpose: Single-command startup of MediaMTX and media-service
-# Usage: make dev (from project root) or docker compose up (from this directory)
+# Media Service - Production-Ready Configuration
+# Purpose: Production deployment of MediaMTX and media-service
+# Usage:
+#   Production: docker compose up -d
+#   Development: docker compose --profile dev up -d
+#   With custom env: docker compose --env-file .env.production up -d
+#
+# Environment Variables (see .env.example for full list):
+#   MEDIAMTX_RTMP_PORT - RTMP port (default: 1935)
+#   MEDIAMTX_RTSP_PORT - RTSP port (default: 8554)
+#   MEDIAMTX_API_PORT - Control API port (default: 9997)
+#   MEDIA_SERVICE_PORT - HTTP API port (default: 8080)
+#   STS_SERVICE_URL - STS service endpoint (required for production)
+#   LOG_LEVEL - Logging level (default: INFO)
 
 services:
   # MediaMTX Media Server (FR-002 through FR-010)
   mediamtx:
     image: bluenviron/mediamtx:latest-ffmpeg
-    container_name: mediamtx
+    container_name: ${MEDIAMTX_CONTAINER_NAME:-mediamtx}
     restart: unless-stopped
 
-    # Port Mappings
+    # Port Mappings (configurable via environment)
     ports:
-      - "1935:1935"     # RTMP ingest/playback (FR-002, spec 020-rtmp-stream-pull)
-      - "8554:8554"     # RTSP (deprecated, kept for MediaMTX multi-protocol)
-      - "9997:9997"     # Control API (FR-008)
-      - "9998:9998"     # Prometheus metrics (FR-009)
-      - "9996:9996"     # Playback server (FR-010)
+      - "${MEDIAMTX_RTMP_PORT:-1935}:1935"     # RTMP ingest/playback
+      - "${MEDIAMTX_RTSP_PORT:-8554}:8554"     # RTSP (multi-protocol support)
+      - "${MEDIAMTX_API_PORT:-9997}:9997"      # Control API
+      - "${MEDIAMTX_METRICS_PORT:-9998}:9998"  # Prometheus metrics
+      - "${MEDIAMTX_PLAYBACK_PORT:-9996}:9996" # Playback server
 
     # Volume Mounts
     volumes:
       - ./deploy/mediamtx/mediamtx.yml:/mediamtx.yml:ro
       - ./deploy/mediamtx/hooks:/hooks:ro
 
-    # Environment Variables (FR-006a)
+    # Environment Variables
     environment:
-      - ORCHESTRATOR_URL=http://media-service:8080
+      - ORCHESTRATOR_URL=${ORCHESTRATOR_URL:-http://media-service:8080}
+      - MTX_RTSPADDRESS=:8554
+      - MTX_RTMPADDRESS=:1935
+      - MTX_APIADDRESS=:9997
+      - MTX_PROTOCOLS=${MEDIAMTX_PROTOCOLS:-tcp}
+      - MTX_LOGLEVEL=${MEDIAMTX_LOG_LEVEL:-info}
 
     # Networking
     networks:
       - dubbing-network
 
+    # Resource Limits (production)
+    deploy:
+      resources:
+        limits:
+          cpus: '${MEDIAMTX_CPU_LIMIT:-2.0}'
+          memory: ${MEDIAMTX_MEMORY_LIMIT:-2G}
+        reservations:
+          cpus: '${MEDIAMTX_CPU_RESERVATION:-0.5}'
+          memory: ${MEDIAMTX_MEMORY_RESERVATION:-512M}
+
     # Health Check
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:9997/v3/paths/list"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 5s
+      interval: ${HEALTHCHECK_INTERVAL:-10s}
+      timeout: ${HEALTHCHECK_TIMEOUT:-5s}
+      retries: ${HEALTHCHECK_RETRIES:-3}
+      start_period: ${HEALTHCHECK_START_PERIOD:-10s}
+
+    # Logging Configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "${LOG_MAX_SIZE:-10m}"
+        max-file: "${LOG_MAX_FILES:-3}"
 
   # Media Service (FR-011, FR-011a)
   media-service:
     build:
       context: .
       dockerfile: deploy/Dockerfile
-    container_name: media-service
+      args:
+        - BUILD_ENV=${BUILD_ENV:-production}
+    image: ${MEDIA_SERVICE_IMAGE:-media-service:latest}
+    container_name: ${MEDIA_SERVICE_CONTAINER_NAME:-media-service}
     restart: unless-stopped
 
-    # Port Mappings (FR-011a)
+    # Port Mappings
     ports:
-      - "8080:8080"     # HTTP API
+      - "${MEDIA_SERVICE_PORT:-8080}:8080"     # HTTP API
 
     # Environment Variables
     environment:
       - PORT=8080
-      - LOG_LEVEL=INFO
-      - SKIP_STS_CONNECTION=true  # Skip STS for integration tests (no STS in docker-compose)
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - GST_DEBUG=${GST_DEBUG:-0}  # GStreamer debug level (0=none, 3=FIXME, 5=DEBUG)
+      - MEDIAMTX_RTSP_URL=${MEDIAMTX_RTSP_URL:-rtsp://mediamtx:8554}
+      - MEDIAMTX_RTMP_URL=${MEDIAMTX_RTMP_URL:-rtmp://mediamtx:1935}
+      - STS_SERVICE_URL=${STS_SERVICE_URL}  # Required for production
+      - SEGMENT_DIR=${SEGMENT_DIR:-/tmp/segments}
+      - METRICS_ENABLED=${METRICS_ENABLED:-true}
+      - MAX_CONCURRENT_STREAMS=${MAX_CONCURRENT_STREAMS:-10}
+      - CIRCUIT_BREAKER_THRESHOLD=${CIRCUIT_BREAKER_THRESHOLD:-5}
+      - CIRCUIT_BREAKER_TIMEOUT=${CIRCUIT_BREAKER_TIMEOUT:-60}
+
+    # Volume Mounts
+    volumes:
+      - segments-data:/tmp/segments
+      - ${CONFIG_DIR:-./config}:/app/config:ro  # Optional config directory
 
     # Networking
     networks:
       - dubbing-network
 
+    # Resource Limits (production)
+    deploy:
+      resources:
+        limits:
+          cpus: '${MEDIA_SERVICE_CPU_LIMIT:-4.0}'
+          memory: ${MEDIA_SERVICE_MEMORY_LIMIT:-4G}
+        reservations:
+          cpus: '${MEDIA_SERVICE_CPU_RESERVATION:-1.0}'
+          memory: ${MEDIA_SERVICE_MEMORY_RESERVATION:-1G}
+
     # Health Check
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8080/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 5s
+      interval: ${HEALTHCHECK_INTERVAL:-10s}
+      timeout: ${HEALTHCHECK_TIMEOUT:-5s}
+      retries: ${HEALTHCHECK_RETRIES:-3}
+      start_period: ${HEALTHCHECK_START_PERIOD:-15s}
 
-    # Depends On
+    # Logging Configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "${LOG_MAX_SIZE:-10m}"
+        max-file: "${LOG_MAX_FILES:-3}"
+
+    # Dependencies
     depends_on:
       mediamtx:
-        condition: service_started
+        condition: service_healthy
 
 # Custom Network for Service Discovery (FR-006a, T020)
 networks:
   dubbing-network:
     driver: bridge
+    name: ${NETWORK_NAME:-dubbing-network}
+
+# Volumes for persistent data
+volumes:
+  segments-data:
+    driver: local
+    name: ${SEGMENTS_VOLUME_NAME:-media-segments}

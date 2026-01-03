@@ -85,38 +85,129 @@ class VideoSegmentWriter:
         segment: VideoSegment,
         video_data: bytes,
     ) -> VideoSegment:
-        """Write video segment with proper MP4 muxing using GStreamer.
+        """Write video segment with proper MP4 muxing using ffmpeg.
 
         This method creates a proper MP4 container with:
         - ftyp box (file type)
         - moov box (movie header with timing metadata)
         - mdat box (media data)
 
+        Uses ffmpeg for reliable muxing since concatenated H.264 data
+        cannot be properly muxed by GStreamer mp4mux (which expects
+        individual frame buffers, not concatenated data).
+
         Args:
             segment: VideoSegment metadata with file_path
-            video_data: Raw H.264 video data
+            video_data: Raw H.264 video data (concatenated from multiple frames)
 
         Returns:
             Updated VideoSegment with file_size populated
 
         Note:
-            Requires GStreamer to be available. Falls back to raw write
-            if GStreamer is not installed.
+            Requires ffmpeg to be available. Falls back to raw write
+            if ffmpeg is not installed.
         """
         try:
-            import gi
+            return await self._ffmpeg_mux_video(segment, video_data)
 
-            gi.require_version("Gst", "1.0")
-            from gi.repository import Gst
-
-            if not Gst.is_initialized():
-                Gst.init(None)
-
-            return await self._gst_mux_video(segment, video_data)
-
-        except (ImportError, ValueError) as e:
-            logger.warning(f"GStreamer not available, falling back to raw write: {e}")
+        except (FileNotFoundError, RuntimeError) as e:
+            logger.warning(f"ffmpeg muxing failed, falling back to raw write: {e}")
             return await self.write(segment, video_data)
+
+    async def _ffmpeg_mux_video(
+        self,
+        segment: VideoSegment,
+        video_data: bytes,
+    ) -> VideoSegment:
+        """Mux video data into MP4 using ffmpeg.
+
+        This is the proper solution for concatenated H.264 data.
+        ffmpeg can handle concatenated H.264 byte-stream and properly
+        create MP4 container with moov atom.
+
+        Args:
+            segment: VideoSegment metadata
+            video_data: Concatenated H.264 data
+
+        Returns:
+            Updated VideoSegment with file_size populated
+
+        Raises:
+            RuntimeError: If muxing fails
+            FileNotFoundError: If ffmpeg not available
+        """
+        import asyncio
+        import tempfile
+
+        logger.debug(f"🎬 Starting ffmpeg MP4 mux for {segment.file_path}, data size={len(video_data)} bytes")
+
+        # Ensure directory exists
+        segment.file_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Write raw H.264 to temporary file
+        temp_h264 = segment.file_path.with_suffix('.h264.tmp')
+        try:
+            temp_h264.write_bytes(video_data)
+            logger.debug(f"📝 Wrote temporary H.264 file: {temp_h264}")
+
+            # Use ffmpeg to mux into MP4
+            # -f h264: input format is raw H.264
+            # -i: input file
+            # -c copy: codec copy (no re-encoding)
+            # -movflags +faststart: optimize for streaming
+            # -y: overwrite output file
+            cmd = [
+                'ffmpeg',
+                '-f', 'h264',
+                '-i', str(temp_h264),
+                '-c', 'copy',
+                '-movflags', '+faststart',
+                '-y',
+                str(segment.file_path)
+            ]
+
+            logger.debug(f"🚀 Running: {' '.join(cmd)}")
+
+            # Run ffmpeg
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+
+            stdout, stderr = await proc.communicate()
+
+            if proc.returncode != 0:
+                error_msg = stderr.decode('utf-8', errors='replace')
+                logger.error(f"❌ ffmpeg muxing failed: {error_msg}")
+                raise RuntimeError(f"ffmpeg muxing failed: {error_msg}")
+
+            # Clean up temp file
+            temp_h264.unlink()
+
+            # Verify output file
+            if not segment.file_path.exists():
+                logger.error(f"❌ MP4 file not created: {segment.file_path}")
+                raise RuntimeError(f"MP4 file was not created: {segment.file_path}")
+
+            segment.file_size = segment.file_path.stat().st_size
+
+            if segment.file_size == 0:
+                logger.error(f"❌ MP4 file is 0 bytes!")
+                raise RuntimeError("MP4 file is empty (0 bytes)")
+
+            logger.info(
+                f"✅ Video segment muxed to MP4 with ffmpeg: {segment.file_path}, "
+                f"size={segment.file_size} bytes"
+            )
+
+            return segment
+
+        except Exception as e:
+            # Clean up temp file on error
+            if temp_h264.exists():
+                temp_h264.unlink()
+            raise
 
     async def _gst_mux_video(
         self,
@@ -134,49 +225,124 @@ class VideoSegmentWriter:
 
         Returns:
             Updated VideoSegment with file_size populated
+
+        Raises:
+            RuntimeError: If muxing fails
         """
         from gi.repository import Gst
+
+        logger.debug(f"🎬 Starting MP4 mux for {segment.file_path}, data size={len(video_data)} bytes")
 
         # Ensure directory exists
         segment.file_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Create pipeline
+        # Create pipeline - let h264parse auto-negotiate format with mp4mux
+        # h264parse will convert byte-stream → AVC as needed by mp4mux
         pipeline_str = (
             f"appsrc name=src ! h264parse ! mp4mux ! "
             f"filesink location={segment.file_path}"
         )
+        logger.debug(f"Pipeline: {pipeline_str}")
         pipeline = Gst.parse_launch(pipeline_str)
 
         # Get appsrc element
         appsrc = pipeline.get_by_name("src")
+        # Explicitly specify byte-stream format with AU alignment
+        # mp4mux requires alignment=au (access units = complete frames)
+        # byte-stream = start codes (0x00000001) + SPS/PPS inline
         appsrc.set_property("caps", Gst.Caps.from_string(
-            "video/x-h264,stream-format=byte-stream"
+            "video/x-h264,stream-format=byte-stream,alignment=au"
         ))
         appsrc.set_property("format", 3)  # GST_FORMAT_TIME
+        appsrc.set_property("is-live", False)  # Ensure proper timestamping
 
-        # Push data
-        pipeline.set_state(Gst.State.PLAYING)
+        # Start pipeline
+        logger.debug("Setting pipeline to PLAYING...")
+        ret = pipeline.set_state(Gst.State.PLAYING)
+        if ret == Gst.StateChangeReturn.FAILURE:
+            raise RuntimeError("Failed to set pipeline to PLAYING state")
 
+        # Create buffer from video data
+        # CRITICAL: mp4mux requires buffers to have PTS set
+        logger.info(f"📦 Creating buffer: input pts={segment.t0_ns}ns, duration={segment.duration_ns}ns")
+
+        # Create buffer and set timestamps BEFORE pushing
         buffer = Gst.Buffer.new_allocate(None, len(video_data), None)
         buffer.fill(0, video_data)
-        buffer.pts = segment.t0_ns
-        buffer.duration = segment.duration_ns
 
-        appsrc.emit("push-buffer", buffer)
-        appsrc.emit("end-of-stream")
+        # Set PTS and duration - mp4mux REQUIRES these for proper muxing
+        if segment.t0_ns > 0:
+            buffer.pts = segment.t0_ns
+        else:
+            logger.warning(f"⚠️ Segment has invalid PTS: {segment.t0_ns}, using 0")
+            buffer.pts = 0
 
-        # Wait for EOS
+        if segment.duration_ns > 0:
+            buffer.duration = segment.duration_ns
+        else:
+            logger.warning(f"⚠️ Segment has invalid duration: {segment.duration_ns}")
+            buffer.duration = Gst.CLOCK_TIME_NONE
+
+        logger.info(f"✅ Buffer created: pts={buffer.pts}, duration={buffer.duration}, size={len(video_data)}")
+
+        # Push buffer (check return value!)
+        logger.debug("Pushing buffer to appsrc...")
+        ret = appsrc.emit("push-buffer", buffer)
+        if ret != Gst.FlowReturn.OK:
+            logger.error(f"❌ Failed to push buffer: {ret}")
+            pipeline.set_state(Gst.State.NULL)
+            raise RuntimeError(f"Failed to push buffer to appsrc: {ret}")
+
+        # Signal end of stream
+        logger.debug("Sending EOS to appsrc...")
+        ret = appsrc.emit("end-of-stream")
+        if ret != Gst.FlowReturn.OK:
+            logger.warning(f"⚠️ EOS returned: {ret}")
+
+        # Process ALL messages until EOS (critical for mp4mux finalization!)
         bus = pipeline.get_bus()
-        bus.timed_pop_filtered(
-            Gst.CLOCK_TIME_NONE,
-            Gst.MessageType.EOS | Gst.MessageType.ERROR
-        )
+        logger.debug("Waiting for pipeline to finalize MP4...")
 
+        error_occurred = False
+        while True:
+            msg = bus.poll(Gst.MessageType.ANY, Gst.CLOCK_TIME_NONE)
+
+            if not msg:
+                break
+
+            if msg.type == Gst.MessageType.EOS:
+                logger.debug("✅ Received EOS - mp4mux finalized")
+                break
+            elif msg.type == Gst.MessageType.ERROR:
+                err, debug = msg.parse_error()
+                logger.error(f"❌ Pipeline error: {err.message}, debug: {debug}")
+                error_occurred = True
+                break
+            elif msg.type == Gst.MessageType.WARNING:
+                warn, debug = msg.parse_warning()
+                logger.warning(f"⚠️ Pipeline warning: {warn.message}")
+            elif msg.type == Gst.MessageType.STATE_CHANGED:
+                if msg.src == pipeline:
+                    old, new, pending = msg.parse_state_changed()
+                    logger.debug(f"Pipeline state: {old.value_nick} -> {new.value_nick}")
+
+        # Clean shutdown
         pipeline.set_state(Gst.State.NULL)
+
+        if error_occurred:
+            raise RuntimeError("GStreamer pipeline error during muxing")
 
         # Update file size
         if segment.file_path.exists():
             segment.file_size = segment.file_path.stat().st_size
+            logger.debug(f"✅ MP4 file created: {segment.file_size} bytes")
+        else:
+            logger.error(f"❌ MP4 file not created: {segment.file_path}")
+            raise RuntimeError(f"MP4 file was not created: {segment.file_path}")
+
+        if segment.file_size == 0:
+            logger.error(f"❌ MP4 file is 0 bytes!")
+            raise RuntimeError("MP4 file is empty (0 bytes)")
 
         logger.info(
             f"Video segment muxed to MP4: {segment.file_path}, "

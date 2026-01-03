@@ -205,9 +205,11 @@ class AvSyncManager:
             pts_ns=video_pts,
         )
 
-        logger.debug(
-            f"Sync pair created: batch={video_segment.batch_number}, "
-            f"pts={video_pts / 1e9:.3f}s, "
+        # Log pair creation at INFO level for visibility during debugging
+        logger.info(
+            f"✅ A/V PAIR CREATED: batch={video_segment.batch_number}, "
+            f"pts={video_pts / 1e9:.2f}s, "
+            f"v_size={len(video_data)}, a_size={len(audio_data)}, "
             f"dubbed={audio_segment.is_dubbed}"
         )
 

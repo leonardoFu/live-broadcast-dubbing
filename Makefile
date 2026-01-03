@@ -1,5 +1,6 @@
 .PHONY: fmt lint typecheck test help setup api-status metrics clean clean-artifacts install-hooks
 .PHONY: media-dev media-down media-logs media-ps
+.PHONY: e2e-test e2e-test-p1 e2e-clean e2e-logs e2e-media-up e2e-media-down e2e-sts-up e2e-sts-down
 
 PYTHON := python3.10
 VENV := .venv
@@ -49,15 +50,16 @@ help:
 	@echo "  make sts-test-coverage  - Run sts-service tests with coverage"
 	@echo ""
 	@echo "Testing (E2E - Cross-Service):"
-	@echo "  make e2e-up             - Start E2E Docker services"
-	@echo "  make e2e-down           - Stop E2E Docker services"
-	@echo "  make e2e-logs           - View E2E Docker logs"
-	@echo "  make e2e-ps             - List E2E Docker containers"
-	@echo "  make e2e-test           - Run E2E tests (services must be running)"
-	@echo "  make e2e-test-full      - Run E2E tests with auto service management"
-	@echo "  make e2e-test-p1        - Run P1 E2E tests (full pipeline + A/V sync)"
-	@echo "  make e2e-test-p2        - Run P2 E2E tests (resilience)"
-	@echo "  make e2e-test-p3        - Run P3 E2E tests (reconnection)"
+	@echo "  make e2e-test           - Run E2E tests (auto-starts services via pytest)"
+	@echo "  make e2e-test-p1        - Run P1 E2E tests (full pipeline, real STS)"
+	@echo "  make e2e-logs           - View logs from both service environments"
+	@echo "  make e2e-clean          - Stop and cleanup all E2E Docker resources"
+	@echo ""
+	@echo "E2E Manual Service Control (for debugging):"
+	@echo "  make e2e-media-up       - Start media-service environment (MediaMTX + media-service)"
+	@echo "  make e2e-media-down     - Stop media-service environment"
+	@echo "  make e2e-sts-up         - Start STS-service environment"
+	@echo "  make e2e-sts-down       - Stop STS-service environment"
 	@echo ""
 
 # Monorepo setup target
@@ -189,46 +191,53 @@ sts-echo:
 # =============================================================================
 # E2E Testing (Cross-Service)
 # =============================================================================
-.PHONY: e2e-test e2e-up e2e-down e2e-logs e2e-ps
+# NOTE: E2E tests use DualComposeManager to manage separate Docker Compose
+#       environments for media-service and STS-service (spec 021).
+#       Services are started automatically by pytest fixtures.
+# =============================================================================
 
-# E2E Docker Compose management
-e2e-up:
-	@echo "Starting E2E test services (MediaMTX + echo-sts + media-service)..."
-	docker compose -f tests/e2e/docker-compose.yml up -d --build
+# Manual service management (for debugging)
+# Uses same .env files as DualComposeManager for consistency
+e2e-media-up:
+	@echo "Starting media-service E2E environment (MediaMTX + media-service)..."
+	@echo "Using environment from tests/e2e/.env.media"
+	docker compose -f apps/media-service/docker-compose.yml --env-file tests/e2e/.env.media -p e2e-media up -d --build
 
-e2e-down:
-	@echo "Stopping E2E test services..."
-	docker compose -f tests/e2e/docker-compose.yml down -v --remove-orphans
+e2e-media-down:
+	@echo "Stopping media-service E2E environment..."
+	docker compose -f apps/media-service/docker-compose.yml -p e2e-media down -v --remove-orphans
+
+e2e-sts-up:
+	@echo "Starting STS-service E2E environment (echo-sts for testing)..."
+	@echo "Using environment from tests/e2e/.env.sts"
+	docker compose -f apps/sts-service/docker-compose.yml --env-file tests/e2e/.env.sts -p e2e-sts up echo-sts -d --build
+
+e2e-sts-down:
+	@echo "Stopping STS-service E2E environment..."
+	docker compose -f apps/sts-service/docker-compose.yml -p e2e-sts down -v --remove-orphans
 
 e2e-logs:
-	docker compose -f tests/e2e/docker-compose.yml logs -f --tail=200
+	@echo "Viewing logs from both E2E environments..."
+	@echo "=== Media Service Logs ==="
+	@docker compose -f apps/media-service/docker-compose.yml -p e2e-media logs --tail=50 || true
+	@echo ""
+	@echo "=== STS Service Logs ==="
+	@docker compose -f apps/sts-service/docker-compose.yml -p e2e-sts logs --tail=50 || true
 
-e2e-ps:
-	docker compose -f tests/e2e/docker-compose.yml ps
-
-# Run E2E tests (requires services to be running)
+# Run E2E tests (DualComposeManager handles service lifecycle)
 e2e-test:
-	@echo "Running cross-service E2E tests (media-service + sts-service)..."
+	@echo "Running cross-service E2E tests (real media-service + real STS-service)..."
+	@echo "Services will be started automatically by pytest fixtures"
 	$(VENV_PYTHON) -m pytest tests/e2e/ -v -m e2e --log-cli-level=INFO
 
-# Run E2E tests with automatic service management
-e2e-test-full:
-	@echo "Starting E2E services, running tests, and cleaning up..."
-	docker compose -f tests/e2e/docker-compose.yml up -d --build
-	$(VENV_PYTHON) -m pytest tests/e2e/ -v -m e2e --log-cli-level=INFO || true
-	docker compose -f tests/e2e/docker-compose.yml down -v --remove-orphans
-
-# Run only P1 (critical) E2E tests
+# Run only P1 (critical) E2E tests - full pipeline with real services
 e2e-test-p1:
-	@echo "Running P1 E2E tests (full pipeline + A/V sync)..."
-	$(VENV_PYTHON) -m pytest tests/e2e/ -v -m "e2e and p1" --log-cli-level=INFO
+	@echo "Running P1 E2E tests (full pipeline with real STS - no mocking)..."
+	$(VENV_PYTHON) -m pytest tests/e2e/ -v -m "e2e and full_pipeline" --log-cli-level=INFO
 
-# Run P2 (resilience) E2E tests
-e2e-test-p2:
-	@echo "Running P2 E2E tests (circuit breaker + backpressure + fragment tracker)..."
-	$(VENV_PYTHON) -m pytest tests/e2e/ -v -m "e2e and p2" --log-cli-level=INFO
-
-# Run P3 (reconnection) E2E tests
-e2e-test-p3:
-	@echo "Running P3 E2E tests (reconnection resilience)..."
-	$(VENV_PYTHON) -m pytest tests/e2e/ -v -m "e2e and p3" --log-cli-level=INFO
+# Clean up all E2E services
+e2e-clean:
+	@echo "Cleaning up all E2E Docker resources..."
+	@docker compose -f apps/media-service/docker-compose.yml -p e2e-media down -v --remove-orphans 2>/dev/null || true
+	@docker compose -f apps/sts-service/docker-compose.yml -p e2e-sts down -v --remove-orphans 2>/dev/null || true
+	@echo "✓ E2E cleanup complete"

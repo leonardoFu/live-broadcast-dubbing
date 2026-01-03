@@ -10,6 +10,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     curl \
     ca-certificates \
+    cargo \
+    rustc \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
@@ -25,6 +27,7 @@ RUN pip3 install --no-cache-dir --upgrade pip setuptools wheel && \
     "python-socketio[asyncio]>=5.0" \
     "uvicorn[standard]>=0.24.0" \
     "pydantic>=2.0" \
+    "starlette>=0.27.0" \
     "openai-whisper>=20230314" \
     "deep-translator>=1.11.0" \
     "TTS>=0.21.0" \
@@ -42,5 +45,6 @@ EXPOSE 3000
 HEALTHCHECK --interval=5s --timeout=3s --start-period=30s --retries=10 \
     CMD curl -f http://localhost:3000/health || exit 1
 
-# Run STS service
-CMD ["python3", "-m", "uvicorn", "sts_service.main:sio_app", "--host", "0.0.0.0", "--port", "3000", "--log-level", "info"]
+# Run STS service (using echo service temporarily until real STS main.py is implemented)
+# TODO: Replace with real STS service once main.py is created
+CMD ["python", "-m", "sts_service.echo", "--host", "0.0.0.0", "--port", "3000"]

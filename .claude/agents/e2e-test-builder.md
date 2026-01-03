@@ -16,8 +16,8 @@ Parse WORKFLOW_CONTEXT from prompt:
 WORKFLOW_CONTEXT:
 {
   "workflow_id": "<uuid>",
-  "feature_id": "<feature-id>",
-  "feature_dir": "specs/<feature-id>/",
+  "e2e_test_id": "<number>-<short-name>",  # e.g., "021-full-pipeline-e2e"
+  "spec_dir": "specs/<e2e_test_id>/",
   "test_scope": {
     "test_type": "e2e",
     "priority": "P1|P2|P3",
@@ -28,39 +28,87 @@ WORKFLOW_CONTEXT:
 USER_REQUEST: <original user request>
 ```
 
+**Note**: If `e2e_test_id` not provided, generate from user request following pattern: `<next-number>-<kebab-case-name>`
+
 ## Mission
 
-Create E2E tests from specs, detect implementation gaps, ensure spec alignment.
-
-**CRITICAL**: Write tests BEFORE implementation. If feature not implemented, flag and suggest returning to feature workflow.
+Create E2E test specifications and test implementations in dedicated spec directory.
 
 ## Execution Protocol
 
-### PHASE 1: DISCOVERY
+### PHASE 0: SETUP SPEC DIRECTORY
 
-**Step 1: Load Feature Context**
+**Step 1: Create Spec Directory Structure**
 
 ```bash
-Read specs/<feature-id>/spec.md
-Read specs/<feature-id>/plan.md
-Read specs/<feature-id>/e2e-test-plan.md  # if exists
+# Generate e2e_test_id if not provided
+# Pattern: <next-number>-<kebab-case-name>
+# Example: "021-full-pipeline-e2e"
+
+# Create directory structure
+Bash: mkdir -p specs/<e2e_test_id>/{checklists,contracts}
+
+# Initialize spec.md
+Write: specs/<e2e_test_id>/spec.md
 ```
 
-**Step 2: Extract Requirements**
+**spec.md Template**:
+```markdown
+# E2E Test: <Title>
 
-From spec.md:
-- Success Criteria (SC-XXX items)
-- User scenarios
+## Overview
+<Brief description of what this E2E test validates>
+
+## Test Scope
+- **Priority**: P1|P2|P3
+- **Test Type**: End-to-End
+- **Services Under Test**: [service-1, service-2, ...]
+- **Test File**: `tests/e2e/test_<name>.py`
+
+## Success Criteria
+- **SC-001**: <Validation criterion>
+- **SC-002**: <Validation criterion>
+
+## Test Scenarios
+### Scenario 1: <Name>
+**Given**: <Initial state>
+**When**: <Action>
+**Then**: <Expected outcome>
+**Covers**: SC-001, SC-002
+
+## Dependencies
+- External services required
+- Test fixtures/data
+- Infrastructure setup
+
+## Observability
+- Metrics to validate
+- Logs to monitor
+- Events to track
+```
+
+### PHASE 1: DISCOVERY
+
+**Step 1: Load Context**
+
+```bash
+# Check if existing spec exists
+Read: specs/<e2e_test_id>/spec.md  # if exists, update mode
+
+# Load related feature specs if referenced
+Read: specs/<related-feature-id>/spec.md  # if applicable
+Read: specs/<related-feature-id>/plan.md  # if applicable
+```
+
+**Step 2: Extract Test Requirements**
+
+From USER_REQUEST and existing specs:
+- What system behavior to validate
+- Success criteria
 - Integration points
-- Performance requirements
+- Performance/quality requirements
 
-From plan.md:
-- Architecture & service topology
-- APIs/Contracts
-- Data flow
-- External dependencies
-
-**Step 3: Determine Test Scope**
+**Step 3: Determine Test Priority**
 
 ```python
 # P1 (Critical): Full pipeline validation (input → processing → output)
@@ -205,36 +253,46 @@ Write: tests/e2e/helpers/<helper_name>.py
 
 ---
 
-### PHASE 5: DOCUMENTATION
+### PHASE 5: UPDATE SPEC DIRECTORY
 
-**Create E2E Test Plan**
+**Step 1: Update spec.md with Implementation Details**
 
 ```bash
-Write: specs/<feature-id>/e2e-test-plan.md
+Edit: specs/<e2e_test_id>/spec.md
+# Add actual test file location, fixtures used, helpers created
+# Update success criteria with actual test function mappings
 ```
 
-Structure:
-```markdown
-# E2E Test Plan: <Feature>
+**Step 2: Create README.md (Navigation Guide)**
 
-## Test Scope
-- Priority: P1|P2|P3
-- Test File: `tests/e2e/test_<name>.py`
+```bash
+Write: specs/<e2e_test_id>/README.md
+```
+
+**README.md Structure**:
+```markdown
+# E2E Test: <Title>
+
+Quick navigation for this E2E test specification.
+
+## Artifacts
+- [spec.md](./spec.md) - Test specification and success criteria
+- [Test Implementation](../../tests/e2e/test_<name>.py)
+
+## Quick Start
+\`\`\`bash
+make e2e-up
+pytest tests/e2e/test_<name>.py -v
+make e2e-down
+\`\`\`
 
 ## Success Criteria Coverage
 | Criterion | Test Function | Status |
 |-----------|---------------|--------|
 | SC-001 | `test_x()` | ✅ |
-
-## Test Scenarios
-### Scenario 1
-Given/When/Then, Test function
-
-## Running Tests
-make e2e-up
-pytest tests/e2e/test_<name>.py -v
-make e2e-down
 ```
+
+**DO NOT** create extra summary docs (plan.md, tasks.md, etc.) - only spec.md and README.md are needed for E2E tests.
 
 ---
 
@@ -243,7 +301,7 @@ make e2e-down
 **Step 1: Validate Coverage**
 
 ```python
-success_criteria = extract_from_spec("specs/<feature-id>/spec.md")
+success_criteria = extract_from_spec("specs/<e2e_test_id>/spec.md")
 test_functions = extract_from_test("tests/e2e/test_<name>.py")
 coverage = map_tests_to_criteria(success_criteria, test_functions)
 uncovered = [sc for sc in success_criteria if sc not in coverage]
@@ -260,9 +318,10 @@ uncovered = [sc for sc in success_criteria if sc not in coverage]
   "timestamp": "<ISO8601>",
   "execution_time_ms": <duration>,
   "result": {
-    "feature_id": "<feature-id>",
+    "e2e_test_id": "<e2e_test_id>",
+    "spec_dir": "specs/<e2e_test_id>/",
+    "spec_file": "specs/<e2e_test_id>/spec.md",
     "test_file": "tests/e2e/test_<name>.py",
-    "test_plan": "specs/<feature-id>/e2e-test-plan.md",
     "test_priority": "P1|P2|P3",
     "test_coverage": {
       "success_criteria_total": 5,
@@ -277,9 +336,14 @@ uncovered = [sc for sc in success_criteria if sc not in coverage]
         "covers": ["SC-001", "SC-002"]
       }
     ],
-    "helpers_created": ["tests/e2e/helpers/<name>.py"],
+    "artifacts_created": {
+      "spec": "specs/<e2e_test_id>/spec.md",
+      "readme": "specs/<e2e_test_id>/README.md",
+      "test": "tests/e2e/test_<name>.py",
+      "helpers": ["tests/e2e/helpers/<name>.py"]
+    },
     "next_steps": [
-      "Run: make e2e-up && pytest tests/e2e/test_<name>.py",
+      "Run: make e2e-up && pytest tests/e2e/test_<name>.py -v",
       "If failures, use e2e-test-fixer agent"
     ]
   }
@@ -293,6 +357,8 @@ uncovered = [sc for sc in success_criteria if sc not in coverage]
   "agent": "speckit-e2e-test-builder",
   "status": "success",
   "result": {
+    "e2e_test_id": "<e2e_test_id>",
+    "spec_dir": "specs/<e2e_test_id>/",
     "test_coverage": {
       "success_criteria_total": 5,
       "success_criteria_covered": 3,
@@ -310,7 +376,7 @@ uncovered = [sc for sc in success_criteria if sc not in coverage]
       {
         "severity": "MEDIUM",
         "message": "2 success criteria not covered",
-        "recommendation": "Create additional tests for SC-004, SC-005"
+        "recommendation": "Create additional tests or update spec"
       }
     ]
   }
@@ -349,18 +415,21 @@ def services():
 ## Constraints
 
 **MUST NOT**:
-- Write tests without reading spec/plan
+- Skip spec directory creation (specs/<e2e_test_id>/)
+- Create unnecessary artifacts (plan.md, tasks.md, etc.)
+- Write tests without spec.md
 - Skip implementation gap detection
 - Test internals (use unit tests)
-- Hardcode values (use config)
 - Leave uncovered SC without flagging
 
 **MUST**:
-- Follow TDD (tests before implementation)
-- Map all tests to success criteria
+- Create specs/<e2e_test_id>/ directory structure
+- Write spec.md and README.md in spec directory
+- Generate e2e_test_id from pattern: <number>-<kebab-case-name>
+- Map all tests to success criteria in spec.md
 - Use Docker Compose for orchestration
-- Create reusable helpers
-- Document in e2e-test-plan.md
+- Create reusable helpers when needed
+- Update spec.md with implementation details
 - Flag missing implementations
 
 ---

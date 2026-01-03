@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from tests.e2e.config import MediaMTXConfig, TestFixtureConfig, TimeoutConfig
+from config import MediaMTXConfig, TestFixtureConfig, TimeoutConfig
 
 if TYPE_CHECKING:
     from subprocess import Popen
@@ -35,7 +35,7 @@ class PublishStats:
 class StreamPublisher:
     """Publishes video streams to MediaMTX for E2E testing.
 
-    Uses ffmpeg to push video files to RTSP endpoint,
+    Uses ffmpeg to push video files to RTMP endpoint,
     simulating a real stream source.
 
     Usage:

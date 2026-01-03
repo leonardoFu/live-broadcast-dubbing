@@ -243,14 +243,24 @@ class WorkerRunner:
         """Handle audio buffer from input pipeline.
 
         Accumulates data and emits segments when ready.
+
+        Note: Duration should be calculated in input pipeline from caps.
+        This is a final fallback if duration is still missing.
         """
+        if duration_ns == 0:
+            logger.warning(
+                f"Audio buffer received with duration_ns=0 (size={len(data)}). "
+                "This should be calculated from caps in input pipeline."
+            )
+
+        logger.debug(f"Audio buffer: size={len(data)}, pts_ns={pts_ns}, duration_ns={duration_ns}")
         segment, segment_data = self.segment_buffer.push_audio(data, pts_ns, duration_ns)
 
         if segment is not None:
             # Thread-safe queue operation
             try:
                 self._audio_queue.put_nowait((segment, segment_data))
-                logger.debug(f"Audio segment queued: batch={segment.batch_number}")
+                logger.info(f"Audio segment queued: batch={segment.batch_number}")
             except asyncio.QueueFull:
                 logger.warning(f"Audio queue full, dropping segment {segment.batch_number}")
 
@@ -261,15 +271,18 @@ class WorkerRunner:
     ) -> None:
         """Process video segment.
 
-        Writes to disk and queues for A/V sync.
+        T033: Skip MP4 file writing - use in-memory data directly for output.
+        Video data flows: input pipeline -> segment buffer -> A/V sync -> output pipeline
+        No disk I/O needed in this path.
         """
         try:
-            # Write segment to disk
-            segment = await self.video_writer.write(segment, data)
+            # T033: Skip writing to disk - we use in-memory data for output
+            # Just update segment metadata with data size for metrics
+            segment.file_size = len(data)
 
-            self.metrics.record_segment_processed("video", segment.file_size)
+            self.metrics.record_segment_processed("video", len(data))
 
-            # Push to A/V sync
+            # Push to A/V sync with in-memory data
             pair = await self.av_sync.push_video(segment, data)
             if pair:
                 await self._output_pair(pair)
@@ -427,26 +440,45 @@ class WorkerRunner:
     async def _output_pair(self, pair: SyncPair) -> None:
         """Output synchronized video/audio pair.
 
+        Uses in-memory data directly from SyncPair instead of reading from files.
+        This eliminates unnecessary disk I/O in the output path (T033 simplification).
+
         Args:
-            pair: SyncPair to output
+            pair: SyncPair to output (contains video_data and audio_data bytes)
         """
         if self.output_pipeline is None:
+            logger.warning("⚠️ Output pipeline is None, skipping pair output")
             return
 
+        logger.info(
+            f"🎬 OUTPUTTING PAIR: batch={pair.video_segment.batch_number}, "
+            f"pts={pair.pts_ns / 1e9:.2f}s, "
+            f"video_size={len(pair.video_data)}, audio_size={len(pair.audio_data)}"
+        )
+
         try:
-            # Push video
-            self.output_pipeline.push_video(
+            # Push video/audio data directly from SyncPair (no file I/O needed)
+            # T033: Use in-memory buffers instead of push_segment_files()
+
+            # Video is already in H.264 byte-stream format from input pipeline
+            video_ok = self.output_pipeline.push_video(
                 pair.video_data,
                 pair.pts_ns,
                 pair.video_segment.duration_ns,
             )
 
-            # Push audio
-            self.output_pipeline.push_audio(
+            # Audio is already in raw AAC format (from aacparse in input pipeline).
+            # The segment writer saves raw AAC bytes to .m4a files (not proper container),
+            # so the data is already in a format the output pipeline's aacparse can handle.
+            # No conversion needed.
+            audio_ok = self.output_pipeline.push_audio(
                 pair.audio_data,
                 pair.pts_ns,
                 pair.audio_segment.duration_ns,
             )
+            success = video_ok and audio_ok
+
+            logger.info(f"Push result: video_ok={video_ok}, audio_ok={audio_ok}")
 
             # Update metrics
             self.metrics.set_av_sync_delta(self.av_sync.sync_delta_ms)
@@ -459,7 +491,7 @@ class WorkerRunner:
                 self.metrics.record_av_sync_correction()
 
         except Exception as e:
-            logger.error(f"Error outputting sync pair: {e}")
+            logger.error(f"Error outputting sync pair: {e}", exc_info=True)
             self.metrics.record_error("output")
 
     async def _run_loop(self) -> None:

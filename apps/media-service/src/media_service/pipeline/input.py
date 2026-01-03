@@ -105,6 +105,10 @@ class InputPipeline:
         rtmpsrc -> flvdemux -> video: h264parse -> queue -> appsink
                             -> audio: aacparse -> queue -> appsink
 
+        Note: flvdemux creates pads dynamically, so video/audio paths are
+        linked in _on_pad_added callback. Static elements (parser->queue->sink)
+        are pre-linked, dynamic linking happens for flvdemux->parser.
+
         Raises:
             RuntimeError: If GStreamer not available or element creation fails
         """
@@ -125,6 +129,7 @@ class InputPipeline:
             raise RuntimeError("Failed to create rtmpsrc element")
 
         rtmpsrc.set_property("location", self._rtmp_url)
+        rtmpsrc.set_property("timeout", 30)  # 30 second timeout for network operations
 
         # Create FLV demuxer
         flvdemux = Gst.ElementFactory.make("flvdemux", "flvdemux")
@@ -136,10 +141,23 @@ class InputPipeline:
         video_queue = Gst.ElementFactory.make("queue", "video_queue")
         self._video_appsink = Gst.ElementFactory.make("appsink", "video_sink")
 
+        # Configure video queue for better buffering
+        video_queue.set_property("max-size-buffers", 0)  # Unlimited buffers
+        video_queue.set_property("max-size-bytes", 0)    # Unlimited bytes
+        video_queue.set_property("max-size-time", 5 * Gst.SECOND)  # 5 seconds of data
+        video_queue.set_property("leaky", 2)  # Leak downstream (drop old data if full)
+
         # Audio path elements
+        # Add aacparse for robust caps negotiation and timestamp handling
         aacparse = Gst.ElementFactory.make("aacparse", "aacparse")
         audio_queue = Gst.ElementFactory.make("queue", "audio_queue")
         self._audio_appsink = Gst.ElementFactory.make("appsink", "audio_sink")
+
+        # Configure audio queue for better buffering
+        audio_queue.set_property("max-size-buffers", 0)  # Unlimited buffers
+        audio_queue.set_property("max-size-bytes", 0)    # Unlimited bytes
+        audio_queue.set_property("max-size-time", 5 * Gst.SECOND)  # 5 seconds of data
+        audio_queue.set_property("leaky", 2)  # Leak downstream (drop old data if full)
 
         # Verify all elements created
         for elem_name, elem in [
@@ -156,16 +174,21 @@ class InputPipeline:
         # Configure video appsink
         self._video_appsink.set_property("emit-signals", True)
         self._video_appsink.set_property("sync", False)
-        video_caps = Gst.Caps.from_string("video/x-h264")
+        # Request byte-stream format with AU alignment
+        # This forces h264parse to convert AVC (from flvdemux) to byte-stream
+        # with SPS/PPS embedded inline, alignment=au for mp4mux compatibility
+        video_caps = Gst.Caps.from_string(
+            "video/x-h264,stream-format=byte-stream,alignment=au"
+        )
         self._video_appsink.set_property("caps", video_caps)
 
         # Configure audio appsink
         self._audio_appsink.set_property("emit-signals", True)
         self._audio_appsink.set_property("sync", False)
-        self._audio_appsink.set_property("async", False)
-        self._audio_appsink.set_property("max-buffers", 0)  # Unlimited buffering
-        self._audio_appsink.set_property("drop", False)
-        audio_caps = Gst.Caps.from_string("audio/mpeg")
+        # Request ADTS format from aacparse. FLV contains raw AAC frames, but aacparse
+        # will convert them to ADTS (self-describing format with headers) for the output.
+        # This ensures the data is consistent throughout the pipeline.
+        audio_caps = Gst.Caps.from_string("audio/mpeg,mpegversion=4,stream-format=adts")
         self._audio_appsink.set_property("caps", audio_caps)
 
         # Connect appsink signals
@@ -193,6 +216,9 @@ class InputPipeline:
             raise RuntimeError("Failed to link video_queue -> video_sink")
 
         # Link static audio elements: aacparse -> queue -> sink
+        # Note: Do NOT pre-link aacparse to queue! This must happen dynamically
+        # after flvdemux creates the audio pad, otherwise the sink pad will be
+        # occupied and _on_pad_added will fail to link flvdemux -> aacparse
         if not aacparse.link(audio_queue):
             raise RuntimeError("Failed to link aacparse -> audio_queue")
         if not audio_queue.link(self._audio_appsink):
@@ -253,7 +279,7 @@ class InputPipeline:
                     logger.error(f"Failed to link video pad: {result}")
 
         elif media_type.startswith("audio/mpeg"):
-            # Link to aacparse
+            # Link to aacparse for caps negotiation and timestamp handling
             sink_pad = self._aacparse.get_static_pad("sink")
             if sink_pad and not sink_pad.is_linked():
                 result = pad.link(sink_pad)
@@ -262,6 +288,9 @@ class InputPipeline:
                     logger.info("Linked flvdemux audio pad to aacparse")
                 else:
                     logger.error(f"Failed to link audio pad: {result}")
+            else:
+                if sink_pad:
+                    logger.error(f"Audio sink pad already linked - this should not happen!")
 
     def _validate_audio_track(self, timeout_ms: int = 2000) -> None:
         """Validate audio track presence in the stream.
@@ -349,6 +378,17 @@ class InputPipeline:
 
             pts_ns = buffer.pts if buffer.pts != Gst.CLOCK_TIME_NONE else 0
             duration_ns = buffer.duration if buffer.duration != Gst.CLOCK_TIME_NONE else 0
+
+            # If duration is missing, calculate from caps (sample rate)
+            if duration_ns == 0:
+                caps = sample.get_caps()
+                if caps and not caps.is_empty():
+                    structure = caps.get_structure(0)
+                    sample_rate = structure.get_int("rate")[1] if structure.has_field("rate") else 44100
+                    # AAC-LC: 1024 samples per frame
+                    # Duration = samples_per_frame / sample_rate * 1e9 ns
+                    duration_ns = int((1024 / sample_rate) * 1_000_000_000)
+                    logger.debug(f"Calculated audio buffer duration from caps: sample_rate={sample_rate}Hz, duration={duration_ns}ns ({duration_ns/1e6:.2f}ms)")
 
             try:
                 self._on_audio_buffer(data, pts_ns, duration_ns)

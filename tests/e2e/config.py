@@ -86,7 +86,7 @@ class TimeoutConfig:
 class TestFixtureConfig:
     """Test fixture configuration."""
 
-    FIXTURE_DIR = E2E_TEST_DIR / "fixtures" / "test-streams"
+    FIXTURE_DIR = PROJECT_ROOT / "fixtures" / "test-streams"
     FIXTURE_FILE = "1-min-nfl.mp4"
     FIXTURE_PATH = FIXTURE_DIR / FIXTURE_FILE
 
@@ -97,7 +97,7 @@ class TestFixtureConfig:
     VIDEO_WIDTH = 1280
     VIDEO_HEIGHT = 720
     VIDEO_FPS = 30
-    AUDIO_SAMPLE_RATE = 48000
+    AUDIO_SAMPLE_RATE = 44100
     AUDIO_CHANNELS = 2
 
 
