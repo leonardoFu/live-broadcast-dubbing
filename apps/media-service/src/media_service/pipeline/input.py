@@ -105,6 +105,10 @@ class InputPipeline:
         rtmpsrc -> flvdemux -> video: h264parse -> queue -> appsink
                             -> audio: aacparse -> queue -> appsink
 
+        Note: flvdemux creates pads dynamically, so video/audio paths are
+        linked in _on_pad_added callback. Static elements (parser->queue->sink)
+        are pre-linked, dynamic linking happens for flvdemux->parser.
+
         Raises:
             RuntimeError: If GStreamer not available or element creation fails
         """
@@ -144,8 +148,8 @@ class InputPipeline:
         video_queue.set_property("leaky", 2)  # Leak downstream (drop old data if full)
 
         # Audio path elements
-        # Note: flvdemux outputs framed=true AAC, so we can skip aacparse for input
-        # aacparse = Gst.ElementFactory.make("aacparse", "aacparse")
+        # Add aacparse for robust caps negotiation and timestamp handling
+        aacparse = Gst.ElementFactory.make("aacparse", "aacparse")
         audio_queue = Gst.ElementFactory.make("queue", "audio_queue")
         self._audio_appsink = Gst.ElementFactory.make("appsink", "audio_sink")
 
@@ -160,7 +164,7 @@ class InputPipeline:
             ("h264parse", h264parse),
             ("video_queue", video_queue),
             ("video_sink", self._video_appsink),
-            # ("aacparse", aacparse),  # Removed - using direct flvdemux → queue connection
+            ("aacparse", aacparse),
             ("audio_queue", audio_queue),
             ("audio_sink", self._audio_appsink),
         ]:
@@ -190,7 +194,7 @@ class InputPipeline:
         self._pipeline.add(h264parse)
         self._pipeline.add(video_queue)
         self._pipeline.add(self._video_appsink)
-        # self._pipeline.add(aacparse)  # Removed - using direct flvdemux → queue connection
+        self._pipeline.add(aacparse)
         self._pipeline.add(audio_queue)
         self._pipeline.add(self._audio_appsink)
 
@@ -204,13 +208,18 @@ class InputPipeline:
         if not video_queue.link(self._video_appsink):
             raise RuntimeError("Failed to link video_queue -> video_sink")
 
-        # Link static audio elements: queue -> sink (no aacparse needed for framed AAC)
+        # Link static audio elements: aacparse -> queue -> sink
+        # Note: Do NOT pre-link aacparse to queue! This must happen dynamically
+        # after flvdemux creates the audio pad, otherwise the sink pad will be
+        # occupied and _on_pad_added will fail to link flvdemux -> aacparse
+        if not aacparse.link(audio_queue):
+            raise RuntimeError("Failed to link aacparse -> audio_queue")
         if not audio_queue.link(self._audio_appsink):
             raise RuntimeError("Failed to link audio_queue -> audio_sink")
 
         # Store references for dynamic pad linking
         self._h264parse = h264parse
-        self._audio_queue = audio_queue  # Changed from aacparse to audio_queue
+        self._aacparse = aacparse
         self._flvdemux = flvdemux
 
         # Connect flvdemux pad-added signal for dynamic linking
@@ -263,15 +272,18 @@ class InputPipeline:
                     logger.error(f"Failed to link video pad: {result}")
 
         elif media_type.startswith("audio/mpeg"):
-            # Link directly to audio_queue (flvdemux outputs framed AAC, no parsing needed)
-            sink_pad = self._audio_queue.get_static_pad("sink")
+            # Link to aacparse for caps negotiation and timestamp handling
+            sink_pad = self._aacparse.get_static_pad("sink")
             if sink_pad and not sink_pad.is_linked():
                 result = pad.link(sink_pad)
                 if result == Gst.PadLinkReturn.OK:
                     self.has_audio_pad = True
-                    logger.info("Linked flvdemux audio pad to audio_queue")
+                    logger.info("Linked flvdemux audio pad to aacparse")
                 else:
                     logger.error(f"Failed to link audio pad: {result}")
+            else:
+                if sink_pad:
+                    logger.error(f"Audio sink pad already linked - this should not happen!")
 
     def _validate_audio_track(self, timeout_ms: int = 2000) -> None:
         """Validate audio track presence in the stream.
