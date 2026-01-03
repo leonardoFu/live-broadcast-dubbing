@@ -1,0 +1,244 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Stream Event Schemas",
+  "description": "JSON schemas for stream lifecycle events in Full STS Service",
+  "definitions": {
+    "stream_config": {
+      "type": "object",
+      "description": "Stream configuration from worker",
+      "required": ["source_language", "target_language", "voice_profile", "chunk_duration_ms", "sample_rate_hz", "channels", "format"],
+      "properties": {
+        "source_language": {
+          "type": "string",
+          "description": "Source language code (e.g., 'en', 'es', 'fr')",
+          "minLength": 2,
+          "maxLength": 10,
+          "examples": ["en", "es", "fr", "de", "ja", "zh"]
+        },
+        "target_language": {
+          "type": "string",
+          "description": "Target language code",
+          "minLength": 2,
+          "maxLength": 10,
+          "examples": ["es", "en", "fr", "de", "ja", "zh"]
+        },
+        "voice_profile": {
+          "type": "string",
+          "description": "TTS voice identifier from voices.json",
+          "minLength": 1,
+          "examples": ["spanish_male_1", "spanish_female_1", "french_male_1"]
+        },
+        "chunk_duration_ms": {
+          "type": "integer",
+          "description": "Expected fragment duration in milliseconds",
+          "minimum": 100,
+          "maximum": 10000,
+          "examples": [6000, 3000, 1000]
+        },
+        "sample_rate_hz": {
+          "type": "integer",
+          "description": "Audio sample rate in Hz",
+          "minimum": 8000,
+          "maximum": 96000,
+          "examples": [48000, 24000, 16000]
+        },
+        "channels": {
+          "type": "integer",
+          "description": "Audio channels (1=mono, 2=stereo)",
+          "minimum": 1,
+          "maximum": 2
+        },
+        "format": {
+          "type": "string",
+          "description": "Audio format identifier",
+          "examples": ["m4a", "pcm_s16le", "wav"]
+        },
+        "domain_hints": {
+          "type": "array",
+          "description": "Optional domain hints for vocabulary priming",
+          "items": {
+            "type": "string"
+          },
+          "examples": [["sports", "general"], ["news", "politics"]]
+        }
+      },
+      "additionalProperties": false
+    },
+    "stream_init": {
+      "type": "object",
+      "description": "stream:init event payload from worker",
+      "required": ["stream_id", "worker_id", "config"],
+      "properties": {
+        "stream_id": {
+          "type": "string",
+          "description": "Unique stream identifier",
+          "minLength": 1
+        },
+        "worker_id": {
+          "type": "string",
+          "description": "Worker instance identifier",
+          "minLength": 1
+        },
+        "config": {
+          "$ref": "#/definitions/stream_config"
+        },
+        "max_inflight": {
+          "type": "integer",
+          "description": "Max concurrent fragments in flight",
+          "minimum": 1,
+          "maximum": 10,
+          "default": 3
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "description": "Per-fragment timeout in milliseconds",
+          "minimum": 1000,
+          "maximum": 30000,
+          "default": 8000
+        }
+      },
+      "additionalProperties": false
+    },
+    "stream_ready": {
+      "type": "object",
+      "description": "stream:ready event payload from STS service",
+      "required": ["stream_id", "session_id", "max_inflight", "capabilities"],
+      "properties": {
+        "stream_id": {
+          "type": "string",
+          "description": "Stream identifier",
+          "minLength": 1
+        },
+        "session_id": {
+          "type": "string",
+          "description": "Server-assigned session ID",
+          "minLength": 1
+        },
+        "max_inflight": {
+          "type": "integer",
+          "description": "Confirmed max concurrent fragments",
+          "minimum": 1,
+          "maximum": 10
+        },
+        "capabilities": {
+          "type": "array",
+          "description": "Server capabilities",
+          "items": {
+            "type": "string"
+          },
+          "examples": [["asr", "translation", "tts", "duration_matching"]]
+        }
+      },
+      "additionalProperties": false
+    },
+    "stream_pause": {
+      "type": "object",
+      "description": "stream:pause event payload",
+      "required": ["stream_id"],
+      "properties": {
+        "stream_id": {
+          "type": "string",
+          "description": "Stream identifier",
+          "minLength": 1
+        },
+        "reason": {
+          "type": "string",
+          "description": "Optional reason for pause",
+          "examples": ["backpressure", "maintenance", "user_requested"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "stream_resume": {
+      "type": "object",
+      "description": "stream:resume event payload",
+      "required": ["stream_id"],
+      "properties": {
+        "stream_id": {
+          "type": "string",
+          "description": "Stream identifier",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "stream_end": {
+      "type": "object",
+      "description": "stream:end event payload",
+      "required": ["stream_id"],
+      "properties": {
+        "stream_id": {
+          "type": "string",
+          "description": "Stream identifier",
+          "minLength": 1
+        },
+        "reason": {
+          "type": "string",
+          "description": "Optional reason for ending",
+          "examples": ["source_ended", "error", "user_requested"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "error_breakdown": {
+      "type": "object",
+      "description": "Error breakdown by stage and code",
+      "properties": {
+        "by_stage": {
+          "type": "object",
+          "description": "Error count by pipeline stage",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "by_code": {
+          "type": "object",
+          "description": "Error count by error code",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "stream_complete": {
+      "type": "object",
+      "description": "stream:complete event payload from STS service",
+      "required": ["stream_id", "total_fragments", "success_count", "failed_count", "avg_processing_time_ms"],
+      "properties": {
+        "stream_id": {
+          "type": "string",
+          "description": "Stream identifier",
+          "minLength": 1
+        },
+        "total_fragments": {
+          "type": "integer",
+          "description": "Total fragments processed",
+          "minimum": 0
+        },
+        "success_count": {
+          "type": "integer",
+          "description": "Number of successfully processed fragments",
+          "minimum": 0
+        },
+        "failed_count": {
+          "type": "integer",
+          "description": "Number of failed fragments",
+          "minimum": 0
+        },
+        "avg_processing_time_ms": {
+          "type": "number",
+          "description": "Average processing time in milliseconds",
+          "minimum": 0
+        },
+        "error_breakdown": {
+          "$ref": "#/definitions/error_breakdown",
+          "description": "Optional breakdown of errors by stage and code"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

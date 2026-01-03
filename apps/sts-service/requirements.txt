@@ -1,8 +1,69 @@
-# Locked dependencies for sts-service
-# Generated from pyproject.toml
+# Production dependencies for Full STS Service
 # Install with: pip install -r requirements.txt
 #
-# To update:
-# pip-compile pyproject.toml --output-file requirements.txt
-#
-# NOTE: This file is initially empty - dependencies will be locked after first install
+# For CUDA support, install PyTorch first:
+# pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu121
+
+# Core Python packages
+numpy>=1.24.0,<2.0  # Pin to <2.0 for compatibility
+scipy>=1.10.0
+pyyaml>=6.0
+pydantic>=2.0,<3.0
+
+# Audio processing
+soundfile>=0.12.0
+pydub>=0.25.0
+librosa>=0.10.0  # For audio analysis
+
+# PyTorch (CUDA 12.1 support)
+# Note: Install from PyTorch index for CUDA support
+torch>=2.0.0
+torchaudio>=2.0.0
+
+# ASR (Automatic Speech Recognition)
+faster-whisper>=0.10.0
+# faster-whisper dependencies
+ctranslate2>=3.20.0
+tokenizers>=0.13.0
+
+# Translation
+deepl>=1.15.0
+
+# TTS (Text-to-Speech)
+TTS>=0.20.0  # Coqui TTS with XTTS v2 support
+# TTS dependencies
+transformers>=4.35.0
+sentencepiece>=0.1.99
+inflect>=7.0.0
+librosa>=0.10.0
+
+# Audio time-stretching
+rubberband-py>=0.3.0  # Python wrapper for rubberband
+
+# Socket.IO server
+python-socketio[asyncio]>=5.0,<6.0
+# Socket.IO dependencies
+python-engineio>=4.8.0
+aiohttp>=3.9.0
+
+# Web framework
+fastapi>=0.104.0,<1.0
+uvicorn[standard]>=0.24.0,<1.0
+starlette>=0.27.0,<1.0
+
+# Observability - Prometheus metrics
+prometheus-client>=0.18.0,<1.0
+
+# Observability - Structured logging
+structlog>=23.0.0,<24.0
+python-json-logger>=2.0.0
+
+# GPU monitoring
+pynvml>=11.5.0  # NVIDIA GPU monitoring
+
+# Utilities
+rich>=13.0.0  # Pretty console output
+
+# Required by dubbing-common and dubbing-contracts
+# These are installed from local packages, but list their deps here for reference
+# (actual packages are installed with: pip install -e libs/common -e libs/contracts)

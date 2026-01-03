@@ -1,0 +1,38 @@
+{
+  "spanish_male_1": {
+    "language": "es",
+    "gender": "male",
+    "description": "Spanish male voice - default XTTS speaker",
+    "reference_audio": null
+  },
+  "spanish_female_1": {
+    "language": "es",
+    "gender": "female",
+    "description": "Spanish female voice - default XTTS speaker",
+    "reference_audio": null
+  },
+  "french_male_1": {
+    "language": "fr",
+    "gender": "male",
+    "description": "French male voice - default XTTS speaker",
+    "reference_audio": null
+  },
+  "french_female_1": {
+    "language": "fr",
+    "gender": "female",
+    "description": "French female voice - default XTTS speaker",
+    "reference_audio": null
+  },
+  "german_male_1": {
+    "language": "de",
+    "gender": "male",
+    "description": "German male voice - default XTTS speaker",
+    "reference_audio": null
+  },
+  "german_female_1": {
+    "language": "de",
+    "gender": "female",
+    "description": "German female voice - default XTTS speaker",
+    "reference_audio": null
+  }
+}

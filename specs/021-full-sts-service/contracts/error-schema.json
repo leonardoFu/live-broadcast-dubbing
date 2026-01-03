@@ -1,0 +1,151 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Error Response Schema",
+  "description": "JSON schema for error responses in Full STS Service",
+  "definitions": {
+    "error_response": {
+      "type": "object",
+      "description": "Error response payload",
+      "required": ["code", "message", "retryable"],
+      "properties": {
+        "code": {
+          "type": "string",
+          "description": "Error code identifier",
+          "examples": [
+            "STREAM_NOT_FOUND",
+            "STREAM_PAUSED",
+            "INVALID_CONFIG",
+            "INVALID_VOICE_PROFILE",
+            "BACKPRESSURE_EXCEEDED",
+            "TIMEOUT",
+            "RATE_LIMIT_EXCEEDED",
+            "DURATION_MISMATCH_EXCEEDED",
+            "ASR_FAILED",
+            "TRANSLATION_FAILED",
+            "TRANSLATION_API_UNAVAILABLE",
+            "TTS_SYNTHESIS_FAILED",
+            "INVALID_AUDIO_FORMAT",
+            "GPU_OOM",
+            "UNSUPPORTED_LANGUAGE"
+          ]
+        },
+        "message": {
+          "type": "string",
+          "description": "Human-readable error description",
+          "minLength": 1
+        },
+        "retryable": {
+          "type": "boolean",
+          "description": "Whether the error is transient and retryable"
+        },
+        "stage": {
+          "type": "string",
+          "description": "Pipeline stage where error occurred (optional)",
+          "enum": ["asr", "translation", "tts"]
+        },
+        "details": {
+          "type": "object",
+          "description": "Additional error details",
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "error_codes": {
+    "description": "Documented error codes with retryable status",
+    "stream_errors": {
+      "STREAM_NOT_FOUND": {
+        "retryable": false,
+        "description": "Stream ID not found in session store"
+      },
+      "STREAM_PAUSED": {
+        "retryable": false,
+        "description": "Stream is currently paused, new fragments rejected"
+      },
+      "INVALID_CONFIG": {
+        "retryable": false,
+        "description": "Invalid stream configuration (missing or invalid fields)"
+      },
+      "INVALID_VOICE_PROFILE": {
+        "retryable": false,
+        "description": "Voice profile not found in voices.json"
+      },
+      "UNSUPPORTED_LANGUAGE": {
+        "retryable": false,
+        "description": "Language pair not supported"
+      }
+    },
+    "processing_errors": {
+      "TIMEOUT": {
+        "retryable": true,
+        "description": "Processing timed out"
+      },
+      "RATE_LIMIT_EXCEEDED": {
+        "retryable": true,
+        "description": "API rate limit exceeded (e.g., DeepL)"
+      },
+      "TRANSLATION_API_UNAVAILABLE": {
+        "retryable": true,
+        "description": "Translation API is unavailable"
+      },
+      "BACKPRESSURE_EXCEEDED": {
+        "retryable": true,
+        "description": "Critical backpressure threshold exceeded"
+      },
+      "GPU_OOM": {
+        "retryable": true,
+        "description": "GPU out of memory"
+      }
+    },
+    "pipeline_errors": {
+      "ASR_FAILED": {
+        "retryable": false,
+        "description": "ASR processing failed"
+      },
+      "TRANSLATION_FAILED": {
+        "retryable": false,
+        "description": "Translation processing failed"
+      },
+      "TTS_SYNTHESIS_FAILED": {
+        "retryable": false,
+        "description": "TTS synthesis failed"
+      },
+      "DURATION_MISMATCH_EXCEEDED": {
+        "retryable": false,
+        "description": "Duration variance exceeds 20% threshold"
+      },
+      "INVALID_AUDIO_FORMAT": {
+        "retryable": false,
+        "description": "Invalid or unsupported audio format"
+      }
+    }
+  },
+  "examples": {
+    "stream_not_found": {
+      "code": "STREAM_NOT_FOUND",
+      "message": "Stream stream-abc-123 not found",
+      "retryable": false
+    },
+    "timeout_retryable": {
+      "code": "TIMEOUT",
+      "message": "Processing timed out after 8000ms",
+      "retryable": true,
+      "stage": "asr"
+    },
+    "rate_limit_retryable": {
+      "code": "RATE_LIMIT_EXCEEDED",
+      "message": "DeepL API rate limit exceeded. Retry after 60s.",
+      "retryable": true,
+      "stage": "translation",
+      "details": {
+        "retry_after_seconds": 60
+      }
+    },
+    "invalid_voice_profile": {
+      "code": "INVALID_VOICE_PROFILE",
+      "message": "Voice profile 'unknown_voice' not found in voices.json",
+      "retryable": false
+    }
+  }
+}

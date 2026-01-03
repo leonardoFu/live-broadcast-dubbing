@@ -1,0 +1,105 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Backpressure Event Schema",
+  "description": "JSON schema for backpressure events in Full STS Service",
+  "definitions": {
+    "backpressure": {
+      "type": "object",
+      "description": "Backpressure event payload",
+      "required": ["stream_id", "severity", "action", "current_inflight", "max_inflight", "threshold_exceeded"],
+      "properties": {
+        "stream_id": {
+          "type": "string",
+          "description": "Stream identifier",
+          "minLength": 1
+        },
+        "severity": {
+          "type": "string",
+          "description": "Backpressure severity level",
+          "enum": ["low", "medium", "high"]
+        },
+        "action": {
+          "type": "string",
+          "description": "Recommended worker action",
+          "enum": ["none", "slow_down", "pause"]
+        },
+        "current_inflight": {
+          "type": "integer",
+          "description": "Current in-flight fragment count",
+          "minimum": 0
+        },
+        "max_inflight": {
+          "type": "integer",
+          "description": "Configured max in-flight limit",
+          "minimum": 1,
+          "maximum": 10
+        },
+        "threshold_exceeded": {
+          "type": ["string", "null"],
+          "description": "Which threshold was exceeded (null for low severity)",
+          "enum": ["low", "medium", "high", null]
+        },
+        "recommended_delay_ms": {
+          "type": "integer",
+          "description": "Suggested delay before next fragment submission",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "examples": {
+    "low_severity": {
+      "stream_id": "stream-abc-123",
+      "severity": "low",
+      "action": "none",
+      "current_inflight": 2,
+      "max_inflight": 3,
+      "threshold_exceeded": null
+    },
+    "medium_severity": {
+      "stream_id": "stream-abc-123",
+      "severity": "medium",
+      "action": "slow_down",
+      "current_inflight": 5,
+      "max_inflight": 3,
+      "threshold_exceeded": "medium",
+      "recommended_delay_ms": 500
+    },
+    "high_severity": {
+      "stream_id": "stream-abc-123",
+      "severity": "high",
+      "action": "pause",
+      "current_inflight": 9,
+      "max_inflight": 3,
+      "threshold_exceeded": "high",
+      "recommended_delay_ms": 2000
+    }
+  },
+  "thresholds": {
+    "description": "Default backpressure thresholds from spec.md",
+    "low": {
+      "min_inflight": 1,
+      "max_inflight": 3,
+      "severity": "low",
+      "action": "none"
+    },
+    "medium": {
+      "min_inflight": 4,
+      "max_inflight": 6,
+      "severity": "medium",
+      "action": "slow_down"
+    },
+    "high": {
+      "min_inflight": 7,
+      "max_inflight": 10,
+      "severity": "high",
+      "action": "pause"
+    },
+    "critical": {
+      "min_inflight": 11,
+      "action": "reject",
+      "error_code": "BACKPRESSURE_EXCEEDED"
+    }
+  }
+}
