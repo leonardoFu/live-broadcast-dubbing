@@ -106,9 +106,9 @@ def record_fragment_success(
     try:
         # Record total processing time
         processing_time_s = processing_time_ms / 1000.0
-        sts_fragment_processing_seconds.labels(
-            status="success", stream_id=stream_id
-        ).observe(processing_time_s)
+        sts_fragment_processing_seconds.labels(status="success", stream_id=stream_id).observe(
+            processing_time_s
+        )
 
         # Record stage timings
         if "asr_ms" in stage_timings:
@@ -229,9 +229,7 @@ def update_gpu_metrics() -> None:
         memory_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
         sts_gpu_memory_used_bytes.set(memory_info.used)
 
-        logger.debug(
-            f"GPU metrics updated: util={utilization.gpu}%, mem={memory_info.used} bytes"
-        )
+        logger.debug(f"GPU metrics updated: util={utilization.gpu}%, mem={memory_info.used} bytes")
 
     except Exception as e:
         # GPU not available or pynvml not installed - graceful degradation

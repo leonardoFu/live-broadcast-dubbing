@@ -63,7 +63,7 @@ class WorkerManager:
             if stream_id in self._workers:
                 logger.debug(
                     f"Worker for stream {stream_id} already exists, skipping creation",
-                    extra={"stream_id": stream_id}
+                    extra={"stream_id": stream_id},
                 )
                 return
 
@@ -75,7 +75,7 @@ class WorkerManager:
                     "rtmp_input_url": config.rtmp_input_url,
                     "rtmp_url": config.rtmp_url,
                     "sts_url": config.sts_url,
-                }
+                },
             )
 
             try:
@@ -90,7 +90,7 @@ class WorkerManager:
                     extra={
                         "stream_id": stream_id,
                         "active_workers": len(self._workers),
-                    }
+                    },
                 )
 
             except Exception as e:
@@ -116,7 +116,7 @@ class WorkerManager:
         if stream_id not in self._locks:
             logger.debug(
                 f"No lock for stream {stream_id}, worker likely doesn't exist",
-                extra={"stream_id": stream_id}
+                extra={"stream_id": stream_id},
             )
             return
 
@@ -126,20 +126,17 @@ class WorkerManager:
             if worker is None:
                 logger.debug(
                     f"Worker for stream {stream_id} not found, nothing to stop",
-                    extra={"stream_id": stream_id}
+                    extra={"stream_id": stream_id},
                 )
                 return
 
-            logger.info(
-                f"Stopping worker for stream {stream_id}",
-                extra={"stream_id": stream_id}
-            )
+            logger.info(f"Stopping worker for stream {stream_id}", extra={"stream_id": stream_id})
 
             try:
                 await worker.stop()
                 logger.info(
                     f"Worker stopped successfully for stream {stream_id}",
-                    extra={"stream_id": stream_id}
+                    extra={"stream_id": stream_id},
                 )
 
             except Exception as e:
@@ -158,7 +155,7 @@ class WorkerManager:
                     extra={
                         "stream_id": stream_id,
                         "active_workers": len(self._workers),
-                    }
+                    },
                 )
 
     def get_worker(self, stream_id: str) -> WorkerRunner | None:
@@ -184,7 +181,7 @@ class WorkerManager:
 
         logger.info(
             f"Cleaning up {len(self._workers)} active workers",
-            extra={"active_workers": len(self._workers)}
+            extra={"active_workers": len(self._workers)},
         )
 
         # Get list of stream IDs (copy to avoid modification during iteration)
@@ -201,7 +198,7 @@ class WorkerManager:
         if failures:
             logger.warning(
                 f"Some workers failed to stop cleanly: {len(failures)} failures",
-                extra={"failure_count": len(failures)}
+                extra={"failure_count": len(failures)},
             )
 
         logger.info(
@@ -209,5 +206,5 @@ class WorkerManager:
             extra={
                 "total_stopped": len(stream_ids),
                 "failures": len(failures),
-            }
+            },
         )

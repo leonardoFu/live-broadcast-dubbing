@@ -21,10 +21,7 @@ from sts_service.full.models.stream import StreamConfig, StreamSession, StreamSt
 
 # Path to test fixtures directory (shared with e2e tests)
 FIXTURES_DIR = (
-    Path(__file__).parent.parent.parent.parent.parent.parent
-    / "tests"
-    / "fixtures"
-    / "test-streams"
+    Path(__file__).parent.parent.parent.parent.parent.parent / "tests" / "fixtures" / "test-streams"
 )
 
 
@@ -207,9 +204,7 @@ def mock_translation_component():
     mock.component_instance = "mock-translate-v1"
     mock.is_ready = True
 
-    def translate_side_effect(
-        source_text: str, *args: Any, **kwargs: Any
-    ) -> MagicMock:
+    def translate_side_effect(source_text: str, *args: Any, **kwargs: Any) -> MagicMock:
         """Return translated text (mock Spanish translation)."""
         result = MagicMock()
         result.asset_id = f"trans-asset-{hash(source_text) % 10000:04d}"

@@ -28,7 +28,10 @@ from sts_service.full.models.stream import (
     StreamState,
     StreamStatistics,
 )
-from sts_service.full.observability.metrics import decrement_active_sessions, increment_active_sessions
+from sts_service.full.observability.metrics import (
+    decrement_active_sessions,
+    increment_active_sessions,
+)
 from sts_service.full.pipeline import PipelineCoordinator
 from sts_service.full.session import SessionStore, StreamSession
 
@@ -127,7 +130,7 @@ async def handle_stream_init(
         )
         translation = create_translation_component(config=translation_config, mock=False)
 
-        # Create TTS component
+        # Create TTS component (uses TTS_PROVIDER env var, defaults to elevenlabs)
         voice_config_dict = voices_config[session.voice_profile]
         tts_config = TTSConfig(
             model_name=voice_config_dict.get("model", "tts_models/en/vctk/vits"),
@@ -135,7 +138,7 @@ async def handle_stream_init(
             language=session.target_language,
             device=os.getenv("TTS_DEVICE", "cpu"),
         )
-        tts = create_tts_component(provider="coqui", config=tts_config)
+        tts = create_tts_component(config=tts_config)  # Provider from TTS_PROVIDER env var
 
         # Initialize pipeline coordinator with components
         enable_artifact_logging = os.getenv("ENABLE_ARTIFACT_LOGGING", "true").lower() == "true"

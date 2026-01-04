@@ -230,6 +230,7 @@ def has_coqui_tts() -> bool:
     """Check if Coqui TTS library is available."""
     try:
         from TTS.api import TTS  # noqa: F401
+
         return True
     except ImportError:
         return False
@@ -238,6 +239,7 @@ def has_coqui_tts() -> bool:
 def has_rubberband() -> bool:
     """Check if rubberband CLI is available."""
     import subprocess
+
     try:
         result = subprocess.run(
             ["rubberband", "--version"],

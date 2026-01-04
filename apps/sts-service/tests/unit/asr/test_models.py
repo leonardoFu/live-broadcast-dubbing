@@ -553,7 +553,9 @@ class TestTranscriptAsset:
             language="en",
             segments=[],
             status=TranscriptStatus.FAILED,
-            errors=[ASRError(error_type=ASRErrorType.INVALID_AUDIO, message="invalid", retryable=False)],
+            errors=[
+                ASRError(error_type=ASRErrorType.INVALID_AUDIO, message="invalid", retryable=False)
+            ],
         )
         assert asset_not_retryable.is_retryable is False
 
@@ -663,7 +665,16 @@ class TestASRModelConfig:
         from sts_service.asr.models import ASRModelConfig
 
         # Valid sizes
-        for size in ["tiny", "base", "small", "medium", "large-v1", "large-v2", "large-v3", "turbo"]:
+        for size in [
+            "tiny",
+            "base",
+            "small",
+            "medium",
+            "large-v1",
+            "large-v2",
+            "large-v3",
+            "turbo",
+        ]:
             config = ASRModelConfig(model_size=size)
             assert config.model_size == size
 

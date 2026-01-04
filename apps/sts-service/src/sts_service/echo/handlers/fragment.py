@@ -60,7 +60,7 @@ async def handle_fragment_data(
             stream_id=data.get("stream_id"),
             fragment_id=data.get("fragment_id"),
         )
-        await sio.emit("error", error.model_dump(), to=sid, namespace="/sts")
+        await sio.emit("error", error.model_dump(), to=sid, namespace="/")
         return
 
     # Check if session can accept fragments
@@ -71,7 +71,7 @@ async def handle_fragment_data(
             stream_id=session.stream_id,
             fragment_id=data.get("fragment_id"),
         )
-        await sio.emit("error", error.model_dump(), to=sid, namespace="/sts")
+        await sio.emit("error", error.model_dump(), to=sid, namespace="/")
         return
 
     # Check fragment size before validation
@@ -83,7 +83,7 @@ async def handle_fragment_data(
             stream_id=session.stream_id,
             fragment_id=data.get("fragment_id"),
         )
-        await sio.emit("error", error.model_dump(), to=sid, namespace="/sts")
+        await sio.emit("error", error.model_dump(), to=sid, namespace="/")
         return
 
     try:
@@ -98,7 +98,7 @@ async def handle_fragment_data(
             stream_id=data.get("stream_id"),
             fragment_id=data.get("fragment_id"),
         )
-        await sio.emit("error", error.model_dump(), to=sid, namespace="/sts")
+        await sio.emit("error", error.model_dump(), to=sid, namespace="/")
         return
 
     # Track in-flight
@@ -110,7 +110,7 @@ async def handle_fragment_data(
         status="queued",
         queue_position=session.inflight_count - 1,
     )
-    await sio.emit("fragment:ack", ack.model_dump(), to=sid, namespace="/sts")
+    await sio.emit("fragment:ack", ack.model_dump(), to=sid, namespace="/")
 
     # Check backpressure
     await _check_and_emit_backpressure(sio, sid, session)
@@ -176,8 +176,10 @@ async def handle_fragment_data(
     # not here, to ensure end-to-end acknowledgment tracking
     fragments_to_emit = session.get_fragments_to_emit()
     for fragment in fragments_to_emit:
-        logger.info(f"📤 Emitting fragment:processed: fragment_id={fragment.fragment_id}, sid={sid}")
-        await sio.emit("fragment:processed", fragment.model_dump(), to=sid, namespace="/sts")
+        logger.info(
+            f"📤 Emitting fragment:processed: fragment_id={fragment.fragment_id}, sid={sid}"
+        )
+        await sio.emit("fragment:processed", fragment.model_dump(), to=sid, namespace="/")
 
     # Check if stream should complete
     if session.is_complete():
@@ -309,7 +311,7 @@ async def _check_and_emit_backpressure(
                 queue_depth=len(session.pending_fragments),
                 action=action,
             )
-            await sio.emit("backpressure", bp_payload.model_dump(), to=sid, namespace="/sts")
+            await sio.emit("backpressure", bp_payload.model_dump(), to=sid, namespace="/")
         return
 
     # Emit backpressure event
@@ -323,7 +325,7 @@ async def _check_and_emit_backpressure(
     )
 
     session.backpressure_active = True
-    await sio.emit("backpressure", bp_payload.model_dump(), to=sid, namespace="/sts")
+    await sio.emit("backpressure", bp_payload.model_dump(), to=sid, namespace="/")
 
     logger.debug(
         f"Backpressure emitted: stream_id={session.stream_id}, severity={severity}, action={action}"
@@ -334,17 +336,17 @@ def register_fragment_handlers(
     sio: Any,
     session_store: SessionStore,
 ) -> None:
-    """Register fragment event handlers on /sts namespace.
+    """Register fragment event handlers on default namespace.
 
     Args:
         sio: Socket.IO server instance.
         session_store: Session store instance.
     """
 
-    @sio.on("fragment:data", namespace="/sts")
+    @sio.on("fragment:data", namespace="/")
     async def on_fragment_data(sid: str, data: dict[str, Any]) -> None:
         await handle_fragment_data(sio, sid, data, session_store)
 
-    @sio.on("fragment:ack", namespace="/sts")
+    @sio.on("fragment:ack", namespace="/")
     async def on_fragment_ack(sid: str, data: dict[str, Any]) -> None:
         await handle_fragment_ack(sio, sid, data, session_store)

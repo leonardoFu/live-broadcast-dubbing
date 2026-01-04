@@ -18,50 +18,50 @@ import re
 # Punctuation replacement mapping
 PUNCTUATION_MAP: dict[str, str] = {
     # Smart quotes
-    '\u201c': '"',  # Left double quote
-    '\u201d': '"',  # Right double quote
-    '\u2018': "'",  # Left single quote
-    '\u2019': "'",  # Right single quote
+    "\u201c": '"',  # Left double quote
+    "\u201d": '"',  # Right double quote
+    "\u2018": "'",  # Left single quote
+    "\u2019": "'",  # Right single quote
     # Dashes
-    '\u2014': '--',  # Em dash
-    '\u2013': '-',   # En dash
+    "\u2014": "--",  # Em dash
+    "\u2013": "-",  # En dash
     # Other
-    '\u2026': '...',  # Ellipsis
-    '\u00a0': ' ',    # Non-breaking space
+    "\u2026": "...",  # Ellipsis
+    "\u00a0": " ",  # Non-breaking space
 }
 
 # Abbreviation expansion mapping (case-sensitive)
 ABBREVIATION_MAP: dict[str, str] = {
     # Sports abbreviations
-    'NBA': 'N B A',
-    'NFL': 'N F L',
-    'MLB': 'M L B',
-    'NHL': 'N H L',
-    'NCAA': 'N C A A',
-    'MVP': 'M V P',
-    'USA': 'U S A',
-    'UK': 'U K',
+    "NBA": "N B A",
+    "NFL": "N F L",
+    "MLB": "M L B",
+    "NHL": "N H L",
+    "NCAA": "N C A A",
+    "MVP": "M V P",
+    "USA": "U S A",
+    "UK": "U K",
     # Titles
-    'Dr.': 'Doctor',
-    'Mr.': 'Mister',
-    'Mrs.': 'Missus',
-    'Ms.': 'Miss',
-    'Prof.': 'Professor',
-    'Jr.': 'Junior',
-    'Sr.': 'Senior',
+    "Dr.": "Doctor",
+    "Mr.": "Mister",
+    "Mrs.": "Missus",
+    "Ms.": "Miss",
+    "Prof.": "Professor",
+    "Jr.": "Junior",
+    "Sr.": "Senior",
     # Academic
-    'PhD': 'P H D',
-    'MD': 'M D',
-    'MBA': 'M B A',
+    "PhD": "P H D",
+    "MD": "M D",
+    "MBA": "M B A",
     # Technical
-    'CPU': 'C P U',
-    'GPU': 'G P U',
-    'AI': 'A I',
-    'API': 'A P I',
+    "CPU": "C P U",
+    "GPU": "G P U",
+    "AI": "A I",
+    "API": "A P I",
 }
 
 # Score pattern regex (matches patterns like "15-12" but not "well-known")
-SCORE_PATTERN = re.compile(r'\b(\d{1,3})-(\d{1,3})\b')
+SCORE_PATTERN = re.compile(r"\b(\d{1,3})-(\d{1,3})\b")
 
 
 def normalize_punctuation(text: str) -> str:
@@ -105,12 +105,12 @@ def expand_abbreviations(text: str) -> str:
     for abbrev, expansion in ABBREVIATION_MAP.items():
         # Create a regex pattern for word boundaries
         # Handle abbreviations with periods specially
-        if abbrev.endswith('.'):
+        if abbrev.endswith("."):
             # For abbreviations with period (Dr., Mr., etc.)
-            pattern = re.compile(r'\b' + re.escape(abbrev))
+            pattern = re.compile(r"\b" + re.escape(abbrev))
         else:
             # For abbreviations without period (NBA, PhD, etc.)
-            pattern = re.compile(r'\b' + re.escape(abbrev) + r'\b')
+            pattern = re.compile(r"\b" + re.escape(abbrev) + r"\b")
 
         result = pattern.sub(expansion, result)
 
@@ -134,6 +134,7 @@ def rewrite_score_patterns(text: str) -> str:
     Returns:
         Text with rewritten score patterns
     """
+
     def replace_score(match: re.Match[str]) -> str:
         num1 = match.group(1)
         num2 = match.group(2)
@@ -157,10 +158,10 @@ def normalize_whitespace(text: str) -> str:
         Text with normalized whitespace
     """
     # Replace tabs and newlines with spaces
-    result = text.replace('\t', ' ').replace('\n', ' ').replace('\r', ' ')
+    result = text.replace("\t", " ").replace("\n", " ").replace("\r", " ")
 
     # Replace multiple spaces with single space
-    result = re.sub(r' +', ' ', result)
+    result = re.sub(r" +", " ", result)
 
     # Strip leading and trailing whitespace
     return result.strip()

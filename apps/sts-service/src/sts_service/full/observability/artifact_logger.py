@@ -141,6 +141,7 @@ class ArtifactLogger:
 
             # Export as M4A (AAC codec)
             from io import BytesIO
+
             buffer = BytesIO()
             audio.export(buffer, format="ipod", codec="aac")
             return buffer.getvalue()
@@ -203,9 +204,7 @@ class ArtifactLogger:
             return
 
         try:
-            fragment_dir = self._get_fragment_dir(
-                audio_asset.stream_id, audio_asset.fragment_id
-            )
+            fragment_dir = self._get_fragment_dir(audio_asset.stream_id, audio_asset.fragment_id)
             self._ensure_directory(fragment_dir)
 
             # Convert PCM to M4A
@@ -385,6 +384,7 @@ class ArtifactLogger:
         """
         try:
             import shutil
+
             shutil.rmtree(dir_path)
             logger.debug(f"Removed artifact directory: {dir_path}")
         except Exception as e:

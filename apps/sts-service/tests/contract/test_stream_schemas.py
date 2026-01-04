@@ -14,7 +14,12 @@ import pytest
 # Schema file paths (relative to repo root - worktree is at sts-service-main)
 # Path: apps/sts-service/tests/contract/test_stream_schemas.py
 # Need to go up: contract -> tests -> sts-service -> apps -> worktree-root -> specs
-CONTRACTS_DIR = Path(__file__).parent.parent.parent.parent.parent / "specs" / "021-full-sts-service" / "contracts"
+CONTRACTS_DIR = (
+    Path(__file__).parent.parent.parent.parent.parent
+    / "specs"
+    / "021-full-sts-service"
+    / "contracts"
+)
 
 
 def create_validator(schema: dict, definition_name: str) -> Draft7Validator:
@@ -47,8 +52,8 @@ class TestStreamInitSchema:
                 "chunk_duration_ms": 6000,
                 "sample_rate_hz": 48000,
                 "channels": 1,
-                "format": "m4a"
-            }
+                "format": "m4a",
+            },
         }
 
     def test_valid_stream_init_payload(self, schema: dict, valid_stream_init_payload: dict) -> None:
@@ -71,8 +76,13 @@ class TestStreamInitSchema:
         config_schema = schema["definitions"]["stream_config"]
 
         required_config_fields = [
-            "source_language", "target_language", "voice_profile",
-            "chunk_duration_ms", "sample_rate_hz", "channels", "format"
+            "source_language",
+            "target_language",
+            "voice_profile",
+            "chunk_duration_ms",
+            "sample_rate_hz",
+            "channels",
+            "format",
         ]
         assert "required" in config_schema
         for field in required_config_fields:
@@ -112,10 +122,12 @@ class TestStreamReadySchema:
             "stream_id": "stream-abc-123",
             "session_id": "session-xyz-789",
             "max_inflight": 3,
-            "capabilities": ["asr", "translation", "tts", "duration_matching"]
+            "capabilities": ["asr", "translation", "tts", "duration_matching"],
         }
 
-    def test_valid_stream_ready_payload(self, schema: dict, valid_stream_ready_payload: dict) -> None:
+    def test_valid_stream_ready_payload(
+        self, schema: dict, valid_stream_ready_payload: dict
+    ) -> None:
         """Validate that a correct stream:ready payload passes schema validation."""
         validator = create_validator(schema, "stream_ready")
         validator.validate(valid_stream_ready_payload)
@@ -158,43 +170,31 @@ class TestStreamPauseResumeEndSchemas:
 
     def test_stream_pause_payload(self, schema: dict) -> None:
         """Validate stream:pause payload structure."""
-        valid_pause_payload = {
-            "stream_id": "stream-abc-123"
-        }
+        valid_pause_payload = {"stream_id": "stream-abc-123"}
         validator = create_validator(schema, "stream_pause")
         validator.validate(valid_pause_payload)
 
     def test_stream_pause_with_reason(self, schema: dict) -> None:
         """Validate stream:pause payload with optional reason."""
-        pause_with_reason = {
-            "stream_id": "stream-abc-123",
-            "reason": "backpressure"
-        }
+        pause_with_reason = {"stream_id": "stream-abc-123", "reason": "backpressure"}
         validator = create_validator(schema, "stream_pause")
         validator.validate(pause_with_reason)
 
     def test_stream_resume_payload(self, schema: dict) -> None:
         """Validate stream:resume payload structure."""
-        valid_resume_payload = {
-            "stream_id": "stream-abc-123"
-        }
+        valid_resume_payload = {"stream_id": "stream-abc-123"}
         validator = create_validator(schema, "stream_resume")
         validator.validate(valid_resume_payload)
 
     def test_stream_end_payload(self, schema: dict) -> None:
         """Validate stream:end payload structure."""
-        valid_end_payload = {
-            "stream_id": "stream-abc-123"
-        }
+        valid_end_payload = {"stream_id": "stream-abc-123"}
         validator = create_validator(schema, "stream_end")
         validator.validate(valid_end_payload)
 
     def test_stream_end_with_reason(self, schema: dict) -> None:
         """Validate stream:end payload with optional reason."""
-        end_with_reason = {
-            "stream_id": "stream-abc-123",
-            "reason": "source_ended"
-        }
+        end_with_reason = {"stream_id": "stream-abc-123", "reason": "source_ended"}
         validator = create_validator(schema, "stream_end")
         validator.validate(end_with_reason)
 
@@ -217,17 +217,25 @@ class TestStreamCompleteSchema:
             "total_fragments": 50,
             "success_count": 45,
             "failed_count": 5,
-            "avg_processing_time_ms": 4500
+            "avg_processing_time_ms": 4500,
         }
 
-    def test_valid_stream_complete_payload(self, schema: dict, valid_stream_complete_payload: dict) -> None:
+    def test_valid_stream_complete_payload(
+        self, schema: dict, valid_stream_complete_payload: dict
+    ) -> None:
         """Validate that a correct stream:complete payload passes schema validation."""
         validator = create_validator(schema, "stream_complete")
         validator.validate(valid_stream_complete_payload)
 
     def test_stream_complete_required_fields(self, schema: dict) -> None:
         """Test required fields: total_fragments, success_count, failed_count, avg_processing_time_ms."""
-        required_fields = ["stream_id", "total_fragments", "success_count", "failed_count", "avg_processing_time_ms"]
+        required_fields = [
+            "stream_id",
+            "total_fragments",
+            "success_count",
+            "failed_count",
+            "avg_processing_time_ms",
+        ]
         stream_complete_schema = schema["definitions"]["stream_complete"]
 
         assert "required" in stream_complete_schema
@@ -252,16 +260,9 @@ class TestStreamCompleteSchema:
             "failed_count": 5,
             "avg_processing_time_ms": 4500,
             "error_breakdown": {
-                "by_stage": {
-                    "asr": 2,
-                    "translation": 1,
-                    "tts": 2
-                },
-                "by_code": {
-                    "TIMEOUT": 3,
-                    "RATE_LIMIT_EXCEEDED": 2
-                }
-            }
+                "by_stage": {"asr": 2, "translation": 1, "tts": 2},
+                "by_code": {"TIMEOUT": 3, "RATE_LIMIT_EXCEEDED": 2},
+            },
         }
         validator = create_validator(schema, "stream_complete")
         validator.validate(payload_with_breakdown)

@@ -65,7 +65,9 @@ async def test_full_pipeline_media_to_sts_to_output(
     assert rtmp_url is not None, "RTMP URL should be provided"
 
     logger.info(f"Test fixture publishing to: {rtmp_url}")
-    logger.info(f"Expected output stream: rtmp://localhost:1935/{stream_path.replace('/in', '/out')}")
+    logger.info(
+        f"Expected output stream: rtmp://localhost:1935/{stream_path.replace('/in', '/out')}"
+    )
 
     # Step 1: Verify MediaMTX received the stream
     logger.info("Step 1: Verifying MediaMTX received stream...")
@@ -121,13 +123,18 @@ async def test_full_pipeline_media_to_sts_to_output(
 
             # Check for worker metrics (indicates WorkerRunner has started and connected to STS)
             # Look for any of: worker_info, sts_inflight_fragments, or circuit_breaker_state
-            worker_metrics = [k for k in metrics.keys() if any(
-                metric_name in k for metric_name in [
-                    "media_service_worker_info_info",
-                    "media_service_worker_sts_inflight_fragments",
-                    "media_service_worker_circuit_breaker_state"
-                ]
-            )]
+            worker_metrics = [
+                k
+                for k in metrics.keys()
+                if any(
+                    metric_name in k
+                    for metric_name in [
+                        "media_service_worker_info_info",
+                        "media_service_worker_sts_inflight_fragments",
+                        "media_service_worker_circuit_breaker_state",
+                    ]
+                )
+            ]
 
             if worker_metrics:
                 worker_connected = True
@@ -159,19 +166,28 @@ async def test_full_pipeline_media_to_sts_to_output(
 
     # Check files exist in media-service container
     import subprocess
+
     result = subprocess.run(
-        ["docker", "exec", "e2e-media-service", "ls", "-la", f"/tmp/segments/{stream_id}/{stream_id}"],
+        [
+            "docker",
+            "exec",
+            "e2e-media-service",
+            "ls",
+            "-la",
+            f"/tmp/segments/{stream_id}/{stream_id}",
+        ],
         capture_output=True,
         text=True,
     )
 
     if result.returncode == 0:
         # Count dubbed audio files
-        dubbed_files = [line for line in result.stdout.split('\n') if '_audio_dubbed.m4a' in line]
+        dubbed_files = [line for line in result.stdout.split("\n") if "_audio_dubbed.m4a" in line]
         logger.info(f"Found {len(dubbed_files)} dubbed audio files in container")
 
-        assert len(dubbed_files) >= expected_segments, \
+        assert len(dubbed_files) >= expected_segments, (
             f"Expected at least {expected_segments} dubbed audio files, found {len(dubbed_files)}"
+        )
     else:
         logger.warning(f"Could not verify files in container: {result.stderr}")
         logger.info("Skipping file verification, will check output stream instead")
@@ -206,7 +222,9 @@ async def test_full_pipeline_media_to_sts_to_output(
                     logger.info(f"Output stream found in MediaMTX: {matching_paths[0]}")
                     break
                 else:
-                    logger.debug(f"Attempt {attempt + 1}: Output stream {output_stream_path} not found yet")
+                    logger.debug(
+                        f"Attempt {attempt + 1}: Output stream {output_stream_path} not found yet"
+                    )
         except Exception as e:
             logger.debug(f"Attempt {attempt + 1}: Could not check MediaMTX paths: {e}")
 
@@ -235,13 +253,16 @@ async def test_full_pipeline_media_to_sts_to_output(
             # Verify duration (60s +/- 1s tolerance)
             # Use video stream duration
             duration = video_streams[0].duration_sec
-            assert 59.0 <= duration <= 61.0, \
-                f"Output duration should be ~60s, got {duration}s"
+            assert 59.0 <= duration <= 61.0, f"Output duration should be ~60s, got {duration}s"
 
-            logger.info(f"Output stream verified: duration={duration}s, video={video_streams[0].codec_name}, audio={audio_streams[0].codec_name}")
+            logger.info(
+                f"Output stream verified: duration={duration}s, video={video_streams[0].codec_name}, audio={audio_streams[0].codec_name}"
+            )
 
         except Exception as e:
-            logger.warning(f"Could not verify output stream with ffprobe (stream exists in MediaMTX): {e}")
+            logger.warning(
+                f"Could not verify output stream with ffprobe (stream exists in MediaMTX): {e}"
+            )
             logger.info("Output stream exists in MediaMTX but ffprobe verification skipped")
     else:
         logger.warning(f"Output stream not found in MediaMTX: {output_stream_path}")
@@ -283,13 +304,23 @@ def test_test_fixture_exists():
     import subprocess
 
     result = subprocess.run(
-        ["ffprobe", "-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", str(fixture_path)],
+        [
+            "ffprobe",
+            "-v",
+            "quiet",
+            "-print_format",
+            "json",
+            "-show_format",
+            "-show_streams",
+            str(fixture_path),
+        ],
         capture_output=True,
         text=True,
         check=True,
     )
 
     import json
+
     info = json.loads(result.stdout)
 
     duration = float(info["format"]["duration"])

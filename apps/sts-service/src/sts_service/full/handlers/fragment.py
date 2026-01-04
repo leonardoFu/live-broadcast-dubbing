@@ -14,7 +14,13 @@ from pydantic import ValidationError
 from sts_service.full.backpressure_tracker import BackpressureTracker
 from sts_service.full.models.asset import AssetStatus
 from sts_service.full.models.error import ErrorResponse
-from sts_service.full.models.fragment import AckStatus, FragmentAck, FragmentData, FragmentResult, ProcessingStatus
+from sts_service.full.models.fragment import (
+    AckStatus,
+    FragmentAck,
+    FragmentData,
+    FragmentResult,
+    ProcessingStatus,
+)
 from sts_service.full.models.stream import StreamState
 from sts_service.full.observability.metrics import decrement_inflight, increment_inflight
 from sts_service.full.session import SessionStore, StreamSession
@@ -246,10 +252,19 @@ async def emit_fragment_processed(
         session: The stream session.
         backpressure_tracker: Backpressure tracker instance.
     """
+    # DEBUG: Log what we're about to send
+    payload = fragment_result.model_dump()
+    logger.info(
+        f"EMIT fragment:processed: fragment_id={fragment_result.fragment_id}, "
+        f"status={fragment_result.status.value}, "
+        f"has_dubbed_audio={fragment_result.dubbed_audio is not None}, "
+        f"payload_status={payload.get('status')}"
+    )
+
     # Emit fragment:processed
     await sio.emit(
         "fragment:processed",
-        fragment_result.model_dump(),
+        payload,
         to=sid,
     )
     # CRITICAL: Force event loop to process the emit in ASGI mode

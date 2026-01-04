@@ -12,11 +12,20 @@ version: "3.8"
 # Prerequisites:
 #   1. NVIDIA Docker runtime installed (https://github.com/NVIDIA/nvidia-docker)
 #   2. DEEPL_AUTH_KEY environment variable set or in .env file
-#   3. GPU with CUDA 12.1+ support
+#   3. ELEVENLABS_API_KEY environment variable set or in .env file
+#   4. GPU with CUDA 12.1+ support (optional, can run on CPU)
+#   5. Media-service must be started first (creates dubbing-network)
 #
 # Usage:
-#   # Create .env file with DEEPL_AUTH_KEY
-#   echo "DEEPL_AUTH_KEY=your-key-here" > .env
+#   # Start media-service first (creates the shared network)
+#   cd ../media-service && docker compose up -d
+#
+#   # Create .env file with required API keys
+#   cat > .env << EOF
+#   DEEPL_AUTH_KEY=your-deepl-key-here
+#   ELEVENLABS_API_KEY=your-elevenlabs-key-here
+#   TTS_PROVIDER=elevenlabs
+#   EOF
 #
 #   # Start service
 #   docker compose -f docker-compose.full.yml up
@@ -63,6 +72,8 @@ services:
       - ASR_TIMEOUT_MS=${ASR_TIMEOUT_MS:-5000}
 
       # TTS configuration
+      - TTS_PROVIDER=${TTS_PROVIDER:-elevenlabs}
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY:?ELEVENLABS_API_KEY is required - set in .env file}
       - TTS_DEVICE=${TTS_DEVICE:-cpu}
       - TTS_TIMEOUT_MS=${TTS_TIMEOUT_MS:-10000}
 
@@ -121,7 +132,7 @@ services:
     restart: unless-stopped
 
     networks:
-      - full-sts-network
+      - dubbing-network
 
 volumes:
   # Persistent cache for Hugging Face models
@@ -130,6 +141,6 @@ volumes:
     driver: local
 
 networks:
-  full-sts-network:
-    name: full-sts-network
-    driver: bridge
+  dubbing-network:
+    name: dubbing-network
+    external: true  # Use existing network created by media-service

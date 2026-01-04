@@ -91,9 +91,9 @@ class EchoServer:
             logger.debug("Simulate handlers not yet implemented")
 
     def _register_connection_handlers(self) -> None:
-        """Register connection lifecycle handlers on /sts namespace."""
+        """Register connection lifecycle handlers on default namespace."""
 
-        @self.sio.on("connect", namespace="/sts")
+        @self.sio.on("connect", namespace="/")
         async def connect(sid: str, environ: dict, auth: dict | None = None) -> bool:
             """Handle new connection (no authentication required).
 
@@ -108,7 +108,7 @@ class EchoServer:
             logger.info(f"Client connected: sid={sid}")
             return True
 
-        @self.sio.on("disconnect", namespace="/sts")
+        @self.sio.on("disconnect", namespace="/")
         async def disconnect(sid: str) -> None:
             """Handle client disconnection.
 

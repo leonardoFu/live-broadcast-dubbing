@@ -310,8 +310,8 @@ class TestFragmentQueueConcurrency:
 
         # Act - Run producers and consumer concurrently
         await asyncio.gather(
-            producer(0, 5),   # Sequences 0-4
-            producer(5, 5),   # Sequences 5-9
+            producer(0, 5),  # Sequences 0-4
+            producer(5, 5),  # Sequences 5-9
             consumer(),
         )
 

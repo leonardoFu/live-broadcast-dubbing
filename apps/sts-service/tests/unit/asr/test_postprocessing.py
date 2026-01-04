@@ -34,8 +34,12 @@ class TestImproveSentenceBoundaries:
         from sts_service.asr.postprocessing import improve_sentence_boundaries
 
         segments = [
-            TranscriptSegment(start_time_ms=0, end_time_ms=2000, text="Hello there", confidence=0.9),
-            TranscriptSegment(start_time_ms=2000, end_time_ms=4000, text="How are you", confidence=0.85),
+            TranscriptSegment(
+                start_time_ms=0, end_time_ms=2000, text="Hello there", confidence=0.9
+            ),
+            TranscriptSegment(
+                start_time_ms=2000, end_time_ms=4000, text="How are you", confidence=0.85
+            ),
         ]
 
         result = improve_sentence_boundaries(segments, merge_threshold_seconds=1.0)
@@ -235,7 +239,9 @@ class TestShapeUtterances:
             TranscriptSegment(start_time_ms=0, end_time_ms=300, text="Hi", confidence=0.9),
             TranscriptSegment(start_time_ms=300, end_time_ms=600, text="there", confidence=0.85),
             # Long gap
-            TranscriptSegment(start_time_ms=2000, end_time_ms=4000, text="How are you", confidence=0.8),
+            TranscriptSegment(
+                start_time_ms=2000, end_time_ms=4000, text="How are you", confidence=0.8
+            ),
         ]
 
         config = UtteranceShapingConfig(

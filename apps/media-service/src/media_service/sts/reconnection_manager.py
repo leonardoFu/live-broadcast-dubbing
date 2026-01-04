@@ -92,7 +92,7 @@ class ReconnectionManager:
             Delay in seconds
         """
         # Exponential backoff: initial_delay * 2^attempt
-        delay = self.initial_delay * (2 ** attempt)
+        delay = self.initial_delay * (2**attempt)
 
         # Cap at max_delay
         delay = min(delay, self.max_delay)
@@ -140,17 +140,13 @@ class ReconnectionManager:
         while not self._stop_event.is_set():
             # Check max attempts
             if self.max_attempts > 0 and self.state.attempt >= self.max_attempts:
-                logger.error(
-                    f"Max reconnection attempts reached ({self.max_attempts})"
-                )
+                logger.error(f"Max reconnection attempts reached ({self.max_attempts})")
                 self.state.total_failures += 1
                 break
 
             # Calculate and apply delay
             delay = self.calculate_delay(self.state.attempt)
-            logger.info(
-                f"Reconnecting in {delay:.2f}s (attempt {self.state.attempt + 1})"
-            )
+            logger.info(f"Reconnecting in {delay:.2f}s (attempt {self.state.attempt + 1})")
 
             try:
                 await asyncio.wait_for(
@@ -173,9 +169,7 @@ class ReconnectionManager:
                         self.on_connected()
                         break
                     else:
-                        logger.warning(
-                            f"Reconnection attempt {self.state.attempt} failed"
-                        )
+                        logger.warning(f"Reconnection attempt {self.state.attempt} failed")
             except Exception as e:
                 logger.error(f"Reconnection error: {e}")
 

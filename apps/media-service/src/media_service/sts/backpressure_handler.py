@@ -103,8 +103,7 @@ class BackpressureHandler:
         self.state.total_slow_downs += 1
 
         logger.info(
-            f"Backpressure slow_down: severity={payload.severity}, "
-            f"delay={self.state.delay_ms}ms"
+            f"Backpressure slow_down: severity={payload.severity}, delay={self.state.delay_ms}ms"
         )
 
     async def _handle_pause(self) -> None:

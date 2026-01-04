@@ -218,9 +218,7 @@ class AudioChunker:
         """
         # Calculate chunk size in bytes
         bytes_per_sample = 4  # float32
-        samples_per_chunk = int(
-            (chunk_duration_ms / 1000.0) * self.TARGET_SAMPLE_RATE
-        )
+        samples_per_chunk = int((chunk_duration_ms / 1000.0) * self.TARGET_SAMPLE_RATE)
         bytes_per_chunk = samples_per_chunk * bytes_per_sample * self.TARGET_CHANNELS
 
         # Calculate start offset in bytes
@@ -243,9 +241,7 @@ class AudioChunker:
 
             # Calculate actual duration (may be shorter for last chunk)
             actual_samples = len(chunk_data) // (bytes_per_sample * self.TARGET_CHANNELS)
-            actual_duration_ms = int(
-                (actual_samples / self.TARGET_SAMPLE_RATE) * 1000
-            )
+            actual_duration_ms = int((actual_samples / self.TARGET_SAMPLE_RATE) * 1000)
 
             # Create chunk
             chunk = AudioChunk(

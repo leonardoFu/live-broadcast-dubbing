@@ -64,6 +64,7 @@ class TestInputPipelineBuild:
         mock_gst, mock_pipeline, mock_element = mock_gst_module
 
         from media_service.pipeline import input as input_module
+
         input_module.Gst = mock_gst
         input_module.GST_AVAILABLE = True
 
@@ -85,6 +86,7 @@ class TestInputPipelineBuild:
         mock_gst, mock_pipeline, mock_element = mock_gst_module
 
         from media_service.pipeline import input as input_module
+
         input_module.Gst = mock_gst
         input_module.GST_AVAILABLE = True
 
@@ -107,6 +109,7 @@ class TestInputPipelineBuild:
         mock_gst, mock_pipeline, mock_element = mock_gst_module
 
         from media_service.pipeline import input as input_module
+
         input_module.Gst = mock_gst
         input_module.GST_AVAILABLE = True
 
@@ -144,6 +147,7 @@ class TestInputPipelineStateTransitions:
         mock_gst, mock_pipeline, mock_element = mock_gst_module
 
         from media_service.pipeline import input as input_module
+
         input_module.Gst = mock_gst
         input_module.GST_AVAILABLE = True
 
@@ -165,6 +169,7 @@ class TestInputPipelineStateTransitions:
         mock_gst, mock_pipeline, mock_element = mock_gst_module
 
         from media_service.pipeline import input as input_module
+
         input_module.Gst = mock_gst
         input_module.GST_AVAILABLE = True
 
@@ -286,9 +291,7 @@ class TestRTMPURLValidation:
                 on_audio_buffer=MagicMock(),
             )
 
-    def test_rtmp_url_validation_error_wrong_protocol_http(
-        self, mock_gst: MagicMock
-    ) -> None:
+    def test_rtmp_url_validation_error_wrong_protocol_http(self, mock_gst: MagicMock) -> None:
         """Test that HTTP URL is rejected with descriptive error."""
         from media_service.pipeline.input import InputPipeline
 
@@ -299,9 +302,7 @@ class TestRTMPURLValidation:
                 on_audio_buffer=MagicMock(),
             )
 
-    def test_rtmp_url_validation_error_wrong_protocol_rtsp(
-        self, mock_gst: MagicMock
-    ) -> None:
+    def test_rtmp_url_validation_error_wrong_protocol_rtsp(self, mock_gst: MagicMock) -> None:
         """Test that RTSP URL is rejected - RTMP only after migration."""
         from media_service.pipeline.input import InputPipeline
 
@@ -312,9 +313,7 @@ class TestRTMPURLValidation:
                 on_audio_buffer=MagicMock(),
             )
 
-    def test_rtmp_url_validation_error_wrong_protocol_rtmps(
-        self, mock_gst: MagicMock
-    ) -> None:
+    def test_rtmp_url_validation_error_wrong_protocol_rtmps(self, mock_gst: MagicMock) -> None:
         """Test that RTMPS URL is rejected (not supported)."""
         from media_service.pipeline.input import InputPipeline
 
@@ -349,6 +348,7 @@ class TestRTMPElementCreation:
         mock_gst, mock_pipeline, mock_element = mock_gst_module
 
         from media_service.pipeline import input as input_module
+
         input_module.Gst = mock_gst
         input_module.GST_AVAILABLE = True
 
@@ -380,6 +380,7 @@ class TestRTMPElementCreation:
         mock_gst, mock_pipeline, mock_element = mock_gst_module
 
         from media_service.pipeline import input as input_module
+
         input_module.Gst = mock_gst
         input_module.GST_AVAILABLE = True
 
@@ -403,6 +404,7 @@ class TestRTMPElementCreation:
         mock_gst, mock_pipeline, mock_element = mock_gst_module
 
         from media_service.pipeline import input as input_module
+
         input_module.Gst = mock_gst
         input_module.GST_AVAILABLE = True
 
@@ -428,6 +430,7 @@ class TestRTMPElementCreation:
         mock_gst, mock_pipeline, mock_element = mock_gst_module
 
         from media_service.pipeline import input as input_module
+
         input_module.Gst = mock_gst
         input_module.GST_AVAILABLE = True
 
@@ -444,8 +447,7 @@ class TestRTMPElementCreation:
         # Verify set_property was called with "location" and the URL
         set_property_calls = mock_element.set_property.call_args_list
         location_calls = [
-            call for call in set_property_calls
-            if len(call[0]) >= 2 and call[0][0] == "location"
+            call for call in set_property_calls if len(call[0]) >= 2 and call[0][0] == "location"
         ]
 
         assert len(location_calls) >= 1, "Must set location property"
@@ -456,6 +458,7 @@ class TestRTMPElementCreation:
         mock_gst, mock_pipeline, mock_element = mock_gst_module
 
         from media_service.pipeline import input as input_module
+
         input_module.Gst = mock_gst
         input_module.GST_AVAILABLE = True
 
@@ -496,6 +499,7 @@ class TestAudioTrackValidation:
         mock_gst, mock_pipeline, mock_element = mock_gst_module
 
         from media_service.pipeline import input as input_module
+
         input_module.Gst = mock_gst
         input_module.GST_AVAILABLE = True
 
@@ -520,6 +524,7 @@ class TestAudioTrackValidation:
         mock_gst, mock_pipeline, mock_element = mock_gst_module
 
         from media_service.pipeline import input as input_module
+
         input_module.Gst = mock_gst
         input_module.GST_AVAILABLE = True
 
@@ -545,6 +550,7 @@ class TestAudioTrackValidation:
         mock_gst, mock_pipeline, mock_element = mock_gst_module
 
         from media_service.pipeline import input as input_module
+
         input_module.Gst = mock_gst
         input_module.GST_AVAILABLE = True
 
@@ -583,6 +589,7 @@ class TestOnPadAdded:
         mock_gst, mock_pipeline, mock_element = mock_gst_module
 
         from media_service.pipeline import input as input_module
+
         input_module.Gst = mock_gst
         input_module.GST_AVAILABLE = True
 
@@ -627,6 +634,7 @@ class TestOnPadAdded:
         mock_gst, mock_pipeline, mock_element = mock_gst_module
 
         from media_service.pipeline import input as input_module
+
         input_module.Gst = mock_gst
         input_module.GST_AVAILABLE = True
 
@@ -671,6 +679,7 @@ class TestOnPadAdded:
         mock_gst, mock_pipeline, mock_element = mock_gst_module
 
         from media_service.pipeline import input as input_module
+
         input_module.Gst = mock_gst
         input_module.GST_AVAILABLE = True
 
@@ -700,6 +709,7 @@ class TestOnPadAdded:
         mock_gst, mock_pipeline, mock_element = mock_gst_module
 
         from media_service.pipeline import input as input_module
+
         input_module.Gst = mock_gst
         input_module.GST_AVAILABLE = True
 
@@ -730,6 +740,7 @@ class TestOnPadAdded:
         mock_gst, mock_pipeline, mock_element = mock_gst_module
 
         from media_service.pipeline import input as input_module
+
         input_module.Gst = mock_gst
         input_module.GST_AVAILABLE = True
 
@@ -771,6 +782,7 @@ class TestOnPadAdded:
         mock_gst, mock_pipeline, mock_element = mock_gst_module
 
         from media_service.pipeline import input as input_module
+
         input_module.Gst = mock_gst
         input_module.GST_AVAILABLE = True
 
@@ -812,6 +824,7 @@ class TestOnPadAdded:
         mock_gst, mock_pipeline, mock_element = mock_gst_module
 
         from media_service.pipeline import input as input_module
+
         input_module.Gst = mock_gst
         input_module.GST_AVAILABLE = True
 
@@ -872,6 +885,7 @@ class TestOnVideoSample:
         mock_gst, mock_pipeline, mock_element = mock_gst_module
 
         from media_service.pipeline import input as input_module
+
         input_module.Gst = mock_gst
         input_module.GST_AVAILABLE = True
 
@@ -917,6 +931,7 @@ class TestOnVideoSample:
         mock_gst, mock_pipeline, mock_element = mock_gst_module
 
         from media_service.pipeline import input as input_module
+
         input_module.Gst = mock_gst
         input_module.GST_AVAILABLE = True
 
@@ -947,6 +962,7 @@ class TestOnVideoSample:
         mock_gst, mock_pipeline, mock_element = mock_gst_module
 
         from media_service.pipeline import input as input_module
+
         input_module.Gst = mock_gst
         input_module.GST_AVAILABLE = True
 
@@ -979,6 +995,7 @@ class TestOnVideoSample:
         mock_gst, mock_pipeline, mock_element = mock_gst_module
 
         from media_service.pipeline import input as input_module
+
         input_module.Gst = mock_gst
         input_module.GST_AVAILABLE = True
 
@@ -1019,6 +1036,7 @@ class TestOnVideoSample:
         mock_gst, mock_pipeline, mock_element = mock_gst_module
 
         from media_service.pipeline import input as input_module
+
         input_module.Gst = mock_gst
         input_module.GST_AVAILABLE = True
 
@@ -1072,6 +1090,7 @@ class TestOnAudioSample:
         mock_gst, mock_pipeline, mock_element = mock_gst_module
 
         from media_service.pipeline import input as input_module
+
         input_module.Gst = mock_gst
         input_module.GST_AVAILABLE = True
 
@@ -1112,6 +1131,7 @@ class TestOnAudioSample:
         mock_gst, mock_pipeline, mock_element = mock_gst_module
 
         from media_service.pipeline import input as input_module
+
         input_module.Gst = mock_gst
         input_module.GST_AVAILABLE = True
 
@@ -1142,6 +1162,7 @@ class TestOnAudioSample:
         mock_gst, mock_pipeline, mock_element = mock_gst_module
 
         from media_service.pipeline import input as input_module
+
         input_module.Gst = mock_gst
         input_module.GST_AVAILABLE = True
 
@@ -1174,6 +1195,7 @@ class TestOnAudioSample:
         mock_gst, mock_pipeline, mock_element = mock_gst_module
 
         from media_service.pipeline import input as input_module
+
         input_module.Gst = mock_gst
         input_module.GST_AVAILABLE = True
 
@@ -1213,6 +1235,7 @@ class TestOnAudioSample:
         mock_gst, mock_pipeline, mock_element = mock_gst_module
 
         from media_service.pipeline import input as input_module
+
         input_module.Gst = mock_gst
         input_module.GST_AVAILABLE = True
 
@@ -1265,6 +1288,7 @@ class TestOnBusMessage:
         mock_gst, mock_pipeline, mock_element = mock_gst_module
 
         from media_service.pipeline import input as input_module
+
         input_module.Gst = mock_gst
         input_module.GST_AVAILABLE = True
 
@@ -1301,6 +1325,7 @@ class TestOnBusMessage:
         mock_gst, mock_pipeline, mock_element = mock_gst_module
 
         from media_service.pipeline import input as input_module
+
         input_module.Gst = mock_gst
         input_module.GST_AVAILABLE = True
 
@@ -1336,6 +1361,7 @@ class TestOnBusMessage:
         mock_gst, mock_pipeline, mock_element = mock_gst_module
 
         from media_service.pipeline import input as input_module
+
         input_module.Gst = mock_gst
         input_module.GST_AVAILABLE = True
 
@@ -1368,6 +1394,7 @@ class TestOnBusMessage:
         mock_gst, mock_pipeline, mock_element = mock_gst_module
 
         from media_service.pipeline import input as input_module
+
         input_module.Gst = mock_gst
         input_module.GST_AVAILABLE = True
 
@@ -1403,13 +1430,12 @@ class TestOnBusMessage:
         assert pipeline._state == "PLAYING"
         assert result is True
 
-    def test_on_bus_message_state_changed_from_other_element_ignored(
-        self, mock_gst_module
-    ) -> None:
+    def test_on_bus_message_state_changed_from_other_element_ignored(self, mock_gst_module) -> None:
         """Test that STATE_CHANGED from non-pipeline elements is ignored."""
         mock_gst, mock_pipeline, mock_element = mock_gst_module
 
         from media_service.pipeline import input as input_module
+
         input_module.Gst = mock_gst
         input_module.GST_AVAILABLE = True
 
@@ -1445,6 +1471,7 @@ class TestOnBusMessage:
         mock_gst, mock_pipeline, mock_element = mock_gst_module
 
         from media_service.pipeline import input as input_module
+
         input_module.Gst = mock_gst
         input_module.GST_AVAILABLE = True
 

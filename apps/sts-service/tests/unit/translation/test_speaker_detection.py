@@ -5,7 +5,6 @@ TDD: These tests are written BEFORE the implementation.
 """
 
 
-
 class TestSpeakerLabelDetector:
     """Tests for SpeakerLabelDetector class."""
 

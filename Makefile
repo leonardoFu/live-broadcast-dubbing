@@ -1,6 +1,10 @@
 .PHONY: fmt lint typecheck test help setup api-status metrics clean clean-artifacts install-hooks
 .PHONY: media-dev media-down media-logs media-ps
 .PHONY: e2e-test e2e-test-p1 e2e-clean e2e-logs e2e-media-up e2e-media-down e2e-sts-up e2e-sts-down
+.PHONY: sts-docker sts-docker-stop sts-docker-logs sts-docker-status
+.PHONY: sts-elevenlabs sts-elevenlabs-stop sts-elevenlabs-logs
+.PHONY: dev-up dev-down dev-logs dev-ps dev-test
+.PHONY: dev-up-light dev-down-light
 
 PYTHON := python3.10
 VENV := .venv
@@ -42,7 +46,7 @@ help:
 	@echo "  make media-test-integration - Run media-service integration tests (requires Docker)"
 	@echo "  make media-test-coverage - Run media-service tests with coverage"
 	@echo ""
-	@echo "STS Service:"
+	@echo "STS Service (Native Python):"
 	@echo "  make sts-full           - Start Full STS Service (ASR+Translation+TTS) on port 8003"
 	@echo "  make sts-full-stop      - Stop Full STS Service"
 	@echo "  make sts-full-logs      - View Full STS Service logs in real-time"
@@ -52,6 +56,25 @@ help:
 	@echo "  make sts-test-unit      - Run sts-service unit tests"
 	@echo "  make sts-test-e2e       - Run sts-service E2E tests"
 	@echo "  make sts-test-coverage  - Run sts-service tests with coverage"
+	@echo ""
+	@echo "STS Service (Docker - Full with Coqui TTS):"
+	@echo "  make sts-docker         - Start Full STS Service in Docker (port 8000)"
+	@echo "  make sts-docker-stop    - Stop Full STS Docker container"
+	@echo "  make sts-docker-logs    - View Full STS Docker logs"
+	@echo "  make sts-docker-status  - Check Full STS Docker status"
+	@echo ""
+	@echo "STS Service (Docker - Lightweight with ElevenLabs):"
+	@echo "  make sts-elevenlabs     - Start ElevenLabs STS (faster build, smaller image)"
+	@echo "  make sts-elevenlabs-stop- Stop ElevenLabs STS container"
+	@echo "  make sts-elevenlabs-logs- View ElevenLabs STS logs"
+	@echo ""
+	@echo "Integrated Development (Media + STS Docker):"
+	@echo "  make dev-up             - Start media-service + Full STS Docker"
+	@echo "  make dev-up-light       - Start media-service + ElevenLabs STS (recommended)"
+	@echo "  make dev-down           - Stop all development services"
+	@echo "  make dev-logs           - View logs from all services"
+	@echo "  make dev-ps             - List all running containers"
+	@echo "  make dev-test           - Publish test fixture and monitor"
 	@echo ""
 	@echo "Testing (E2E - Cross-Service):"
 	@echo "  make e2e-test           - Run E2E tests (auto-starts services via pytest)"
@@ -358,3 +381,198 @@ e2e-clean:
 	@docker compose -f apps/media-service/docker-compose.yml -p e2e-media down -v --remove-orphans 2>/dev/null || true
 	@docker compose -f apps/sts-service/docker-compose.yml -p e2e-sts down -v --remove-orphans 2>/dev/null || true
 	@echo "✓ E2E cleanup complete"
+
+# =============================================================================
+# Full STS Service (Docker)
+# =============================================================================
+# Uses docker-compose.full.yml with real ASR + Translation + TTS
+# Requires: .env file with DEEPL_AUTH_KEY and ELEVENLABS_API_KEY
+# =============================================================================
+
+sts-docker:
+	@echo "Starting Full STS Service in Docker..."
+	@echo "Prerequisites: apps/sts-service/.env must contain DEEPL_AUTH_KEY and ELEVENLABS_API_KEY"
+	@if [ ! -f apps/sts-service/.env ]; then \
+		echo "❌ Error: apps/sts-service/.env not found"; \
+		echo "   Create it with:"; \
+		echo "   cat > apps/sts-service/.env << EOF"; \
+		echo "   DEEPL_AUTH_KEY=your-key-here"; \
+		echo "   ELEVENLABS_API_KEY=your-key-here"; \
+		echo "   EOF"; \
+		exit 1; \
+	fi
+	@# Ensure dubbing-network exists (created by media-service)
+	@docker network inspect dubbing-network >/dev/null 2>&1 || \
+		docker network create dubbing-network
+	docker compose -f $(STS_SERVICE)/docker-compose.full.yml --env-file $(STS_SERVICE)/.env up -d --build
+	@echo ""
+	@echo "✅ Full STS Service started!"
+	@echo "   URL: http://localhost:8000"
+	@echo "   Health: curl http://localhost:8000/health"
+	@echo "   Logs: make sts-docker-logs"
+
+sts-docker-stop:
+	@echo "Stopping Full STS Docker container..."
+	docker compose -f $(STS_SERVICE)/docker-compose.full.yml down --remove-orphans
+	@echo "✅ Full STS Service stopped"
+
+sts-docker-logs:
+	@echo "📋 Viewing Full STS Docker logs..."
+	docker compose -f $(STS_SERVICE)/docker-compose.full.yml logs -f --tail=200
+
+sts-docker-status:
+	@echo "=== Full STS Docker Status ==="
+	@docker compose -f $(STS_SERVICE)/docker-compose.full.yml ps
+	@echo ""
+	@echo "Health check:"
+	@curl -s http://localhost:8000/health 2>/dev/null && echo "" || echo "❌ Service not responding"
+
+# =============================================================================
+# Lightweight STS Service with ElevenLabs (Docker)
+# =============================================================================
+# Uses docker-compose.elevenlabs.yml - faster build, smaller image (~70% smaller)
+# No CUDA, no Coqui TTS - uses ElevenLabs API for TTS
+# Requires: .env file with DEEPL_AUTH_KEY and ELEVENLABS_API_KEY
+# =============================================================================
+
+sts-elevenlabs:
+	@echo "Starting Lightweight STS Service (ElevenLabs) in Docker..."
+	@echo "Prerequisites: apps/sts-service/.env must contain DEEPL_AUTH_KEY and ELEVENLABS_API_KEY"
+	@if [ ! -f apps/sts-service/.env ]; then \
+		echo "❌ Error: apps/sts-service/.env not found"; \
+		echo "   Create it with:"; \
+		echo "   cat > apps/sts-service/.env << EOF"; \
+		echo "   DEEPL_AUTH_KEY=your-key-here"; \
+		echo "   ELEVENLABS_API_KEY=your-key-here"; \
+		echo "   EOF"; \
+		exit 1; \
+	fi
+	@# Ensure dubbing-network exists (created by media-service)
+	@docker network inspect dubbing-network >/dev/null 2>&1 || \
+		docker network create dubbing-network
+	docker compose -f $(STS_SERVICE)/docker-compose.elevenlabs.yml --env-file $(STS_SERVICE)/.env up -d --build
+	@echo ""
+	@echo "✅ Lightweight STS Service (ElevenLabs) started!"
+	@echo "   URL: http://localhost:8000"
+	@echo "   Health: curl http://localhost:8000/health"
+	@echo "   Logs: make sts-elevenlabs-logs"
+
+sts-elevenlabs-stop:
+	@echo "Stopping ElevenLabs STS Docker container..."
+	docker compose -f $(STS_SERVICE)/docker-compose.elevenlabs.yml down --remove-orphans
+	@echo "✅ ElevenLabs STS Service stopped"
+
+sts-elevenlabs-logs:
+	@echo "📋 Viewing ElevenLabs STS Docker logs..."
+	docker compose -f $(STS_SERVICE)/docker-compose.elevenlabs.yml logs -f --tail=200
+
+# =============================================================================
+# Integrated Development (Media + STS Docker)
+# =============================================================================
+# Starts both media-service and Full STS Service for local development/testing
+# Services communicate via shared dubbing-network
+# =============================================================================
+
+TEST_FIXTURE := tests/fixtures/test-streams/1-min-nfl.mp4
+
+dev-up:
+	@echo "🚀 Starting integrated development environment..."
+	@echo ""
+	@echo "Step 1: Starting media-service (creates dubbing-network)..."
+	docker compose -f $(MEDIA_SERVICE)/docker-compose.yml up -d --build
+	@echo ""
+	@echo "Step 2: Starting Full STS Service (joins dubbing-network)..."
+	@if [ ! -f apps/sts-service/.env ]; then \
+		echo "⚠️  Warning: apps/sts-service/.env not found"; \
+		echo "   STS will fail without API keys. Create .env first."; \
+		exit 1; \
+	fi
+	docker compose -f $(STS_SERVICE)/docker-compose.full.yml --env-file $(STS_SERVICE)/.env up -d --build
+	@echo ""
+	@echo "✅ All services started!"
+	@echo ""
+	@echo "Services:"
+	@echo "  MediaMTX:       rtmp://localhost:1935 (RTMP), rtsp://localhost:8554 (RTSP)"
+	@echo "  MediaMTX API:   http://localhost:9997/v3/paths/list"
+	@echo "  Media Service:  http://localhost:8080/health"
+	@echo "  STS Service:    http://localhost:8000/health"
+	@echo ""
+	@echo "Commands:"
+	@echo "  make dev-logs   - View logs from all services"
+	@echo "  make dev-test   - Publish test fixture"
+	@echo "  make dev-down   - Stop all services"
+
+dev-up-light:
+	@echo "🚀 Starting lightweight development environment (ElevenLabs TTS)..."
+	@echo ""
+	@echo "Step 1: Starting media-service (creates dubbing-network)..."
+	docker compose -f $(MEDIA_SERVICE)/docker-compose.yml up -d --build
+	@echo ""
+	@echo "Step 2: Starting Lightweight STS Service (ElevenLabs)..."
+	@if [ ! -f apps/sts-service/.env ]; then \
+		echo "⚠️  Warning: apps/sts-service/.env not found"; \
+		echo "   STS will fail without API keys. Create .env first."; \
+		exit 1; \
+	fi
+	docker compose -f $(STS_SERVICE)/docker-compose.elevenlabs.yml --env-file $(STS_SERVICE)/.env up -d --build
+	@echo ""
+	@echo "✅ All services started (lightweight mode)!"
+	@echo ""
+	@echo "Services:"
+	@echo "  MediaMTX:       rtmp://localhost:1935 (RTMP), rtsp://localhost:8554 (RTSP)"
+	@echo "  MediaMTX API:   http://localhost:9997/v3/paths/list"
+	@echo "  Media Service:  http://localhost:8080/health"
+	@echo "  STS Service:    http://localhost:8000/health (ElevenLabs TTS)"
+	@echo ""
+	@echo "Commands:"
+	@echo "  make dev-logs   - View logs from all services"
+	@echo "  make dev-test   - Publish test fixture"
+	@echo "  make dev-down   - Stop all services"
+
+dev-down:
+	@echo "🛑 Stopping all development services..."
+	@docker compose -f $(STS_SERVICE)/docker-compose.full.yml down --remove-orphans 2>/dev/null || true
+	@docker compose -f $(STS_SERVICE)/docker-compose.elevenlabs.yml down --remove-orphans 2>/dev/null || true
+	@docker compose -f $(MEDIA_SERVICE)/docker-compose.yml down -v --remove-orphans 2>/dev/null || true
+	@echo "✅ All services stopped"
+
+dev-logs:
+	@echo "📋 Viewing logs from all services..."
+	@echo "Press Ctrl+C to exit"
+	@echo ""
+	@echo "=== Media Service + MediaMTX Logs ==="
+	@docker compose -f $(MEDIA_SERVICE)/docker-compose.yml logs -f --tail=100 &
+	@echo ""
+	@echo "=== Full STS Service Logs ==="
+	@docker compose -f $(STS_SERVICE)/docker-compose.full.yml logs -f --tail=100
+
+dev-ps:
+	@echo "=== Running Development Containers ==="
+	@echo ""
+	@echo "Media Service Stack:"
+	@docker compose -f $(MEDIA_SERVICE)/docker-compose.yml ps
+	@echo ""
+	@echo "STS Service Stack:"
+	@docker compose -f $(STS_SERVICE)/docker-compose.full.yml ps
+
+dev-test:
+	@echo "🎬 Publishing test fixture to media-service..."
+	@if [ ! -f $(TEST_FIXTURE) ]; then \
+		echo "❌ Test fixture not found: $(TEST_FIXTURE)"; \
+		exit 1; \
+	fi
+	@echo ""
+	@echo "Checking services..."
+	@curl -sf http://localhost:8080/health >/dev/null || (echo "❌ Media service not running. Run 'make dev-up' first." && exit 1)
+	@curl -sf http://localhost:8000/health >/dev/null || (echo "❌ STS service not running. Run 'make dev-up' first." && exit 1)
+	@echo "✅ All services healthy"
+	@echo ""
+	@echo "Publishing $(TEST_FIXTURE) to rtmp://localhost:1935/live/test_stream/in"
+	@echo "Output will be at: rtmp://localhost:1935/live/test_stream/out"
+	@echo ""
+	@echo "Press Ctrl+C to stop publishing"
+	@echo ""
+	ffmpeg -re -stream_loop -1 \
+		-i $(TEST_FIXTURE) \
+		-c copy \
+		-f flv rtmp://localhost:1935/live/test_stream/in

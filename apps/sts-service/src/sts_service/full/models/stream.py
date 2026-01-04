@@ -36,7 +36,7 @@ class StreamConfig(BaseModel):
         description="Source language code (e.g., 'en', 'es', 'fr')",
     )
     target_language: str = Field(
-        default="es",
+        default="ja",
         min_length=2,
         max_length=10,
         description="Target language code",
@@ -77,8 +77,8 @@ class StreamConfig(BaseModel):
         json_schema_extra={
             "example": {
                 "source_language": "en",
-                "target_language": "es",
-                "voice_profile": "spanish_male_1",
+                "target_language": "ja",
+                "voice_profile": "japanese_male_1",
                 "chunk_duration_ms": 6000,
                 "sample_rate_hz": 48000,
                 "channels": 1,
@@ -98,7 +98,9 @@ class StreamStatistics(BaseModel):
     failed_count: int = Field(ge=0, description="Failed fragments")
     avg_processing_time_ms: float = Field(ge=0, description="Average processing time")
     p95_processing_time_ms: float = Field(ge=0, description="95th percentile processing time")
-    total_audio_duration_ms: int = Field(default=0, ge=0, description="Total audio duration processed")
+    total_audio_duration_ms: int = Field(
+        default=0, ge=0, description="Total audio duration processed"
+    )
 
     @property
     def success_rate(self) -> float:

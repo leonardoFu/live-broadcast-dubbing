@@ -12,7 +12,9 @@ import numpy as np
 import pytest
 
 # Path to test fixtures directory
-FIXTURES_DIR = Path(__file__).parent.parent.parent.parent.parent.parent / "tests" / "fixtures" / "test-streams"
+FIXTURES_DIR = (
+    Path(__file__).parent.parent.parent.parent.parent.parent / "tests" / "fixtures" / "test-streams"
+)
 
 
 @pytest.fixture

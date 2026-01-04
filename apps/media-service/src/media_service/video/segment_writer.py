@@ -139,13 +139,15 @@ class VideoSegmentWriter:
         import asyncio
         import tempfile
 
-        logger.debug(f"🎬 Starting ffmpeg MP4 mux for {segment.file_path}, data size={len(video_data)} bytes")
+        logger.debug(
+            f"🎬 Starting ffmpeg MP4 mux for {segment.file_path}, data size={len(video_data)} bytes"
+        )
 
         # Ensure directory exists
         segment.file_path.parent.mkdir(parents=True, exist_ok=True)
 
         # Write raw H.264 to temporary file
-        temp_h264 = segment.file_path.with_suffix('.h264.tmp')
+        temp_h264 = segment.file_path.with_suffix(".h264.tmp")
         try:
             temp_h264.write_bytes(video_data)
             logger.debug(f"📝 Wrote temporary H.264 file: {temp_h264}")
@@ -157,28 +159,30 @@ class VideoSegmentWriter:
             # -movflags +faststart: optimize for streaming
             # -y: overwrite output file
             cmd = [
-                'ffmpeg',
-                '-f', 'h264',
-                '-i', str(temp_h264),
-                '-c', 'copy',
-                '-movflags', '+faststart',
-                '-y',
-                str(segment.file_path)
+                "ffmpeg",
+                "-f",
+                "h264",
+                "-i",
+                str(temp_h264),
+                "-c",
+                "copy",
+                "-movflags",
+                "+faststart",
+                "-y",
+                str(segment.file_path),
             ]
 
             logger.debug(f"🚀 Running: {' '.join(cmd)}")
 
             # Run ffmpeg
             proc = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
+                *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
             )
 
             stdout, stderr = await proc.communicate()
 
             if proc.returncode != 0:
-                error_msg = stderr.decode('utf-8', errors='replace')
+                error_msg = stderr.decode("utf-8", errors="replace")
                 logger.error(f"❌ ffmpeg muxing failed: {error_msg}")
                 raise RuntimeError(f"ffmpeg muxing failed: {error_msg}")
 
@@ -231,7 +235,9 @@ class VideoSegmentWriter:
         """
         from gi.repository import Gst
 
-        logger.debug(f"🎬 Starting MP4 mux for {segment.file_path}, data size={len(video_data)} bytes")
+        logger.debug(
+            f"🎬 Starting MP4 mux for {segment.file_path}, data size={len(video_data)} bytes"
+        )
 
         # Ensure directory exists
         segment.file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -239,8 +245,7 @@ class VideoSegmentWriter:
         # Create pipeline - let h264parse auto-negotiate format with mp4mux
         # h264parse will convert byte-stream → AVC as needed by mp4mux
         pipeline_str = (
-            f"appsrc name=src ! h264parse ! mp4mux ! "
-            f"filesink location={segment.file_path}"
+            f"appsrc name=src ! h264parse ! mp4mux ! filesink location={segment.file_path}"
         )
         logger.debug(f"Pipeline: {pipeline_str}")
         pipeline = Gst.parse_launch(pipeline_str)
@@ -250,9 +255,9 @@ class VideoSegmentWriter:
         # Explicitly specify byte-stream format with AU alignment
         # mp4mux requires alignment=au (access units = complete frames)
         # byte-stream = start codes (0x00000001) + SPS/PPS inline
-        appsrc.set_property("caps", Gst.Caps.from_string(
-            "video/x-h264,stream-format=byte-stream,alignment=au"
-        ))
+        appsrc.set_property(
+            "caps", Gst.Caps.from_string("video/x-h264,stream-format=byte-stream,alignment=au")
+        )
         appsrc.set_property("format", 3)  # GST_FORMAT_TIME
         appsrc.set_property("is-live", False)  # Ensure proper timestamping
 
@@ -264,7 +269,9 @@ class VideoSegmentWriter:
 
         # Create buffer from video data
         # CRITICAL: mp4mux requires buffers to have PTS set
-        logger.info(f"📦 Creating buffer: input pts={segment.t0_ns}ns, duration={segment.duration_ns}ns")
+        logger.info(
+            f"📦 Creating buffer: input pts={segment.t0_ns}ns, duration={segment.duration_ns}ns"
+        )
 
         # Create buffer and set timestamps BEFORE pushing
         buffer = Gst.Buffer.new_allocate(None, len(video_data), None)
@@ -283,7 +290,9 @@ class VideoSegmentWriter:
             logger.warning(f"⚠️ Segment has invalid duration: {segment.duration_ns}")
             buffer.duration = Gst.CLOCK_TIME_NONE
 
-        logger.info(f"✅ Buffer created: pts={buffer.pts}, duration={buffer.duration}, size={len(video_data)}")
+        logger.info(
+            f"✅ Buffer created: pts={buffer.pts}, duration={buffer.duration}, size={len(video_data)}"
+        )
 
         # Push buffer (check return value!)
         logger.debug("Pushing buffer to appsrc...")
@@ -345,8 +354,7 @@ class VideoSegmentWriter:
             raise RuntimeError("MP4 file is empty (0 bytes)")
 
         logger.info(
-            f"Video segment muxed to MP4: {segment.file_path}, "
-            f"size={segment.file_size} bytes"
+            f"Video segment muxed to MP4: {segment.file_path}, size={segment.file_size} bytes"
         )
 
         return segment

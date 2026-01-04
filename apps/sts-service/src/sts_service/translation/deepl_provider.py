@@ -54,16 +54,12 @@ class DeepLTranslator(BaseTranslationComponent):
 
             auth_key = os.environ.get("DEEPL_AUTH_KEY")
             if not auth_key:
-                raise ValueError(
-                    "DEEPL_AUTH_KEY environment variable is required"
-                )
+                raise ValueError("DEEPL_AUTH_KEY environment variable is required")
 
             self._translator = deepl.Translator(auth_key)
             self._ready = True
         except ImportError as e:
-            raise ImportError(
-                "DeepL package not installed. Run: pip install deepl>=1.0.0"
-            ) from e
+            raise ImportError("DeepL package not installed. Run: pip install deepl>=1.0.0") from e
 
     @property
     def component_instance(self) -> str:

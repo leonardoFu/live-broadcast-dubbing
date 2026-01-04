@@ -127,9 +127,7 @@ class OutputPipeline:
                 raise RuntimeError(f"Failed to create {elem_name} element")
 
         # Configure video appsrc
-        video_caps = Gst.Caps.from_string(
-            "video/x-h264,stream-format=byte-stream,alignment=au"
-        )
+        video_caps = Gst.Caps.from_string("video/x-h264,stream-format=byte-stream,alignment=au")
         self._video_appsrc.set_property("caps", video_caps)
         self._video_appsrc.set_property("is-live", True)
         self._video_appsrc.set_property("format", 3)  # GST_FORMAT_TIME
@@ -138,9 +136,7 @@ class OutputPipeline:
         # Configure audio appsrc
         # Use flexible caps - aacparse will determine sample rate and channels from ADTS headers.
         # Don't hardcode rate/channels to avoid mismatch with input (which may be 44100 Hz).
-        audio_caps = Gst.Caps.from_string(
-            "audio/mpeg,mpegversion=4,stream-format=adts"
-        )
+        audio_caps = Gst.Caps.from_string("audio/mpeg,mpegversion=4,stream-format=adts")
         self._audio_appsrc.set_property("caps", audio_caps)
         self._audio_appsrc.set_property("is-live", True)
         self._audio_appsrc.set_property("format", 3)  # GST_FORMAT_TIME
@@ -238,7 +234,9 @@ class OutputPipeline:
             # Log element-specific messages (useful for rtmpsink connection events)
             structure = message.get_structure()
             if structure:
-                logger.info(f"📨 OUTPUT ELEMENT MESSAGE [{message.src.get_name()}]: {structure.to_string()}")
+                logger.info(
+                    f"📨 OUTPUT ELEMENT MESSAGE [{message.src.get_name()}]: {structure.to_string()}"
+                )
 
         return True
 
@@ -364,8 +362,7 @@ class OutputPipeline:
         pipeline.set_state(Gst.State.PLAYING)
         bus = pipeline.get_bus()
         msg = bus.timed_pop_filtered(
-            Gst.CLOCK_TIME_NONE,
-            Gst.MessageType.EOS | Gst.MessageType.ERROR
+            Gst.CLOCK_TIME_NONE, Gst.MessageType.EOS | Gst.MessageType.ERROR
         )
 
         if msg and msg.type == Gst.MessageType.ERROR:
@@ -438,7 +435,7 @@ class OutputPipeline:
             bus = pipeline.get_bus()
             msg = bus.timed_pop_filtered(
                 5 * Gst.SECOND,  # 5 second timeout
-                Gst.MessageType.EOS | Gst.MessageType.ERROR
+                Gst.MessageType.EOS | Gst.MessageType.ERROR,
             )
 
             if msg and msg.type == Gst.MessageType.ERROR:
@@ -507,8 +504,7 @@ class OutputPipeline:
         pipeline.set_state(Gst.State.PLAYING)
         bus = pipeline.get_bus()
         msg = bus.timed_pop_filtered(
-            Gst.CLOCK_TIME_NONE,
-            Gst.MessageType.EOS | Gst.MessageType.ERROR
+            Gst.CLOCK_TIME_NONE, Gst.MessageType.EOS | Gst.MessageType.ERROR
         )
 
         if msg and msg.type == Gst.MessageType.ERROR:
@@ -554,6 +550,7 @@ class OutputPipeline:
         try:
             # Check if files exist
             import os
+
             if not os.path.exists(video_mp4_path):
                 logger.error(f"❌ Video file not found: {video_mp4_path}")
                 return False
@@ -696,7 +693,9 @@ class OutputPipeline:
             # For appsrc-based pipelines, the transition to PLAYING may not complete
             # until buffers are pushed. Don't wait synchronously - let it transition
             # naturally as data flows.
-            logger.info(f"✅ OUTPUT PIPELINE SET TO PLAYING (will complete when data flows) -> {self._rtmp_url}")
+            logger.info(
+                f"✅ OUTPUT PIPELINE SET TO PLAYING (will complete when data flows) -> {self._rtmp_url}"
+            )
         else:
             logger.info(f"✅ OUTPUT PIPELINE STARTED (SYNC) -> {self._rtmp_url}")
 

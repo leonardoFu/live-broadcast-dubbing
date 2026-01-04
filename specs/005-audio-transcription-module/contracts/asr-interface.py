@@ -167,6 +167,7 @@ class AudioPayloadStore(Protocol):
 # Mock Implementation Specification
 # -----------------------------------------------------------------------------
 
+
 class MockASRConfig:
     """Configuration for MockASRComponent behavior.
 

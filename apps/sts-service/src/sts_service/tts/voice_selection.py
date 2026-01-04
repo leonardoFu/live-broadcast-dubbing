@@ -176,8 +176,7 @@ def select_voice(
         # Voice cloning not supported in fast mode (VITS)
         if profile.fast_mode:
             logger.warning(
-                "Voice cloning not supported in fast mode (VITS), "
-                "falling back to speaker selection"
+                "Voice cloning not supported in fast mode (VITS), falling back to speaker selection"
             )
         else:
             # Validate voice sample

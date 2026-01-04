@@ -5,7 +5,6 @@ TDD: These tests are written BEFORE the implementation.
 """
 
 
-
 class TestTranslationNormalizer:
     """Tests for TranslationNormalizer class."""
 
@@ -202,9 +201,7 @@ class TestTranslationNormalizer:
         normalizer = TranslationNormalizer()
         policy = NormalizationPolicy()
 
-        result = normalizer.normalize(
-            "NFL 1:54 REMAINING & TEN-YARD LINE VS BILLS", policy
-        )
+        result = normalizer.normalize("NFL 1:54 REMAINING & TEN-YARD LINE VS BILLS", policy)
 
         # Check all rules applied
         assert "N F L" in result  # abbreviation expanded

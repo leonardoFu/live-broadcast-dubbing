@@ -64,9 +64,7 @@ class TestAvSyncManagerPushVideo:
     """Tests for push_video method."""
 
     @pytest.mark.asyncio
-    async def test_push_video_buffers_when_no_audio(
-        self, video_segment: VideoSegment
-    ) -> None:
+    async def test_push_video_buffers_when_no_audio(self, video_segment: VideoSegment) -> None:
         """Test push_video buffers video when no matching audio."""
         sync = AvSyncManager()
 
@@ -103,9 +101,7 @@ class TestAvSyncManagerPushAudio:
     """Tests for push_audio method."""
 
     @pytest.mark.asyncio
-    async def test_push_audio_buffers_when_no_video(
-        self, audio_segment: AudioSegment
-    ) -> None:
+    async def test_push_audio_buffers_when_no_video(self, audio_segment: AudioSegment) -> None:
         """Test push_audio buffers audio when no matching video."""
         sync = AvSyncManager()
 

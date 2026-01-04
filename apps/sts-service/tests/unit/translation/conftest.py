@@ -52,9 +52,9 @@ def conversation_texts() -> list[str]:
 
 PUNCTUATION_FIXTURES = [
     "Wait... what did you say?",
-    'The score is 21-14\u2014an exciting game!',  # em-dash
-    'She said, \u201cI\'ll be there soon.\u201d',  # smart quotes
-    'This is \u201cgreat\u201d news!',  # smart quotes
+    "The score is 21-14\u2014an exciting game!",  # em-dash
+    "She said, \u201cI'll be there soon.\u201d",  # smart quotes
+    "This is \u201cgreat\u201d news!",  # smart quotes
     "What\u2019s happening?",  # smart apostrophe
 ]
 
@@ -170,9 +170,9 @@ def normalization_cases() -> list[tuple[str, str]]:
 
 TTS_CLEANUP_TEST_CASES = [
     # (input, expected_cleaned) tuples
-    ('\u201cHello\u201d', '"Hello"'),  # smart quotes
-    ('\u201cHello\u201d', '"Hello"'),  # smart double quotes
-    ('\u2018Hi\u2019', "'Hi'"),  # smart single quotes
+    ("\u201cHello\u201d", '"Hello"'),  # smart quotes
+    ("\u201cHello\u201d", '"Hello"'),  # smart double quotes
+    ("\u2018Hi\u2019", "'Hi'"),  # smart single quotes
     ("15-12", "15 to 12"),  # score
     ("21\u201414", "21-14"),  # em-dash to hyphen
     ("a  b   c", "a b c"),  # multiple spaces

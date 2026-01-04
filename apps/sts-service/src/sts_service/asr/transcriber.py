@@ -142,10 +142,15 @@ class FasterWhisperASR(BaseASRComponent):
             # DEBUG
             import logging
             import numpy as np
+
             logger = logging.getLogger(__name__)
-            logger.info(f"DEBUG transcriber: Audio shape={audio.shape if hasattr(audio, 'shape') else len(audio)}, dtype={audio.dtype if hasattr(audio, 'dtype') else type(audio)}")
-            if hasattr(audio, 'shape'):
-                logger.info(f"DEBUG transcriber: Audio min={audio.min():.4f}, max={audio.max():.4f}, mean={np.abs(audio).mean():.4f}")
+            logger.info(
+                f"DEBUG transcriber: Audio shape={audio.shape if hasattr(audio, 'shape') else len(audio)}, dtype={audio.dtype if hasattr(audio, 'dtype') else type(audio)}"
+            )
+            if hasattr(audio, "shape"):
+                logger.info(
+                    f"DEBUG transcriber: Audio min={audio.min():.4f}, max={audio.max():.4f}, mean={np.abs(audio).mean():.4f}"
+                )
 
             # Get domain prompt
             initial_prompt = get_domain_prompt(domain)
@@ -168,12 +173,15 @@ class FasterWhisperASR(BaseASRComponent):
                 raise RuntimeError("Model not loaded")
 
             # DEBUG: Log transcription config
-            logger.info(f"DEBUG transcriber: no_speech_threshold={trans_config.no_speech_threshold}")
+            logger.info(
+                f"DEBUG transcriber: no_speech_threshold={trans_config.no_speech_threshold}"
+            )
             logger.info(f"DEBUG transcriber: vad_filter={vad_filter}, vad_params={vad_parameters}")
 
             # DEBUG: Save audio to file for comparison
             import tempfile
             from pathlib import Path
+
             debug_audio_file = Path("/tmp/debug_audio_from_transcriber.npy")
             np.save(debug_audio_file, audio)
             logger.info(f"DEBUG transcriber: Saved audio to {debug_audio_file}")
@@ -195,11 +203,16 @@ class FasterWhisperASR(BaseASRComponent):
 
             # DEBUG: Convert to list immediately to check
             import logging
+
             logger = logging.getLogger(__name__)
             segments_list = list(segments_iter)
-            logger.info(f"DEBUG transcriber: faster-whisper returned {len(segments_list)} raw segments")
+            logger.info(
+                f"DEBUG transcriber: faster-whisper returned {len(segments_list)} raw segments"
+            )
             for i, seg in enumerate(segments_list):
-                logger.info(f"DEBUG transcriber: Raw segment {i}: [{seg.start:.2f}s-{seg.end:.2f}s] '{seg.text}'")
+                logger.info(
+                    f"DEBUG transcriber: Raw segment {i}: [{seg.start:.2f}s-{seg.end:.2f}s] '{seg.text}'"
+                )
 
             # Convert segments (use segments_list, not the exhausted iterator!)
             transcript_segments = self._convert_segments(
@@ -210,6 +223,7 @@ class FasterWhisperASR(BaseASRComponent):
 
             # DEBUG
             import logging
+
             logger = logging.getLogger(__name__)
             logger.info(f"DEBUG transcriber: Converted {len(transcript_segments)} segments")
 
@@ -279,12 +293,15 @@ class FasterWhisperASR(BaseASRComponent):
         fragment_duration_s = (end_time_ms - start_time_ms) / 1000.0
 
         import logging
+
         logger = logging.getLogger(__name__)
         segment_count = 0
 
         for segment in segments_iter:
             segment_count += 1
-            logger.info(f"DEBUG _convert_segments: Processing segment {segment_count}: '{segment.text}'")
+            logger.info(
+                f"DEBUG _convert_segments: Processing segment {segment_count}: '{segment.text}'"
+            )
             # Convert relative seconds to absolute milliseconds
             seg_start_s = segment.start
             seg_end_s = segment.end

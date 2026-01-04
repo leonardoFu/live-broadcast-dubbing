@@ -137,9 +137,7 @@ class TestWorkerRunnerOnStsError:
     """Tests for _on_sts_error callback."""
 
     @pytest.mark.asyncio
-    async def test_on_sts_error_records_metric(
-        self, worker_config: WorkerConfig
-    ) -> None:
+    async def test_on_sts_error_records_metric(self, worker_config: WorkerConfig) -> None:
         """Test STS error records metric."""
         worker = WorkerRunner(worker_config)
 
@@ -152,9 +150,7 @@ class TestWorkerRunnerOnStsError:
         # Should not raise, just log
 
     @pytest.mark.asyncio
-    async def test_on_sts_error_non_retryable(
-        self, worker_config: WorkerConfig
-    ) -> None:
+    async def test_on_sts_error_non_retryable(self, worker_config: WorkerConfig) -> None:
         """Test non-retryable STS error."""
         worker = WorkerRunner(worker_config)
 
@@ -399,9 +395,7 @@ class TestWorkerRunnerCleanup:
     """Tests for cleanup method."""
 
     @pytest.mark.asyncio
-    async def test_cleanup_resets_all_components(
-        self, worker_config: WorkerConfig
-    ) -> None:
+    async def test_cleanup_resets_all_components(self, worker_config: WorkerConfig) -> None:
         """Test cleanup resets all components."""
         worker = WorkerRunner(worker_config)
 
@@ -415,9 +409,7 @@ class TestWorkerRunnerCleanup:
         assert worker.output_pipeline is None
 
     @pytest.mark.asyncio
-    async def test_cleanup_with_pipelines(
-        self, worker_config: WorkerConfig
-    ) -> None:
+    async def test_cleanup_with_pipelines(self, worker_config: WorkerConfig) -> None:
         """Test cleanup cleans up pipelines."""
         worker = WorkerRunner(worker_config)
 
@@ -440,9 +432,7 @@ class TestWorkerRunnerStop:
     """Tests for stop method."""
 
     @pytest.mark.asyncio
-    async def test_stop_when_not_running(
-        self, worker_config: WorkerConfig
-    ) -> None:
+    async def test_stop_when_not_running(self, worker_config: WorkerConfig) -> None:
         """Test stop when not running is no-op."""
         worker = WorkerRunner(worker_config)
 
@@ -450,9 +440,7 @@ class TestWorkerRunnerStop:
         await worker.stop()
 
     @pytest.mark.asyncio
-    async def test_stop_stops_pipelines(
-        self, worker_config: WorkerConfig
-    ) -> None:
+    async def test_stop_stops_pipelines(self, worker_config: WorkerConfig) -> None:
         """Test stop stops pipelines."""
         worker = WorkerRunner(worker_config)
         worker._running = True
@@ -517,7 +505,7 @@ class TestRTMPURLConstruction:
         worker = WorkerRunner(config)
 
         # Worker should store RTMP URL for InputPipeline
-        assert hasattr(worker, 'config')
+        assert hasattr(worker, "config")
         assert worker.config.rtmp_input_url.startswith("rtmp://")
         assert ":1935/" in worker.config.rtmp_input_url
 
@@ -549,11 +537,9 @@ class TestRTMPURLConstruction:
         )
 
         # rtsp_url should NOT exist on the config
-        assert not hasattr(config, 'rtsp_url'), "WorkerConfig should not have rtsp_url"
+        assert not hasattr(config, "rtsp_url"), "WorkerConfig should not have rtsp_url"
 
-    def test_worker_runner_input_pipeline_uses_rtmp(
-        self, tmp_segment_dir: Path
-    ) -> None:
+    def test_worker_runner_input_pipeline_uses_rtmp(self, tmp_segment_dir: Path) -> None:
         """Test WorkerRunner initializes InputPipeline with rtmp_url parameter."""
         config = WorkerConfig(
             stream_id="pipeline-test",
@@ -566,8 +552,10 @@ class TestRTMPURLConstruction:
         worker = WorkerRunner(config)
 
         # Mock both InputPipeline and OutputPipeline to prevent GStreamer calls
-        with patch('media_service.worker.worker_runner.InputPipeline') as mock_input_pipeline, \
-             patch('media_service.worker.worker_runner.OutputPipeline') as mock_output_pipeline:
+        with (
+            patch("media_service.worker.worker_runner.InputPipeline") as mock_input_pipeline,
+            patch("media_service.worker.worker_runner.OutputPipeline") as mock_output_pipeline,
+        ):
             mock_input_instance = MagicMock()
             mock_output_instance = MagicMock()
             mock_input_pipeline.return_value = mock_input_instance
@@ -580,6 +568,6 @@ class TestRTMPURLConstruction:
             mock_input_pipeline.assert_called_once()
             call_kwargs = mock_input_pipeline.call_args
             if call_kwargs:
-                kwargs = call_kwargs.kwargs if hasattr(call_kwargs, 'kwargs') else call_kwargs[1]
-                assert 'rtmp_url' in kwargs, "InputPipeline must be called with rtmp_url"
-                assert kwargs['rtmp_url'].startswith("rtmp://"), "rtmp_url must start with rtmp://"
+                kwargs = call_kwargs.kwargs if hasattr(call_kwargs, "kwargs") else call_kwargs[1]
+                assert "rtmp_url" in kwargs, "InputPipeline must be called with rtmp_url"
+                assert kwargs["rtmp_url"].startswith("rtmp://"), "rtmp_url must start with rtmp://"

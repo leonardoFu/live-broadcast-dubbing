@@ -5,7 +5,6 @@ TDD: These tests are written BEFORE the implementation.
 """
 
 
-
 class TestMockIdentityTranslator:
     """Tests for MockIdentityTranslator (T010)."""
 
@@ -242,9 +241,7 @@ class TestMockFailingTranslator:
         from sts_service.translation.mock import MockFailingTranslator
         from sts_service.translation.models import TranslationErrorType, TranslationStatus
 
-        mock = MockFailingTranslator(
-            failure_rate=1.0, failure_type=TranslationErrorType.TIMEOUT
-        )
+        mock = MockFailingTranslator(failure_rate=1.0, failure_type=TranslationErrorType.TIMEOUT)
 
         result = mock.translate(
             source_text="Test",

@@ -7,7 +7,6 @@ Following TDD: These tests MUST be written FIRST and MUST FAIL before implementa
 Coverage Target: 80% minimum.
 """
 
-
 import pytest
 from pydantic import ValidationError
 from sts_service.tts.errors import TTSError, TTSErrorType
@@ -253,9 +252,7 @@ class TestVoiceProfile:
 
     def test_speed_clamp_validation_valid(self):
         """Test speed_clamp_max must be greater than speed_clamp_min."""
-        profile = VoiceProfile(
-            language="en", speed_clamp_min=0.8, speed_clamp_max=1.5
-        )
+        profile = VoiceProfile(language="en", speed_clamp_min=0.8, speed_clamp_max=1.5)
         assert profile.speed_clamp_min == 0.8
         assert profile.speed_clamp_max == 1.5
 

@@ -46,9 +46,7 @@ class TranslationError(BaseModel):
     """Structured error information for failed or partial translations."""
 
     error_type: TranslationErrorType = Field(..., description="Error classification")
-    message: str = Field(
-        ..., description="Human-readable error message (safe for logs)"
-    )
+    message: str = Field(..., description="Human-readable error message (safe for logs)")
     retryable: bool = Field(..., description="Whether this error is worth retrying")
     details: dict[str, Any] | None = Field(
         default=None, description="Additional error context (debug info)"
@@ -115,9 +113,7 @@ class TranslationConfig(BaseModel):
 
     # Default policies
     default_speaker_policy: SpeakerPolicy = Field(default_factory=SpeakerPolicy)
-    default_normalization_policy: NormalizationPolicy = Field(
-        default_factory=NormalizationPolicy
-    )
+    default_normalization_policy: NormalizationPolicy = Field(default_factory=NormalizationPolicy)
 
     # Fallback behavior
     fallback_to_source_on_error: bool = Field(
@@ -196,9 +192,7 @@ class TextAsset(AssetIdentifiers):
     @property
     def is_retryable(self) -> bool:
         """Whether this result should be retried."""
-        return self.status == TranslationStatus.FAILED and any(
-            e.retryable for e in self.errors
-        )
+        return self.status == TranslationStatus.FAILED and any(e.retryable for e in self.errors)
 
 
 # -----------------------------------------------------------------------------

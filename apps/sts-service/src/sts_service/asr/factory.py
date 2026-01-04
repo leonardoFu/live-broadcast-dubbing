@@ -4,7 +4,6 @@ Factory function for creating ASR components.
 Provides a unified interface for creating ASR component instances.
 """
 
-
 from .interface import ASRComponent
 from .mock import MockASRComponent
 from .models import ASRConfig

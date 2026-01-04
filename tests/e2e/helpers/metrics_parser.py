@@ -162,10 +162,10 @@ class MetricsParser:
         # Match pattern: metric_name{labels} value [timestamp]
         # or: metric_name value [timestamp]
         pattern = (
-            r'^([a-zA-Z_:][a-zA-Z0-9_:]*)'  # metric name
-            r'((?:\{[^}]*\})?)?'  # optional labels
-            r'\s+([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)'  # value
-            r'\s*(\d+)?$'  # optional timestamp
+            r"^([a-zA-Z_:][a-zA-Z0-9_:]*)"  # metric name
+            r"((?:\{[^}]*\})?)?"  # optional labels
+            r"\s+([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)"  # value
+            r"\s*(\d+)?$"  # optional timestamp
         )
         match = re.match(pattern, line)
 
@@ -214,7 +214,7 @@ class MetricsParser:
         suffixes = ["_total", "_count", "_sum", "_bucket", "_created"]
         for suffix in suffixes:
             if name.endswith(suffix):
-                return name[:-len(suffix)]
+                return name[: -len(suffix)]
         return name
 
     def get_gauge(self, name: str, labels: dict[str, str] | None = None) -> float | None:
@@ -259,8 +259,7 @@ class MetricsParser:
         for family in self._metrics.values():
             for sample in family.samples:
                 if sample.name == name and (
-                    labels is None
-                    or all(sample.labels.get(k) == v for k, v in labels.items())
+                    labels is None or all(sample.labels.get(k) == v for k, v in labels.items())
                 ):
                     return sample.value
 
@@ -319,9 +318,7 @@ class MetricsParser:
         if actual is None:
             raise AssertionError(f"Counter {name} not found")
         if actual != expected:
-            raise AssertionError(
-                f"Counter {name} expected {expected}, got {actual}"
-            )
+            raise AssertionError(f"Counter {name} expected {expected}, got {actual}")
 
     def assert_counter_at_least(
         self,
@@ -343,9 +340,7 @@ class MetricsParser:
         if actual is None:
             raise AssertionError(f"Counter {name} not found")
         if actual < minimum:
-            raise AssertionError(
-                f"Counter {name} expected at least {minimum}, got {actual}"
-            )
+            raise AssertionError(f"Counter {name} expected at least {minimum}, got {actual}")
 
     def assert_gauge_in_range(
         self,
@@ -412,9 +407,7 @@ class MetricsParser:
             for sample in family.samples:
                 # Format metric name with labels
                 if sample.labels:
-                    label_str = ",".join(
-                        f'{k}="{v}"' for k, v in sorted(sample.labels.items())
-                    )
+                    label_str = ",".join(f'{k}="{v}"' for k, v in sorted(sample.labels.items()))
                     key = f"{sample.name}{{{label_str}}}"
                 else:
                     key = sample.name

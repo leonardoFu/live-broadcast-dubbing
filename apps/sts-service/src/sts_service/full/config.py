@@ -17,9 +17,7 @@ class ServerConfig:
     port: int = field(default_factory=lambda: int(os.getenv("PORT", "8000")))
 
     # Connection limits
-    max_connections: int = field(
-        default_factory=lambda: int(os.getenv("WS_MAX_CONNECTIONS", "10"))
-    )
+    max_connections: int = field(default_factory=lambda: int(os.getenv("WS_MAX_CONNECTIONS", "10")))
     max_buffer_size: int = field(
         default_factory=lambda: int(os.getenv("WS_MAX_BUFFER_SIZE", str(50 * 1024 * 1024)))
     )  # 50MB default
@@ -66,18 +64,14 @@ class PipelineConfig:
     """Pipeline configuration for ASR, Translation, and TTS."""
 
     # DeepL API (required for translation)
-    deepl_auth_key: Optional[str] = field(
-        default_factory=lambda: os.getenv("DEEPL_AUTH_KEY")
-    )
+    deepl_auth_key: Optional[str] = field(default_factory=lambda: os.getenv("DEEPL_AUTH_KEY"))
 
     # ASR Configuration
     asr_model_size: str = field(default_factory=lambda: os.getenv("ASR_MODEL_SIZE", "medium"))
     asr_device: str = field(
         default_factory=lambda: os.getenv("ASR_DEVICE", "cuda" if _is_cuda_available() else "cpu")
     )
-    asr_timeout_ms: int = field(
-        default_factory=lambda: int(os.getenv("ASR_TIMEOUT_MS", "5000"))
-    )
+    asr_timeout_ms: int = field(default_factory=lambda: int(os.getenv("ASR_TIMEOUT_MS", "5000")))
 
     # Translation Configuration
     translation_timeout_ms: int = field(
@@ -88,9 +82,7 @@ class PipelineConfig:
     tts_device: str = field(
         default_factory=lambda: os.getenv("TTS_DEVICE", "cuda" if _is_cuda_available() else "cpu")
     )
-    tts_timeout_ms: int = field(
-        default_factory=lambda: int(os.getenv("TTS_TIMEOUT_MS", "10000"))
-    )
+    tts_timeout_ms: int = field(default_factory=lambda: int(os.getenv("TTS_TIMEOUT_MS", "10000")))
 
     # Duration matching thresholds
     duration_variance_success_max: float = field(
@@ -115,12 +107,8 @@ class PipelineConfig:
     )
 
     # Model paths (optional - defaults to cache)
-    asr_model_path: Optional[str] = field(
-        default_factory=lambda: os.getenv("ASR_MODEL_PATH")
-    )
-    tts_model_path: Optional[str] = field(
-        default_factory=lambda: os.getenv("TTS_MODEL_PATH")
-    )
+    asr_model_path: Optional[str] = field(default_factory=lambda: os.getenv("ASR_MODEL_PATH"))
+    tts_model_path: Optional[str] = field(default_factory=lambda: os.getenv("TTS_MODEL_PATH"))
     voice_profiles_path: str = field(
         default_factory=lambda: os.getenv("VOICE_PROFILES_PATH", "/config/voices.json")
     )

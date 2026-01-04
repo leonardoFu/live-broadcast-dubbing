@@ -45,7 +45,7 @@ class StsSocketIOClient:
 
     Attributes:
         server_url: STS Service WebSocket URL
-        namespace: Socket.IO namespace (default /sts)
+        namespace: Socket.IO namespace (default /)
         stream_id: Current stream identifier
         max_inflight: Maximum concurrent in-flight fragments
         session_id: STS session ID (assigned by server)
@@ -62,7 +62,7 @@ class StsSocketIOClient:
 
         Args:
             server_url: STS Service URL (e.g., "http://sts-service:8000")
-            namespace: Socket.IO namespace (default /sts)
+            namespace: Socket.IO namespace (default /)
             reconnect_attempts: Max reconnection attempts
             reconnect_delay: Initial reconnect delay in seconds
         """
@@ -166,10 +166,7 @@ class StsSocketIOClient:
         self.session_id = data.get("session_id")
         self.max_inflight = data.get("max_inflight", 3)
 
-        logger.info(
-            f"Stream ready: session_id={self.session_id}, "
-            f"max_inflight={self.max_inflight}"
-        )
+        logger.info(f"Stream ready: session_id={self.session_id}, max_inflight={self.max_inflight}")
 
         self._stream_ready = True
         self._ready_event.set()

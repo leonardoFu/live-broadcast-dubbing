@@ -100,13 +100,20 @@ def encode_pcm_to_m4a(
         cmd = [
             "ffmpeg",
             "-y",  # Overwrite output
-            "-f", ffmpeg_format,  # Input format
-            "-ar", str(sample_rate_hz),  # Sample rate
-            "-ac", str(channels),  # Channels
-            "-i", str(input_path),  # Input file
-            "-c:a", "aac",  # AAC codec
-            "-b:a", f"{bitrate_kbps}k",  # Bitrate
-            "-movflags", "+faststart",  # Optimize for streaming
+            "-f",
+            ffmpeg_format,  # Input format
+            "-ar",
+            str(sample_rate_hz),  # Sample rate
+            "-ac",
+            str(channels),  # Channels
+            "-i",
+            str(input_path),  # Input file
+            "-c:a",
+            "aac",  # AAC codec
+            "-b:a",
+            f"{bitrate_kbps}k",  # Bitrate
+            "-movflags",
+            "+faststart",  # Optimize for streaming
             str(output_path),
         ]
 
@@ -219,9 +226,12 @@ def get_m4a_duration_ms(m4a_data: bytes) -> int | None:
     try:
         cmd = [
             "ffprobe",
-            "-v", "error",
-            "-show_entries", "format=duration",
-            "-of", "default=noprint_wrappers=1:nokey=1",
+            "-v",
+            "error",
+            "-show_entries",
+            "format=duration",
+            "-of",
+            "default=noprint_wrappers=1:nokey=1",
             str(temp_path),
         ]
 

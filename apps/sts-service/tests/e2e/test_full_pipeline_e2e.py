@@ -154,9 +154,7 @@ async def test_single_fragment_e2e(full_sts_service: str):
 
         # Verify ack latency <50ms (target)
         if ack_latency_ms > 50:
-            logger.warning(
-                f"⚠ Ack latency {ack_latency_ms:.1f}ms exceeds 50ms target"
-            )
+            logger.warning(f"⚠ Ack latency {ack_latency_ms:.1f}ms exceeds 50ms target")
 
         # Wait for fragment:processed
         logger.info("Waiting for fragment:processed...")
@@ -257,9 +255,7 @@ async def test_full_minute_pipeline_e2e(full_sts_service: str):
 
     logger.info(f"Prepared {len(chunks)} audio chunks")
     for i, chunk in enumerate(chunks):
-        logger.info(
-            f"  Chunk {i}: {chunk.duration_ms}ms, {chunk.size_bytes} bytes"
-        )
+        logger.info(f"  Chunk {i}: {chunk.duration_ms}ms, {chunk.size_bytes} bytes")
 
     async with SocketIOClient(full_sts_service) as client:
         # Initialize stream
@@ -299,21 +295,14 @@ async def test_full_minute_pipeline_e2e(full_sts_service: str):
 
             status = result_data["status"]
             processing_time_ms = result_data.get("processing_time_ms", 0)
-            logger.info(
-                f"✓ Processed {fragment_id}: "
-                f"status={status}, time={processing_time_ms}ms"
-            )
+            logger.info(f"✓ Processed {fragment_id}: status={status}, time={processing_time_ms}ms")
 
         total_time = asyncio.get_event_loop().time() - start_time
         logger.info(f"All fragments processed in {total_time:.1f}s")
 
         # Validate all succeeded
-        success_count = sum(
-            1 for r in processed_results if r["status"] == "success"
-        )
-        failed_count = sum(
-            1 for r in processed_results if r["status"] == "failed"
-        )
+        success_count = sum(1 for r in processed_results if r["status"] == "success")
+        failed_count = sum(1 for r in processed_results if r["status"] == "failed")
 
         logger.info(
             f"Results: {success_count} success, {failed_count} failed "
@@ -423,7 +412,9 @@ async def test_backpressure_monitoring_e2e(full_sts_service: str):
                 assert "action" in data, "Missing action"
                 assert "stream_id" in data, "Missing stream_id"
         else:
-            logger.warning("⚠ No backpressure events received (fragments may have processed too quickly)")
+            logger.warning(
+                "⚠ No backpressure events received (fragments may have processed too quickly)"
+            )
 
         # Wait for all fragments to complete
         logger.info("Waiting for all fragments to complete...")

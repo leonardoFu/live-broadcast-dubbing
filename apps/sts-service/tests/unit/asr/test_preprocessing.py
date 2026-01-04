@@ -90,7 +90,9 @@ class TestPreprocessAudio:
         audio = 0.5 * np.sin(2 * np.pi * 440 * t)
         audio_bytes = audio.astype(np.float32).tobytes()
 
-        result = preprocess_audio(audio_bytes, sample_rate=orig_sample_rate, target_sample_rate=target_sample_rate)
+        result = preprocess_audio(
+            audio_bytes, sample_rate=orig_sample_rate, target_sample_rate=target_sample_rate
+        )
 
         # Output should have correct number of samples for 16kHz
         expected_samples = int(target_sample_rate * duration)

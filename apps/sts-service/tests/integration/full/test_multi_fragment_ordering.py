@@ -158,9 +158,7 @@ class TestFragmentQueueOrdering:
             """Get results in order."""
             results = []
             for _ in range(3):
-                result = await asyncio.wait_for(
-                    queue.get_next_in_order(), timeout=1.0
-                )
+                result = await asyncio.wait_for(queue.get_next_in_order(), timeout=1.0)
                 results.append(result)
             return results
 
@@ -292,9 +290,7 @@ class TestPipelineMultiFragmentOrdering:
         mock.component_instance = "mock-translate-v1"
         mock.is_ready = True
 
-        def translate_side_effect(
-            source_text: str, *args: Any, **kwargs: Any
-        ) -> MagicMock:
+        def translate_side_effect(source_text: str, *args: Any, **kwargs: Any) -> MagicMock:
             result = MagicMock()
             result.asset_id = f"trans-{hash(source_text) % 10000:04d}"
             result.status = AssetStatus.SUCCESS
@@ -563,9 +559,7 @@ class TestPipelineMultiFragmentOrdering:
             """Get results in order using async method."""
             results = []
             for _ in range(3):
-                result = await asyncio.wait_for(
-                    queue.get_next_in_order(), timeout=2.0
-                )
+                result = await asyncio.wait_for(queue.get_next_in_order(), timeout=2.0)
                 results.append(result)
             return results
 

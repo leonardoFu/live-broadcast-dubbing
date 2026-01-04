@@ -5,7 +5,6 @@ Tests the complete flow from ASR TranscriptAsset to Translation TextAsset,
 verifying lineage tracking, language handling, and policy application.
 """
 
-
 from sts_service.asr.models import TranscriptAsset
 from sts_service.translation.factory import create_translation_component
 from sts_service.translation.mock import (

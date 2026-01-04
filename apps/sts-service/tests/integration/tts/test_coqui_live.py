@@ -53,8 +53,7 @@ class TestBasicSynthesis:
         assert audio.channels == 1
         assert audio.language == "en"
 
-        print(f"\nEnglish synthesis: {audio.duration_ms}ms, "
-              f"status={audio.status.value}")
+        print(f"\nEnglish synthesis: {audio.duration_ms}ms, status={audio.status.value}")
 
         tts.shutdown()
 
@@ -76,8 +75,7 @@ class TestBasicSynthesis:
         assert audio.duration_ms > 0
         assert audio.language == "es"
 
-        print(f"\nSpanish synthesis: {audio.duration_ms}ms, "
-              f"status={audio.status.value}")
+        print(f"\nSpanish synthesis: {audio.duration_ms}ms, status={audio.status.value}")
 
         tts.shutdown()
 
@@ -87,7 +85,8 @@ class TestBasicSynthesis:
         text_asset = create_text_asset("Testing custom sample rate output.")
 
         audio = synthesize_from_translation(
-            text_asset, tts,
+            text_asset,
+            tts,
             output_sample_rate_hz=24000,
         )
 
@@ -102,7 +101,8 @@ class TestBasicSynthesis:
         text_asset = create_text_asset("Testing stereo output.")
 
         audio = synthesize_from_translation(
-            text_asset, tts,
+            text_asset,
+            tts,
             output_channels=2,
         )
 
@@ -211,7 +211,9 @@ class TestQualityModes:
         audio = synthesize_from_translation(text_asset, tts)
 
         assert audio.status == AudioStatus.SUCCESS
-        assert "xtts" in tts.component_instance.lower() or "quality" in tts.component_instance.lower()
+        assert (
+            "xtts" in tts.component_instance.lower() or "quality" in tts.component_instance.lower()
+        )
 
         print(f"\nQuality mode: {tts.component_instance}")
 
@@ -269,7 +271,8 @@ class TestDurationMatchingIntegration:
         target_duration = 2000  # 2 seconds
 
         audio = synthesize_from_translation(
-            text_asset, tts,
+            text_asset,
+            tts,
             target_duration_ms=target_duration,
         )
 
@@ -397,12 +400,15 @@ class TestComponentIdentification:
 class TestMultiLanguageSupport:
     """Test multi-language synthesis support."""
 
-    @pytest.mark.parametrize("language,text", [
-        ("en", "Hello, how are you today?"),
-        ("es", "Hola, como estas hoy?"),
-        ("fr", "Bonjour, comment allez-vous?"),
-        ("de", "Hallo, wie geht es Ihnen?"),
-    ])
+    @pytest.mark.parametrize(
+        "language,text",
+        [
+            ("en", "Hello, how are you today?"),
+            ("es", "Hola, como estas hoy?"),
+            ("fr", "Bonjour, comment allez-vous?"),
+            ("de", "Hallo, wie geht es Ihnen?"),
+        ],
+    )
     def test_multilingual_synthesis(self, language: str, text: str):
         """Test synthesis works for multiple languages."""
         tts = CoquiTTSComponent(fast_mode=False)  # XTTS-v2 supports multilingual
@@ -458,11 +464,13 @@ class TestStress:
         for i, sentence in enumerate(sentences):
             text_asset = create_text_asset(sentence, sequence_number=i)
             audio = synthesize_from_translation(text_asset, tts)
-            results.append({
-                "sequence": i,
-                "status": audio.status,
-                "duration_ms": audio.duration_ms,
-            })
+            results.append(
+                {
+                    "sequence": i,
+                    "status": audio.status,
+                    "duration_ms": audio.duration_ms,
+                }
+            )
 
         # All should succeed
         assert all(r["status"] == AudioStatus.SUCCESS for r in results)

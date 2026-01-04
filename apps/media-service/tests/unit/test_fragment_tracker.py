@@ -130,9 +130,7 @@ class TestFragmentTrackerComplete:
     """Tests for complete method."""
 
     @pytest.mark.asyncio
-    async def test_complete_removes_from_tracking(
-        self, mock_audio_segment: AudioSegment
-    ) -> None:
+    async def test_complete_removes_from_tracking(self, mock_audio_segment: AudioSegment) -> None:
         """Test complete removes fragment from tracking."""
         tracker = FragmentTracker()
 
@@ -155,9 +153,7 @@ class TestFragmentTrackerComplete:
         assert inflight is None
 
     @pytest.mark.asyncio
-    async def test_complete_cancels_timeout_task(
-        self, mock_audio_segment: AudioSegment
-    ) -> None:
+    async def test_complete_cancels_timeout_task(self, mock_audio_segment: AudioSegment) -> None:
         """Test complete cancels the timeout task."""
         tracker = FragmentTracker(timeout_ms=5000)
 
@@ -214,9 +210,7 @@ class TestFragmentTrackerTimeout:
         )
 
     @pytest.mark.asyncio
-    async def test_timeout_removes_from_tracking(
-        self, mock_audio_segment: AudioSegment
-    ) -> None:
+    async def test_timeout_removes_from_tracking(self, mock_audio_segment: AudioSegment) -> None:
         """Test timeout removes fragment from tracking."""
         tracker = FragmentTracker(timeout_ms=50)
 

@@ -140,9 +140,7 @@ class StsCircuitBreaker:
             Exception: If send fails and needs to be handled
         """
         if not self.should_send():
-            logger.info(
-                f"Circuit open: using fallback for segment {segment.fragment_id}"
-            )
+            logger.info(f"Circuit open: using fallback for segment {segment.fragment_id}")
             if self._on_fallback:
                 await self._on_fallback(segment)
             return None

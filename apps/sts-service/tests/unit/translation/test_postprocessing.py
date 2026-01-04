@@ -5,7 +5,6 @@ TDD: These tests are written BEFORE the implementation.
 """
 
 
-
 class TestTTSCleanup:
     """Tests for TTSCleanup class."""
 
@@ -21,7 +20,7 @@ class TestTTSCleanup:
         from sts_service.translation.postprocessing import TTSCleanup
 
         cleanup = TTSCleanup()
-        result = cleanup.cleanup('\u201cHello\u201d')  # "Hello"
+        result = cleanup.cleanup("\u201cHello\u201d")  # "Hello"
 
         assert result == '"Hello"'
 
@@ -30,7 +29,7 @@ class TestTTSCleanup:
         from sts_service.translation.postprocessing import TTSCleanup
 
         cleanup = TTSCleanup()
-        result = cleanup.cleanup('\u2018Hi\u2019')  # 'Hi'
+        result = cleanup.cleanup("\u2018Hi\u2019")  # 'Hi'
 
         assert result == "'Hi'"
 
@@ -39,7 +38,7 @@ class TestTTSCleanup:
         from sts_service.translation.postprocessing import TTSCleanup
 
         cleanup = TTSCleanup()
-        result = cleanup.cleanup('Hello\u2014world')  # em-dash
+        result = cleanup.cleanup("Hello\u2014world")  # em-dash
 
         assert result == "Hello-world"
 
@@ -48,7 +47,7 @@ class TestTTSCleanup:
         from sts_service.translation.postprocessing import TTSCleanup
 
         cleanup = TTSCleanup()
-        result = cleanup.cleanup('Hello\u2013world')  # en-dash
+        result = cleanup.cleanup("Hello\u2013world")  # en-dash
 
         assert result == "Hello-world"
 
@@ -57,7 +56,7 @@ class TestTTSCleanup:
         from sts_service.translation.postprocessing import TTSCleanup
 
         cleanup = TTSCleanup()
-        result = cleanup.cleanup('The score is 15-12')
+        result = cleanup.cleanup("The score is 15-12")
 
         assert result == "The score is 15 to 12"
 
@@ -112,7 +111,7 @@ class TestTTSCleanup:
         from sts_service.translation.postprocessing import TTSCleanup
 
         cleanup = TTSCleanup()
-        test_input = '\u201cThe score is 21-14\u2014an exciting game!\u201d'
+        test_input = "\u201cThe score is 21-14\u2014an exciting game!\u201d"
 
         first_result = cleanup.cleanup(test_input)
         for _ in range(100):
@@ -133,9 +132,7 @@ class TestTTSCleanup:
         from sts_service.translation.postprocessing import TTSCleanup
 
         cleanup = TTSCleanup()
-        result = cleanup.cleanup(
-            '\u201cThe score is 21-14\u2014what   a game!\u201d'
-        )
+        result = cleanup.cleanup("\u201cThe score is 21-14\u2014what   a game!\u201d")
 
         # Check all rules applied
         assert '"' in result  # smart quotes normalized
@@ -148,9 +145,7 @@ class TestTTSCleanup:
         from sts_service.translation.postprocessing import TTSCleanup
 
         cleanup = TTSCleanup()
-        result = cleanup.cleanup(
-            'She said, \u201cI\u2019ll be there\u2014soon!\u201d'
-        )
+        result = cleanup.cleanup("She said, \u201cI\u2019ll be there\u2014soon!\u201d")
 
         assert result == 'She said, "I\'ll be there-soon!"'
 

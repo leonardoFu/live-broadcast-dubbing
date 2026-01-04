@@ -50,6 +50,7 @@ def preprocess_audio(
     # Convert bytes to float32 array
     audio = bytes_to_float32_array(audio_bytes)
     import logging
+
     logger = logging.getLogger(__name__)
     logger.info(f"DEBUG preprocess: After bytes_to_float32: {len(audio)} samples")
 
@@ -60,7 +61,9 @@ def preprocess_audio(
 
     # Resample if needed
     if sample_rate != target_sample_rate:
-        logger.info(f"DEBUG preprocess: Resampling {len(audio)} samples from {sample_rate}Hz to {target_sample_rate}Hz")
+        logger.info(
+            f"DEBUG preprocess: Resampling {len(audio)} samples from {sample_rate}Hz to {target_sample_rate}Hz"
+        )
         audio = resample_audio(audio, orig_sr=sample_rate, target_sr=target_sample_rate)
         logger.info(f"DEBUG preprocess: After resample: {len(audio)} samples")
 

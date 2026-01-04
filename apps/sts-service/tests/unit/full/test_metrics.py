@@ -16,6 +16,7 @@ import pytest
 # Check if pynvml is available
 try:
     import pynvml
+
     PYNVML_AVAILABLE = True
 except ImportError:
     PYNVML_AVAILABLE = False
@@ -40,11 +41,12 @@ def test_metrics_recorded_on_success():
     )
 
     # Mock histogram observe methods
-    with patch.object(sts_fragment_processing_seconds, "labels") as mock_frag_labels, \
-         patch.object(sts_asr_duration_seconds, "observe") as mock_asr_observe, \
-         patch.object(sts_translation_duration_seconds, "observe") as mock_translation_observe, \
-         patch.object(sts_tts_duration_seconds, "observe") as mock_tts_observe:
-
+    with (
+        patch.object(sts_fragment_processing_seconds, "labels") as mock_frag_labels,
+        patch.object(sts_asr_duration_seconds, "observe") as mock_asr_observe,
+        patch.object(sts_translation_duration_seconds, "observe") as mock_translation_observe,
+        patch.object(sts_tts_duration_seconds, "observe") as mock_tts_observe,
+    ):
         mock_frag_metric = MagicMock()
         mock_frag_labels.return_value = mock_frag_metric
 
@@ -129,9 +131,10 @@ def test_gpu_utilization_tracked(
     mock_memory = MagicMock(used=8_000_000_000, total=16_000_000_000)
     mock_memory_info.return_value = mock_memory
 
-    with patch.object(sts_gpu_utilization_percent, "set") as mock_util_set, \
-         patch.object(sts_gpu_memory_used_bytes, "set") as mock_memory_set:
-
+    with (
+        patch.object(sts_gpu_utilization_percent, "set") as mock_util_set,
+        patch.object(sts_gpu_memory_used_bytes, "set") as mock_memory_set,
+    ):
         # Update GPU metrics
         update_gpu_metrics()
 
@@ -285,9 +288,10 @@ def test_active_sessions_gauge():
         sts_sessions_active,
     )
 
-    with patch.object(sts_sessions_active, "inc") as mock_inc, \
-         patch.object(sts_sessions_active, "dec") as mock_dec:
-
+    with (
+        patch.object(sts_sessions_active, "inc") as mock_inc,
+        patch.object(sts_sessions_active, "dec") as mock_dec,
+    ):
         increment_active_sessions()
         mock_inc.assert_called_once()
 

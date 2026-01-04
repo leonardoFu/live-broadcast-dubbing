@@ -108,8 +108,7 @@ class AvSyncManager:
             # Buffer video and wait for audio
             if len(self._video_buffer) >= self.max_buffer_size:
                 logger.warning(
-                    f"Video buffer full ({self.max_buffer_size}), "
-                    "dropping oldest segment"
+                    f"Video buffer full ({self.max_buffer_size}), dropping oldest segment"
                 )
                 self._video_buffer.popleft()
 
@@ -141,16 +140,11 @@ class AvSyncManager:
                 if video_segment.batch_number == segment.batch_number:
                     # Remove from buffer and create pair
                     del self._video_buffer[i]
-                    return self._create_pair(
-                        video_segment, video_data, segment, data
-                    )
+                    return self._create_pair(video_segment, video_data, segment, data)
 
             # Buffer audio and wait for video
             if len(self._audio_buffer) >= self.max_buffer_size:
-                logger.warning(
-                    f"Audio buffer full ({self.max_buffer_size}), "
-                    "dropping oldest entry"
-                )
+                logger.warning(f"Audio buffer full ({self.max_buffer_size}), dropping oldest entry")
                 # Remove oldest by batch_number
                 oldest = min(self._audio_buffer.keys())
                 del self._audio_buffer[oldest]
@@ -230,14 +224,10 @@ class AvSyncManager:
             matched_indices = []
             for i, (video_segment, video_data) in enumerate(self._video_buffer):
                 if video_segment.batch_number in self._audio_buffer:
-                    audio_segment, audio_data = self._audio_buffer.pop(
-                        video_segment.batch_number
-                    )
+                    audio_segment, audio_data = self._audio_buffer.pop(video_segment.batch_number)
                     matched_indices.append(i)
                     pairs.append(
-                        self._create_pair(
-                            video_segment, video_data, audio_segment, audio_data
-                        )
+                        self._create_pair(video_segment, video_data, audio_segment, audio_data)
                     )
 
             # Remove matched video segments (reverse order to preserve indices)
@@ -269,9 +259,7 @@ class AvSyncManager:
 
                 # Check for buffered audio first
                 if video_segment.batch_number in self._audio_buffer:
-                    audio_segment, audio_data = self._audio_buffer.pop(
-                        video_segment.batch_number
-                    )
+                    audio_segment, audio_data = self._audio_buffer.pop(video_segment.batch_number)
                 else:
                     # Create fallback audio segment
                     audio_segment = AudioSegment(
@@ -285,9 +273,7 @@ class AvSyncManager:
                     audio_data = await get_original_audio(audio_segment)
 
                 pairs.append(
-                    self._create_pair(
-                        video_segment, video_data, audio_segment, audio_data
-                    )
+                    self._create_pair(video_segment, video_data, audio_segment, audio_data)
                 )
 
         return pairs

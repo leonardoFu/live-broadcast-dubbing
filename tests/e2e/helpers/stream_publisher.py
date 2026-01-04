@@ -139,12 +139,17 @@ class StreamPublisher:
         cmd.extend(["-i", str(self.fixture_path)])
 
         # Output options - copy codecs (no re-encoding)
-        cmd.extend([
-            "-c:v", "copy",
-            "-c:a", "copy",
-            "-f", "flv",
-            rtmp_url,
-        ])
+        cmd.extend(
+            [
+                "-c:v",
+                "copy",
+                "-c:a",
+                "copy",
+                "-f",
+                "flv",
+                rtmp_url,
+            ]
+        )
 
         return cmd
 
@@ -290,8 +295,10 @@ def verify_fixture(fixture_path: Path | None = None) -> dict:
 
     cmd = [
         "ffprobe",
-        "-v", "quiet",
-        "-print_format", "json",
+        "-v",
+        "quiet",
+        "-print_format",
+        "json",
         "-show_format",
         "-show_streams",
         str(path),
