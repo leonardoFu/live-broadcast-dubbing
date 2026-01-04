@@ -141,6 +141,12 @@ class InputPipeline:
         video_queue = Gst.ElementFactory.make("queue", "video_queue")
         self._video_appsink = Gst.ElementFactory.make("appsink", "video_sink")
 
+        # Configure h264parse to insert SPS/PPS before every IDR frame.
+        # This ensures that each video segment will have codec configuration data
+        # at the start, which is critical for the output pipeline to properly
+        # parse and mux the video for RTMP streaming.
+        h264parse.set_property("config-interval", -1)  # -1 = insert before every IDR
+
         # Configure video queue for better buffering
         video_queue.set_property("max-size-buffers", 0)  # Unlimited buffers
         video_queue.set_property("max-size-bytes", 0)  # Unlimited bytes

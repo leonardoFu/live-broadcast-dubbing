@@ -517,8 +517,16 @@ class PipelineCoordinator:
                 )
 
             # Build dubbed audio response
+            # Get audio format - ElevenLabs uses audio_format (enum), others may use format (string)
+            audio_format = getattr(tts_result, "audio_format", None)
+            if audio_format is not None:
+                # Handle enum (has .value) or string
+                tts_format = getattr(audio_format, "value", str(audio_format))
+            else:
+                tts_format = getattr(tts_result, "format", "pcm_s16le")
+
             dubbed_audio = AudioData(
-                format=getattr(tts_result, "format", "pcm_s16le"),
+                format=tts_format,
                 sample_rate_hz=getattr(tts_result, "sample_rate_hz", session.sample_rate_hz),
                 channels=getattr(tts_result, "channels", session.channels),
                 duration_ms=tts_duration_ms,

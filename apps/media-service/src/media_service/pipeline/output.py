@@ -127,7 +127,12 @@ class OutputPipeline:
                 raise RuntimeError(f"Failed to create {elem_name} element")
 
         # Configure video appsrc
-        video_caps = Gst.Caps.from_string("video/x-h264,stream-format=byte-stream,alignment=au")
+        # Note: We use byte-stream format and let h264parse convert to AVC for flvmux.
+        # The h264parse will extract SPS/PPS from the byte-stream data and set codec_data.
+        # config-interval=-1 ensures SPS/PPS is re-inserted before each IDR frame.
+        video_caps = Gst.Caps.from_string(
+            "video/x-h264,stream-format=byte-stream,alignment=au"
+        )
         self._video_appsrc.set_property("caps", video_caps)
         self._video_appsrc.set_property("is-live", True)
         self._video_appsrc.set_property("format", 3)  # GST_FORMAT_TIME

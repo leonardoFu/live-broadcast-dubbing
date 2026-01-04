@@ -97,6 +97,7 @@ class WorkerRunner:
         self.metrics = WorkerMetrics(stream_id=config.stream_id)
         self._running = False
         self._task: asyncio.Task | None = None
+        self._skip_sts = False  # Set during start() based on SKIP_STS_CONNECTION env
 
         # Initialize components
         self._init_components()
@@ -149,11 +150,11 @@ class WorkerRunner:
 
         try:
             # Connect to STS Service (skip if SKIP_STS_CONNECTION is set for integration tests)
-            skip_sts = os.getenv("SKIP_STS_CONNECTION", "false").lower() == "true"
-            if skip_sts:
+            self._skip_sts = os.getenv("SKIP_STS_CONNECTION", "false").lower() == "true"
+            if self._skip_sts:
                 logger.warning(
                     "Skipping STS connection (SKIP_STS_CONNECTION=true) - "
-                    "worker will not process audio segments"
+                    "audio will pass through unchanged (fallback mode)"
                 )
             else:
                 await self._connect_sts()
@@ -298,13 +299,19 @@ class WorkerRunner:
     ) -> None:
         """Process audio segment.
 
-        Writes to disk and sends to STS for dubbing.
+        Writes to disk and sends to STS for dubbing (or uses fallback if STS is skipped).
         """
         try:
             # Write original segment to disk
             segment = await self.audio_writer.write(segment, data)
 
             self.metrics.record_segment_processed("audio", segment.file_size)
+
+            # If STS is skipped, use fallback (passthrough) mode
+            if self._skip_sts:
+                logger.info(f"Using passthrough for audio segment {segment.batch_number} (STS skipped)")
+                await self._use_fallback(segment)
+                return
 
             # Send to STS (with circuit breaker protection)
             await self._send_to_sts(segment)

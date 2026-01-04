@@ -94,6 +94,7 @@ services:
       - MEDIAMTX_RTSP_URL=${MEDIAMTX_RTSP_URL:-rtsp://mediamtx:8554}
       - MEDIAMTX_RTMP_URL=${MEDIAMTX_RTMP_URL:-rtmp://mediamtx:1935}
       - STS_SERVICE_URL=${STS_SERVICE_URL:-http://full-sts-service:8000}  # Full STS on shared network
+      - SKIP_STS_CONNECTION=${SKIP_STS_CONNECTION:-false}  # Set to true for testing without STS
       - SEGMENT_DIR=${SEGMENT_DIR:-/tmp/segments}
       - METRICS_ENABLED=${METRICS_ENABLED:-true}
       - MAX_CONCURRENT_STREAMS=${MAX_CONCURRENT_STREAMS:-10}
