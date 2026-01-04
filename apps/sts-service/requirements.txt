@@ -34,6 +34,7 @@ deepl==1.27.0
 
 # TTS (Text-to-Speech)
 TTS==0.22.0  # Coqui TTS with XTTS v2 support
+elevenlabs>=0.2.0,<2.0  # ElevenLabs TTS API client
 # TTS dependencies
 # Pin transformers to version compatible with TTS 0.22.0 (BeamSearchScorer issue)
 transformers==4.43.3

@@ -113,7 +113,9 @@ class TestSocketIOEventFlow:
         assert stream_ready_payload["capabilities"]["async_delivery"] is True
 
     @pytest.mark.asyncio
-    async def test_client_sends_fragment_receives_processed(self, test_server, sio_client, sample_audio_data):
+    async def test_client_sends_fragment_receives_processed(
+        self, test_server, sio_client, sample_audio_data
+    ):
         """T102: Send fragment:data → receive fragment:ack → receive fragment:processed (dubbed_audio, transcript, translated_text), latency <8s."""
         pytest.skip("Server not implemented yet - TDD failing test")
 
@@ -203,7 +205,9 @@ class TestSocketIOEventFlow:
         assert end_to_end_latency < 8000, f"Latency {end_to_end_latency:.2f}ms exceeded 8000ms"
 
     @pytest.mark.asyncio
-    async def test_client_receives_backpressure_event(self, test_server, sio_client, sample_audio_data):
+    async def test_client_receives_backpressure_event(
+        self, test_server, sio_client, sample_audio_data
+    ):
         """T103: Send 5 fragments rapidly (in_flight >3) → receive backpressure event with severity='medium', action='slow_down'."""
         pytest.skip("Server not implemented yet - TDD failing test")
 

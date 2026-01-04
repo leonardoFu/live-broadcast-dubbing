@@ -291,9 +291,7 @@ class DockerComposeManager:
             f"{self.project_name}: Docker services failed to become healthy within {timeout} seconds"
         )
 
-    def _verify_health_endpoints(
-        self, endpoints: list[tuple[str, str]]
-    ) -> bool:
+    def _verify_health_endpoints(self, endpoints: list[tuple[str, str]]) -> bool:
         """Verify health endpoints are responding.
 
         Args:

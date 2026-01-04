@@ -107,7 +107,10 @@ class TestAvSyncManagerPushVideo:
 
     @pytest.mark.asyncio
     async def test_push_video_creates_pair_when_audio_ready(
-        self, av_sync_manager: AvSyncManager, video_segment: VideoSegment, audio_segment: AudioSegment
+        self,
+        av_sync_manager: AvSyncManager,
+        video_segment: VideoSegment,
+        audio_segment: AudioSegment,
     ) -> None:
         """Test video creates pair when matching audio is ready."""
         video_data = b"\x00" * 1000
@@ -166,7 +169,10 @@ class TestAvSyncManagerPushAudio:
 
     @pytest.mark.asyncio
     async def test_push_audio_creates_pair_when_video_ready(
-        self, av_sync_manager: AvSyncManager, video_segment: VideoSegment, audio_segment: AudioSegment
+        self,
+        av_sync_manager: AvSyncManager,
+        video_segment: VideoSegment,
+        audio_segment: AudioSegment,
     ) -> None:
         """Test audio creates pair when matching video is ready."""
         video_data = b"\x00" * 1000
@@ -213,7 +219,10 @@ class TestAvSyncManagerSyncPair:
 
     @pytest.mark.asyncio
     async def test_sync_pair_has_correct_video_data(
-        self, av_sync_manager: AvSyncManager, video_segment: VideoSegment, audio_segment: AudioSegment
+        self,
+        av_sync_manager: AvSyncManager,
+        video_segment: VideoSegment,
+        audio_segment: AudioSegment,
     ) -> None:
         """Test SyncPair contains correct video data."""
         video_data = b"VIDEO_DATA_12345"
@@ -226,7 +235,10 @@ class TestAvSyncManagerSyncPair:
 
     @pytest.mark.asyncio
     async def test_sync_pair_has_correct_audio_data(
-        self, av_sync_manager: AvSyncManager, video_segment: VideoSegment, audio_segment: AudioSegment
+        self,
+        av_sync_manager: AvSyncManager,
+        video_segment: VideoSegment,
+        audio_segment: AudioSegment,
     ) -> None:
         """Test SyncPair contains correct audio data."""
         video_data = b"VIDEO_DATA_12345"
@@ -239,7 +251,10 @@ class TestAvSyncManagerSyncPair:
 
     @pytest.mark.asyncio
     async def test_sync_pair_pts_includes_offset(
-        self, av_sync_manager: AvSyncManager, video_segment: VideoSegment, audio_segment: AudioSegment
+        self,
+        av_sync_manager: AvSyncManager,
+        video_segment: VideoSegment,
+        audio_segment: AudioSegment,
     ) -> None:
         """Test SyncPair PTS includes A/V offset."""
         video_data = b"VIDEO_DATA"
@@ -260,16 +275,28 @@ class TestAvSyncManagerBatchMatching:
     async def test_matches_by_batch_number(self, av_sync_manager: AvSyncManager) -> None:
         """Test video and audio are matched by batch number."""
         video0 = VideoSegment(
-            fragment_id="video-0", stream_id="s1", batch_number=0,
-            t0_ns=0, duration_ns=6_000_000_000, file_path=Path("/tmp/v0.mp4")
+            fragment_id="video-0",
+            stream_id="s1",
+            batch_number=0,
+            t0_ns=0,
+            duration_ns=6_000_000_000,
+            file_path=Path("/tmp/v0.mp4"),
         )
         video1 = VideoSegment(
-            fragment_id="video-1", stream_id="s1", batch_number=1,
-            t0_ns=6_000_000_000, duration_ns=6_000_000_000, file_path=Path("/tmp/v1.mp4")
+            fragment_id="video-1",
+            stream_id="s1",
+            batch_number=1,
+            t0_ns=6_000_000_000,
+            duration_ns=6_000_000_000,
+            file_path=Path("/tmp/v1.mp4"),
         )
         audio1 = AudioSegment(
-            fragment_id="audio-1", stream_id="s1", batch_number=1,
-            t0_ns=6_000_000_000, duration_ns=6_000_000_000, file_path=Path("/tmp/a1.m4a")
+            fragment_id="audio-1",
+            stream_id="s1",
+            batch_number=1,
+            t0_ns=6_000_000_000,
+            duration_ns=6_000_000_000,
+            file_path=Path("/tmp/a1.m4a"),
         )
 
         # Push videos first
@@ -288,12 +315,20 @@ class TestAvSyncManagerBatchMatching:
     async def test_unmatched_segments_stay_buffered(self, av_sync_manager: AvSyncManager) -> None:
         """Test unmatched segments remain in buffers."""
         video0 = VideoSegment(
-            fragment_id="video-0", stream_id="s1", batch_number=0,
-            t0_ns=0, duration_ns=6_000_000_000, file_path=Path("/tmp/v0.mp4")
+            fragment_id="video-0",
+            stream_id="s1",
+            batch_number=0,
+            t0_ns=0,
+            duration_ns=6_000_000_000,
+            file_path=Path("/tmp/v0.mp4"),
         )
         audio5 = AudioSegment(
-            fragment_id="audio-5", stream_id="s1", batch_number=5,
-            t0_ns=30_000_000_000, duration_ns=6_000_000_000, file_path=Path("/tmp/a5.m4a")
+            fragment_id="audio-5",
+            stream_id="s1",
+            batch_number=5,
+            t0_ns=30_000_000_000,
+            duration_ns=6_000_000_000,
+            file_path=Path("/tmp/a5.m4a"),
         )
 
         result_v = await av_sync_manager.push_video(video0, b"v0")
@@ -316,14 +351,20 @@ class TestAvSyncManagerGetReadyPairs:
         # Create segments for batches 0, 1, 2
         for i in range(3):
             video = VideoSegment(
-                fragment_id=f"video-{i}", stream_id="s1", batch_number=i,
-                t0_ns=i * 6_000_000_000, duration_ns=6_000_000_000,
-                file_path=Path(f"/tmp/v{i}.mp4")
+                fragment_id=f"video-{i}",
+                stream_id="s1",
+                batch_number=i,
+                t0_ns=i * 6_000_000_000,
+                duration_ns=6_000_000_000,
+                file_path=Path(f"/tmp/v{i}.mp4"),
             )
             audio = AudioSegment(
-                fragment_id=f"audio-{i}", stream_id="s1", batch_number=i,
-                t0_ns=i * 6_000_000_000, duration_ns=6_000_000_000,
-                file_path=Path(f"/tmp/a{i}.m4a")
+                fragment_id=f"audio-{i}",
+                stream_id="s1",
+                batch_number=i,
+                t0_ns=i * 6_000_000_000,
+                duration_ns=6_000_000_000,
+                file_path=Path(f"/tmp/a{i}.m4a"),
             )
             await av_sync_manager.push_video(video, f"v{i}".encode())
             await av_sync_manager.push_audio(audio, f"a{i}".encode())
@@ -344,12 +385,20 @@ class TestAvSyncManagerGetReadyPairs:
     ) -> None:
         """Test get_ready_pairs returns empty list when no matches."""
         video = VideoSegment(
-            fragment_id="video-0", stream_id="s1", batch_number=0,
-            t0_ns=0, duration_ns=6_000_000_000, file_path=Path("/tmp/v0.mp4")
+            fragment_id="video-0",
+            stream_id="s1",
+            batch_number=0,
+            t0_ns=0,
+            duration_ns=6_000_000_000,
+            file_path=Path("/tmp/v0.mp4"),
         )
         audio = AudioSegment(
-            fragment_id="audio-5", stream_id="s1", batch_number=5,
-            t0_ns=30_000_000_000, duration_ns=6_000_000_000, file_path=Path("/tmp/a5.m4a")
+            fragment_id="audio-5",
+            stream_id="s1",
+            batch_number=5,
+            t0_ns=30_000_000_000,
+            duration_ns=6_000_000_000,
+            file_path=Path("/tmp/a5.m4a"),
         )
 
         await av_sync_manager.push_video(video, b"v0")
@@ -369,8 +418,12 @@ class TestAvSyncManagerFlushWithFallback:
     ) -> None:
         """Test flush creates pairs with fallback audio."""
         video = VideoSegment(
-            fragment_id="video-0", stream_id="s1", batch_number=0,
-            t0_ns=0, duration_ns=6_000_000_000, file_path=Path("/tmp/v0.mp4")
+            fragment_id="video-0",
+            stream_id="s1",
+            batch_number=0,
+            t0_ns=0,
+            duration_ns=6_000_000_000,
+            file_path=Path("/tmp/v0.mp4"),
         )
 
         await av_sync_manager.push_video(video, b"video_data")
@@ -390,12 +443,20 @@ class TestAvSyncManagerFlushWithFallback:
     ) -> None:
         """Test flush uses buffered audio instead of fallback when available."""
         video = VideoSegment(
-            fragment_id="video-0", stream_id="s1", batch_number=0,
-            t0_ns=0, duration_ns=6_000_000_000, file_path=Path("/tmp/v0.mp4")
+            fragment_id="video-0",
+            stream_id="s1",
+            batch_number=0,
+            t0_ns=0,
+            duration_ns=6_000_000_000,
+            file_path=Path("/tmp/v0.mp4"),
         )
         audio = AudioSegment(
-            fragment_id="audio-0", stream_id="s1", batch_number=0,
-            t0_ns=0, duration_ns=6_000_000_000, file_path=Path("/tmp/a0.m4a")
+            fragment_id="audio-0",
+            stream_id="s1",
+            batch_number=0,
+            t0_ns=0,
+            duration_ns=6_000_000_000,
+            file_path=Path("/tmp/a0.m4a"),
         )
 
         # Push video and audio with same batch (but via separate paths)
@@ -419,8 +480,12 @@ class TestAvSyncManagerReset:
     async def test_reset_clears_video_buffer(self, av_sync_manager: AvSyncManager) -> None:
         """Test reset clears video buffer."""
         video = VideoSegment(
-            fragment_id="video-0", stream_id="s1", batch_number=0,
-            t0_ns=0, duration_ns=6_000_000_000, file_path=Path("/tmp/v0.mp4")
+            fragment_id="video-0",
+            stream_id="s1",
+            batch_number=0,
+            t0_ns=0,
+            duration_ns=6_000_000_000,
+            file_path=Path("/tmp/v0.mp4"),
         )
         await av_sync_manager.push_video(video, b"data")
 
@@ -432,8 +497,12 @@ class TestAvSyncManagerReset:
     async def test_reset_clears_audio_buffer(self, av_sync_manager: AvSyncManager) -> None:
         """Test reset clears audio buffer."""
         audio = AudioSegment(
-            fragment_id="audio-0", stream_id="s1", batch_number=0,
-            t0_ns=0, duration_ns=6_000_000_000, file_path=Path("/tmp/a0.m4a")
+            fragment_id="audio-0",
+            stream_id="s1",
+            batch_number=0,
+            t0_ns=0,
+            duration_ns=6_000_000_000,
+            file_path=Path("/tmp/a0.m4a"),
         )
         await av_sync_manager.push_audio(audio, b"data")
 

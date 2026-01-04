@@ -143,7 +143,7 @@ class InputPipeline:
 
         # Configure video queue for better buffering
         video_queue.set_property("max-size-buffers", 0)  # Unlimited buffers
-        video_queue.set_property("max-size-bytes", 0)    # Unlimited bytes
+        video_queue.set_property("max-size-bytes", 0)  # Unlimited bytes
         video_queue.set_property("max-size-time", 5 * Gst.SECOND)  # 5 seconds of data
         video_queue.set_property("leaky", 2)  # Leak downstream (drop old data if full)
 
@@ -155,7 +155,7 @@ class InputPipeline:
 
         # Configure audio queue for better buffering
         audio_queue.set_property("max-size-buffers", 0)  # Unlimited buffers
-        audio_queue.set_property("max-size-bytes", 0)    # Unlimited bytes
+        audio_queue.set_property("max-size-bytes", 0)  # Unlimited bytes
         audio_queue.set_property("max-size-time", 5 * Gst.SECOND)  # 5 seconds of data
         audio_queue.set_property("leaky", 2)  # Leak downstream (drop old data if full)
 
@@ -177,9 +177,7 @@ class InputPipeline:
         # Request byte-stream format with AU alignment
         # This forces h264parse to convert AVC (from flvdemux) to byte-stream
         # with SPS/PPS embedded inline, alignment=au for mp4mux compatibility
-        video_caps = Gst.Caps.from_string(
-            "video/x-h264,stream-format=byte-stream,alignment=au"
-        )
+        video_caps = Gst.Caps.from_string("video/x-h264,stream-format=byte-stream,alignment=au")
         self._video_appsink.set_property("caps", video_caps)
 
         # Configure audio appsink
@@ -241,9 +239,7 @@ class InputPipeline:
         self._state = "READY"
         logger.info(f"Input pipeline built for {self._rtmp_url}")
 
-    def _on_pad_added(
-        self, element: Gst.Element, pad: Gst.Pad
-    ) -> None:
+    def _on_pad_added(self, element: Gst.Element, pad: Gst.Pad) -> None:
         """Handle dynamic pad creation from flvdemux.
 
         Links newly created pads to appropriate parsers based on media type.
@@ -384,11 +380,15 @@ class InputPipeline:
                 caps = sample.get_caps()
                 if caps and not caps.is_empty():
                     structure = caps.get_structure(0)
-                    sample_rate = structure.get_int("rate")[1] if structure.has_field("rate") else 44100
+                    sample_rate = (
+                        structure.get_int("rate")[1] if structure.has_field("rate") else 44100
+                    )
                     # AAC-LC: 1024 samples per frame
                     # Duration = samples_per_frame / sample_rate * 1e9 ns
                     duration_ns = int((1024 / sample_rate) * 1_000_000_000)
-                    logger.debug(f"Calculated audio buffer duration from caps: sample_rate={sample_rate}Hz, duration={duration_ns}ns ({duration_ns/1e6:.2f}ms)")
+                    logger.debug(
+                        f"Calculated audio buffer duration from caps: sample_rate={sample_rate}Hz, duration={duration_ns}ns ({duration_ns / 1e6:.2f}ms)"
+                    )
 
             try:
                 self._on_audio_buffer(data, pts_ns, duration_ns)

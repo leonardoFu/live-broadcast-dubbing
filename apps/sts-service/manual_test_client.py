@@ -3,7 +3,22 @@
 Manual Test Client for Full STS Service
 
 This script sends audio chunks to the running STS service and displays results.
+
+Usage:
+    python manual_test_client.py [--tts-provider {elevenlabs,coqui}] [--target-language LANG]
+
+Examples:
+    # Default: ElevenLabs TTS, Japanese target
+    python manual_test_client.py
+
+    # Use Coqui TTS with Spanish target
+    python manual_test_client.py --tts-provider coqui --target-language es
+
+    # Use ElevenLabs with French target
+    python manual_test_client.py --tts-provider elevenlabs --target-language fr
 """
+
+import argparse
 import asyncio
 import base64
 import os
@@ -20,9 +35,37 @@ except ImportError:
     sys.exit(1)
 
 
+def parse_args():
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(description="Manual test client for Full STS Service")
+    parser.add_argument(
+        "--tts-provider",
+        choices=["elevenlabs", "coqui"],
+        default="elevenlabs",
+        help="TTS provider to use (default: elevenlabs)",
+    )
+    parser.add_argument(
+        "--target-language",
+        default="ja",
+        help="Target language code (default: ja for Japanese)",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=None,
+        help="STS service port (default: from STS_PORT env or 8000)",
+    )
+    return parser.parse_args()
+
+
 async def main():
+    args = parse_args()
+
     print("=" * 60)
     print("Full STS Service - Manual Test Client")
+    print("=" * 60)
+    print(f"TTS Provider: {args.tts_provider}")
+    print(f"Target Language: {args.target_language}")
     print("=" * 60)
 
     # Audio file path
@@ -37,11 +80,21 @@ async def main():
     temp_file.parent.mkdir(parents=True, exist_ok=True)
 
     cmd = [
-        "ffmpeg", "-y", "-ss", "5.0", "-t", "6.0",
-        "-i", str(audio_file),
-        "-ar", "44100", "-ac", "1",  # 44.1kHz mono
-        "-c:a", "aac",  # AAC codec
-        str(temp_file)
+        "ffmpeg",
+        "-y",
+        "-ss",
+        "5.0",
+        "-t",
+        "6.0",
+        "-i",
+        str(audio_file),
+        "-ar",
+        "44100",
+        "-ac",
+        "1",  # 44.1kHz mono
+        "-c:a",
+        "aac",  # AAC codec
+        str(temp_file),
     ]
     result = subprocess.run(cmd, capture_output=True)
     if result.returncode != 0:
@@ -66,38 +119,38 @@ async def main():
     async def disconnect():
         print("\n❌ Disconnected from server")
 
-    @sio.on('stream:ready')
+    @sio.on("stream:ready")
     async def on_stream_ready(data):
         print(f"\n🎬 Stream Ready!")
         print(f"   Session ID: {data.get('session_id')}")
         print(f"   Capabilities: {data.get('capabilities', {})}")
 
-    @sio.on('fragment:ack')
+    @sio.on("fragment:ack")
     async def on_fragment_ack(data):
         print(f"\n✓ Fragment ACK received:")
         print(f"   Fragment ID: {data.get('fragment_id')}")
         print(f"   Timestamp: {data.get('timestamp')}")
 
-    @sio.on('fragment:processed')
+    @sio.on("fragment:processed")
     async def on_fragment_processed(data):
         print(f"\n📦 Fragment Processed:")
         print(f"   Fragment ID: {data.get('fragment_id')}")
         print(f"   Status: {data.get('status')}")
         print(f"   Processing time: {data.get('processing_time_ms')}ms")
 
-        if data.get('transcript'):
-            transcript = data['transcript']
+        if data.get("transcript"):
+            transcript = data["transcript"]
             print(f"\n   🎤 Transcript (EN):")
             print(f"      {transcript}")
 
-        if data.get('translated_text'):
-            translation = data['translated_text']
+        if data.get("translated_text"):
+            translation = data["translated_text"]
             print(f"\n   🌍 Translation (ES):")
             print(f"      {translation}")
 
-        if data.get('dubbed_audio'):
-            audio_data = data['dubbed_audio']
-            audio_b64 = audio_data.get('data_base64', '')
+        if data.get("dubbed_audio"):
+            audio_data = data["dubbed_audio"]
+            audio_b64 = audio_data.get("data_base64", "")
             print(f"\n   🔊 Dubbed Audio:")
             print(f"      Format: {audio_data.get('format')}")
             print(f"      Sample rate: {audio_data.get('sample_rate_hz')} Hz")
@@ -112,8 +165,8 @@ async def main():
                 print(f"      ✓ Saved to: {m4a_file}")
                 print(f"      ✓ Ready to play: ffplay {m4a_file}")
 
-        if data.get('stage_timings'):
-            timings = data['stage_timings']
+        if data.get("stage_timings"):
+            timings = data["stage_timings"]
             print(f"\n   ⏱️  Stage Timings:")
             print(f"      ASR: {timings.get('asr_ms')}ms")
             print(f"      Translation: {timings.get('translation_ms')}ms")
@@ -121,11 +174,13 @@ async def main():
 
         results.append(data)
 
-    @sio.on('backpressure')
+    @sio.on("backpressure")
     async def on_backpressure(data):
-        print(f"\n   ⚠️  Backpressure: {data.get('severity')} - {data.get('current_inflight')} in-flight")
+        print(
+            f"\n   ⚠️  Backpressure: {data.get('severity')} - {data.get('current_inflight')} in-flight"
+        )
 
-    @sio.on('error')
+    @sio.on("error")
     async def on_error(data):
         print(f"\n❌ Error received:")
         print(f"   Code: {data.get('code')}")
@@ -134,8 +189,8 @@ async def main():
 
     # Run test
     try:
-        # Connect (use port from environment or default to 8000 for docker-compose.full.yml)
-        port = os.getenv("STS_PORT", "8000")
+        # Connect (use port from args, environment, or default to 8000)
+        port = args.port or os.getenv("STS_PORT", "8000")
         print(f"\n🔌 Connecting to http://localhost:{port}...")
         await sio.connect(f"http://localhost:{port}")
         await asyncio.sleep(1)
@@ -144,14 +199,16 @@ async def main():
         print("\n📝 Initializing stream with config:")
         config = {
             "source_language": "en",
-            "target_language": "es",
+            "target_language": args.target_language,
             "voice_profile": "default",
             "chunk_duration_ms": 6000,
             "sample_rate_hz": 44100,
             "channels": 1,
-            "format": "m4a"
+            "format": "m4a",
+            "tts_provider": args.tts_provider,
         }
         print(f"   Source: {config['source_language']} → Target: {config['target_language']}")
+        print(f"   TTS Provider: {config['tts_provider']}")
         print(f"   Chunk duration: {config['chunk_duration_ms']}ms")
         print(f"   Audio format: {config['format']} @ {config['sample_rate_hz']}Hz")
 
@@ -159,7 +216,7 @@ async def main():
         stream_init_payload = {
             "stream_id": "manual-test-stream",
             "worker_id": "manual-test-worker",
-            "config": config
+            "config": config,
         }
         await sio.emit("stream:init", stream_init_payload)
         await asyncio.sleep(3)
@@ -176,8 +233,8 @@ async def main():
                 "sample_rate_hz": 44100,
                 "channels": 1,
                 "duration_ms": 6000,
-                "data_base64": audio_b64
-            }
+                "data_base64": audio_b64,
+            },
         }
         await sio.emit("fragment:data", fragment_data)
 
@@ -197,6 +254,7 @@ async def main():
     except Exception as e:
         print(f"\n❌ Error during test: {e}")
         import traceback
+
         traceback.print_exc()
         if sio.connected:
             await sio.disconnect()

@@ -7,7 +7,6 @@ Following TDD: These tests MUST be written FIRST and MUST FAIL before implementa
 Coverage Target: 80% minimum, 95% for synthesis critical path.
 """
 
-
 import pytest
 from sts_service.tts.interface import BaseTTSComponent, TTSComponent
 from sts_service.tts.models import AudioAsset
@@ -18,9 +17,7 @@ class TestTTSComponentProtocol:
 
     def test_tts_component_is_runtime_checkable(self):
         """Test that TTSComponent is marked as runtime_checkable."""
-        assert hasattr(TTSComponent, "__protocol_attrs__") or isinstance(
-            TTSComponent, type
-        )
+        assert hasattr(TTSComponent, "__protocol_attrs__") or isinstance(TTSComponent, type)
         # Protocol should be runtime checkable (verify it's properly decorated)
         # This is a simple structural check since runtime_checkable is a decorator
         assert hasattr(TTSComponent, "__subclasshook__") or True

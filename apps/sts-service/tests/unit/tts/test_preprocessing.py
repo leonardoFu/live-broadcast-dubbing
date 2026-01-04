@@ -7,7 +7,6 @@ Following TDD: These tests MUST be written FIRST and MUST FAIL before implementa
 Coverage Target: 80% minimum.
 """
 
-
 from sts_service.tts.preprocessing import (
     expand_abbreviations,
     normalize_punctuation,
@@ -23,29 +22,29 @@ class TestNormalizePunctuation:
     def test_smart_quotes_to_ascii(self):
         """Test smart quotes are converted to ASCII quotes."""
         # Left and right double quotes
-        assert '"Hello"' in normalize_punctuation('\u201cHello\u201d')
+        assert '"Hello"' in normalize_punctuation("\u201cHello\u201d")
         # Should produce ASCII quotes
-        result = normalize_punctuation('\u201cHello World\u201d')
-        assert '\u201c' not in result
-        assert '\u201d' not in result
+        result = normalize_punctuation("\u201cHello World\u201d")
+        assert "\u201c" not in result
+        assert "\u201d" not in result
 
     def test_smart_apostrophes_to_ascii(self):
         """Test smart apostrophes are converted to ASCII."""
         result = normalize_punctuation("It\u2019s great")
         assert "'" in result
-        assert '\u2019' not in result
+        assert "\u2019" not in result
 
     def test_ellipsis_to_dots(self):
         """Test ellipsis character is converted to three dots."""
         result = normalize_punctuation("Wait\u2026")
         assert "..." in result
-        assert '\u2026' not in result
+        assert "\u2026" not in result
 
     def test_em_dash_to_double_hyphen(self):
         """Test em dash is converted to double hyphen."""
         result = normalize_punctuation("Hello\u2014World")
         assert "--" in result
-        assert '\u2014' not in result
+        assert "\u2014" not in result
 
     def test_en_dash_to_hyphen(self):
         """Test en dash is converted to hyphen."""
@@ -197,7 +196,7 @@ class TestPreprocessTextForTTS:
 
     def test_complete_preprocessing(self):
         """Test all preprocessing steps are applied."""
-        input_text = '  Dr. Smith said \u201cThe NBA score is 15-12\u201d  '
+        input_text = "  Dr. Smith said \u201cThe NBA score is 15-12\u201d  "
 
         result = preprocess_text_for_tts(input_text)
 

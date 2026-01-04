@@ -14,7 +14,12 @@ import pytest
 # Schema file paths (relative to repo root - worktree is at sts-service-main)
 # Path: apps/sts-service/tests/contract/test_fragment_schemas.py
 # Need to go up: contract -> tests -> sts-service -> apps -> worktree-root -> specs
-CONTRACTS_DIR = Path(__file__).parent.parent.parent.parent.parent / "specs" / "021-full-sts-service" / "contracts"
+CONTRACTS_DIR = (
+    Path(__file__).parent.parent.parent.parent.parent
+    / "specs"
+    / "021-full-sts-service"
+    / "contracts"
+)
 
 
 def create_validator(schema: dict, definition_name: str) -> Draft7Validator:
@@ -47,11 +52,13 @@ class TestFragmentDataSchema:
                 "sample_rate_hz": 48000,
                 "channels": 1,
                 "duration_ms": 6000,
-                "data_base64": "AQIDBAU="
-            }
+                "data_base64": "AQIDBAU=",
+            },
         }
 
-    def test_valid_fragment_data_payload(self, schema: dict, valid_fragment_data_payload: dict) -> None:
+    def test_valid_fragment_data_payload(
+        self, schema: dict, valid_fragment_data_payload: dict
+    ) -> None:
         """Validate that a correct fragment:data payload passes schema validation."""
         validator = create_validator(schema, "fragment_data")
         validator.validate(valid_fragment_data_payload)
@@ -83,7 +90,13 @@ class TestFragmentDataSchema:
         # Check the audio_data definition directly
         audio_schema = schema["definitions"]["audio_data"]
 
-        required_audio_fields = ["format", "sample_rate_hz", "channels", "duration_ms", "data_base64"]
+        required_audio_fields = [
+            "format",
+            "sample_rate_hz",
+            "channels",
+            "duration_ms",
+            "data_base64",
+        ]
         assert "required" in audio_schema
         for field in required_audio_fields:
             assert field in audio_schema["required"], f"Missing required audio field: {field}"
@@ -116,10 +129,12 @@ class TestFragmentAckSchema:
         return {
             "fragment_id": "550e8400-e29b-41d4-a716-446655440000",
             "status": "queued",
-            "timestamp": 1704067200000
+            "timestamp": 1704067200000,
         }
 
-    def test_valid_fragment_ack_payload(self, schema: dict, valid_fragment_ack_payload: dict) -> None:
+    def test_valid_fragment_ack_payload(
+        self, schema: dict, valid_fragment_ack_payload: dict
+    ) -> None:
         """Validate that a correct fragment:ack payload passes schema validation."""
         validator = create_validator(schema, "fragment_ack")
         validator.validate(valid_fragment_ack_payload)
@@ -165,22 +180,18 @@ class TestFragmentProcessedSuccessSchema:
                 "sample_rate_hz": 48000,
                 "channels": 1,
                 "duration_ms": 6050,
-                "data_base64": "AQIDBAU="
+                "data_base64": "AQIDBAU=",
             },
             "transcript": "Hello, welcome to the game.",
             "translated_text": "Hola, bienvenido al juego.",
             "processing_time_ms": 4500,
-            "stage_timings": {
-                "asr_ms": 1200,
-                "translation_ms": 150,
-                "tts_ms": 3100
-            },
+            "stage_timings": {"asr_ms": 1200, "translation_ms": 150, "tts_ms": 3100},
             "metadata": {
                 "original_duration_ms": 6000,
                 "dubbed_duration_ms": 6050,
                 "duration_variance_percent": 0.83,
-                "speed_ratio": 0.99
-            }
+                "speed_ratio": 0.99,
+            },
         }
 
     def test_valid_success_payload(self, schema: dict, valid_success_payload: dict) -> None:
@@ -191,13 +202,19 @@ class TestFragmentProcessedSuccessSchema:
     def test_fragment_processed_required_fields(self, schema: dict) -> None:
         """Test required fields for fragment:processed."""
         required_fields = [
-            "fragment_id", "stream_id", "sequence_number", "status", "processing_time_ms"
+            "fragment_id",
+            "stream_id",
+            "sequence_number",
+            "status",
+            "processing_time_ms",
         ]
         fragment_processed_schema = schema["definitions"]["fragment_processed"]
 
         assert "required" in fragment_processed_schema
         for field in required_fields:
-            assert field in fragment_processed_schema["required"], f"Missing required field: {field}"
+            assert field in fragment_processed_schema["required"], (
+                f"Missing required field: {field}"
+            )
 
     def test_success_requires_dubbed_audio(self, schema: dict) -> None:
         """Test that SUCCESS status requires dubbed_audio field."""
@@ -220,7 +237,12 @@ class TestFragmentProcessedSuccessSchema:
         # Check the duration_metadata definition directly
         metadata_schema = schema["definitions"]["duration_metadata"]
 
-        expected_fields = ["original_duration_ms", "dubbed_duration_ms", "duration_variance_percent", "speed_ratio"]
+        expected_fields = [
+            "original_duration_ms",
+            "dubbed_duration_ms",
+            "duration_variance_percent",
+            "speed_ratio",
+        ]
         for field in expected_fields:
             assert field in metadata_schema["properties"], f"Missing metadata field: {field}"
 
@@ -253,17 +275,13 @@ class TestFragmentProcessedFailedSchema:
             "sequence_number": 2,
             "status": "failed",
             "processing_time_ms": 5100,
-            "stage_timings": {
-                "asr_ms": 5000,
-                "translation_ms": 0,
-                "tts_ms": 0
-            },
+            "stage_timings": {"asr_ms": 5000, "translation_ms": 0, "tts_ms": 0},
             "error": {
                 "stage": "asr",
                 "code": "TIMEOUT",
                 "message": "ASR processing timed out after 5000ms",
-                "retryable": True
-            }
+                "retryable": True,
+            },
         }
 
     def test_valid_failed_payload(self, schema: dict, valid_failed_payload: dict) -> None:

@@ -395,5 +395,5 @@ class AudioAsset(BaseAsset):
                 "voice_profile": "spanish_male_1",
                 "text_input": "Hola, bienvenido al juego.",
             }
-        }
+        },
     )

@@ -63,6 +63,7 @@ class TestFasterWhisperASR:
         """Clear model cache before each test to ensure mock is used."""
         # Clear the cache before each test
         from sts_service.asr import transcriber
+
         transcriber._MODEL_CACHE.clear()
         yield
         # Clear again after test
@@ -358,6 +359,7 @@ class TestArtifactEmission:
     def clear_model_cache(self):
         """Clear model cache before each test."""
         from sts_service.asr import transcriber
+
         transcriber._MODEL_CACHE.clear()
         yield
         transcriber._MODEL_CACHE.clear()
@@ -406,9 +408,7 @@ class TestArtifactEmission:
         assert expected_file.exists(), f"Expected artifact file at {expected_file}"
         assert result.total_text in expected_file.read_text()
 
-    def test_no_artifact_when_disabled(
-        self, mock_whisper_model, sample_audio_bytes, artifacts_dir
-    ):
+    def test_no_artifact_when_disabled(self, mock_whisper_model, sample_audio_bytes, artifacts_dir):
         """Test that no artifact is created when debug_artifacts=False."""
         from sts_service.asr.models import ASRConfig
         from sts_service.asr.transcriber import FasterWhisperASR

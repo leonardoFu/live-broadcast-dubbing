@@ -4,7 +4,6 @@ Postprocessing functions for ASR output (utterance shaping).
 Provides segment merging and splitting for better TTS input.
 """
 
-
 from .models import TranscriptSegment, UtteranceShapingConfig, WordTiming
 
 

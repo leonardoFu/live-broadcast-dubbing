@@ -1,0 +1,107 @@
+version: "3.8"
+
+# Docker Compose for STS Service with ElevenLabs TTS (Lightweight)
+#
+# This configuration runs a lightweight STS service with:
+# - ElevenLabs API for TTS (no local GPU needed)
+# - faster-whisper for ASR (CPU mode)
+# - DeepL translation
+# - ~70% smaller image than full version
+#
+# Prerequisites:
+#   1. DEEPL_AUTH_KEY in .env file
+#   2. ELEVENLABS_API_KEY in .env file
+#   3. Media-service must be started first (creates dubbing-network)
+#
+# Usage:
+#   # Create .env file
+#   cat > .env << EOF
+#   DEEPL_AUTH_KEY=your-deepl-key
+#   ELEVENLABS_API_KEY=your-elevenlabs-key
+#   EOF
+#
+#   # Build and start
+#   docker compose -f docker-compose.elevenlabs.yml up --build
+#
+#   # Stop
+#   docker compose -f docker-compose.elevenlabs.yml down
+
+services:
+  full-sts-service:
+    build:
+      context: ../..
+      dockerfile: apps/sts-service/deploy/Dockerfile.elevenlabs
+    container_name: full-sts-service
+    ports:
+      - "8000:8000"
+    environment:
+      # Server configuration
+      - HOST=0.0.0.0
+      - PORT=8000
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+
+      # Required: DeepL API key for translation
+      - DEEPL_AUTH_KEY=${DEEPL_AUTH_KEY:?DEEPL_AUTH_KEY is required - set in .env file}
+
+      # ASR configuration (CPU mode)
+      - ASR_MODEL_SIZE=${ASR_MODEL_SIZE:-medium}
+      - ASR_DEVICE=cpu
+      - ASR_TIMEOUT_MS=${ASR_TIMEOUT_MS:-5000}
+
+      # TTS configuration (ElevenLabs)
+      - TTS_PROVIDER=elevenlabs
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY:?ELEVENLABS_API_KEY is required - set in .env file}
+      - TTS_TIMEOUT_MS=${TTS_TIMEOUT_MS:-10000}
+
+      # Translation configuration
+      - TRANSLATION_TIMEOUT_MS=${TRANSLATION_TIMEOUT_MS:-5000}
+
+      # Duration matching thresholds
+      - DURATION_VARIANCE_SUCCESS_MAX=${DURATION_VARIANCE_SUCCESS_MAX:-0.10}
+      - DURATION_VARIANCE_PARTIAL_MAX=${DURATION_VARIANCE_PARTIAL_MAX:-0.20}
+
+      # Backpressure thresholds
+      - BACKPRESSURE_THRESHOLD_LOW=${BACKPRESSURE_THRESHOLD_LOW:-3}
+      - BACKPRESSURE_THRESHOLD_MEDIUM=${BACKPRESSURE_THRESHOLD_MEDIUM:-6}
+      - BACKPRESSURE_THRESHOLD_HIGH=${BACKPRESSURE_THRESHOLD_HIGH:-10}
+      - BACKPRESSURE_THRESHOLD_CRITICAL=${BACKPRESSURE_THRESHOLD_CRITICAL:-10}
+
+      # Artifact logging
+      - ENABLE_ARTIFACT_LOGGING=${ENABLE_ARTIFACT_LOGGING:-true}
+      - ARTIFACTS_PATH=/tmp/sts-artifacts
+      - ARTIFACT_RETENTION_HOURS=${ARTIFACT_RETENTION_HOURS:-24}
+      - ARTIFACT_MAX_COUNT=${ARTIFACT_MAX_COUNT:-1000}
+
+      # Model paths
+      - VOICE_PROFILES_PATH=/config/voices.json
+
+    volumes:
+      # Model cache (for faster-whisper ASR models)
+      - huggingface-cache:/root/.cache/huggingface
+
+      # Artifacts directory (for debugging)
+      - ./artifacts:/tmp/sts-artifacts
+
+      # Voice profiles configuration
+      - ./config/voices.json:/config/voices.json:ro
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+    restart: unless-stopped
+
+    networks:
+      - dubbing-network
+
+volumes:
+  huggingface-cache:
+    driver: local
+
+networks:
+  dubbing-network:
+    name: dubbing-network
+    external: true

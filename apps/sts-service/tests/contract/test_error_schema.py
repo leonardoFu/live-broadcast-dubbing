@@ -14,7 +14,12 @@ import pytest
 # Schema file paths (relative to repo root - worktree is at sts-service-main)
 # Path: apps/sts-service/tests/contract/test_error_schema.py
 # Need to go up: contract -> tests -> sts-service -> apps -> worktree-root -> specs
-CONTRACTS_DIR = Path(__file__).parent.parent.parent.parent.parent / "specs" / "021-full-sts-service" / "contracts"
+CONTRACTS_DIR = (
+    Path(__file__).parent.parent.parent.parent.parent
+    / "specs"
+    / "021-full-sts-service"
+    / "contracts"
+)
 
 
 def create_validator(schema: dict, definition_name: str) -> Draft7Validator:
@@ -40,7 +45,7 @@ class TestErrorResponseSchema:
         return {
             "code": "STREAM_NOT_FOUND",
             "message": "Stream stream-abc-123 not found",
-            "retryable": False
+            "retryable": False,
         }
 
     @pytest.fixture
@@ -49,7 +54,7 @@ class TestErrorResponseSchema:
         return {
             "code": "STREAM_PAUSED",
             "message": "Stream is currently paused",
-            "retryable": False
+            "retryable": False,
         }
 
     @pytest.fixture
@@ -58,7 +63,7 @@ class TestErrorResponseSchema:
         return {
             "code": "INVALID_CONFIG",
             "message": "Invalid stream configuration: missing source_language",
-            "retryable": False
+            "retryable": False,
         }
 
     @pytest.fixture
@@ -67,7 +72,7 @@ class TestErrorResponseSchema:
         return {
             "code": "INVALID_VOICE_PROFILE",
             "message": "Voice profile 'unknown_voice' not found in voices.json",
-            "retryable": False
+            "retryable": False,
         }
 
     @pytest.fixture
@@ -76,7 +81,7 @@ class TestErrorResponseSchema:
         return {
             "code": "BACKPRESSURE_EXCEEDED",
             "message": "In-flight count 11 exceeds critical threshold 10",
-            "retryable": True
+            "retryable": True,
         }
 
     @pytest.fixture
@@ -85,7 +90,7 @@ class TestErrorResponseSchema:
         return {
             "code": "TIMEOUT",
             "message": "Processing timed out after 8000ms",
-            "retryable": True
+            "retryable": True,
         }
 
     def test_valid_error_response(self, schema: dict, stream_not_found_error: dict) -> None:
@@ -120,13 +125,17 @@ class TestErrorResponseSchema:
         validator.validate(invalid_config_error)
         assert invalid_config_error["retryable"] is False
 
-    def test_invalid_voice_profile_error(self, schema: dict, invalid_voice_profile_error: dict) -> None:
+    def test_invalid_voice_profile_error(
+        self, schema: dict, invalid_voice_profile_error: dict
+    ) -> None:
         """Validate INVALID_VOICE_PROFILE error."""
         validator = create_validator(schema, "error_response")
         validator.validate(invalid_voice_profile_error)
         assert invalid_voice_profile_error["retryable"] is False
 
-    def test_backpressure_exceeded_error(self, schema: dict, backpressure_exceeded_error: dict) -> None:
+    def test_backpressure_exceeded_error(
+        self, schema: dict, backpressure_exceeded_error: dict
+    ) -> None:
         """Validate BACKPRESSURE_EXCEEDED error (transient, retryable)."""
         validator = create_validator(schema, "error_response")
         validator.validate(backpressure_exceeded_error)
@@ -163,7 +172,7 @@ class TestErrorResponseSchema:
             "BACKPRESSURE_EXCEEDED",
             "TIMEOUT",
             "RATE_LIMIT_EXCEEDED",
-            "DURATION_MISMATCH_EXCEEDED"
+            "DURATION_MISMATCH_EXCEEDED",
         ]
 
         # Schema should have examples or enum for common codes
@@ -173,8 +182,9 @@ class TestErrorResponseSchema:
         # If examples are defined, check them
         if "examples" in code_schema:
             for code in expected_codes[:5]:  # Check at least 5 common codes
-                assert any(code in str(ex) for ex in code_schema.get("examples", [])), \
+                assert any(code in str(ex) for ex in code_schema.get("examples", [])), (
                     f"Error code {code} not documented in examples"
+                )
 
     def test_retryable_consistency(self, schema: dict) -> None:
         """Test retryable flag consistency documented in schema."""

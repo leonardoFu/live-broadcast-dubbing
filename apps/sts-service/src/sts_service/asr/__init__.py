@@ -93,6 +93,7 @@ def get_transcriber() -> type:
         FasterWhisperASR class
     """
     from .transcriber import FasterWhisperASR
+
     return FasterWhisperASR
 
 
@@ -146,5 +147,6 @@ __all__ = [
 def __getattr__(name: str) -> type:
     if name == "FasterWhisperASR":
         from .transcriber import FasterWhisperASR
+
         return FasterWhisperASR
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

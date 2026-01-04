@@ -42,10 +42,7 @@ def sample_transcript_asset() -> TranscriptAsset:
         transcript="Hello, this is a test transcript.",
         segments=[
             TranscriptSegment(
-                text="Hello, this is a test transcript.",
-                start_ms=0,
-                end_ms=2500,
-                confidence=0.95
+                text="Hello, this is a test transcript.", start_ms=0, end_ms=2500, confidence=0.95
             )
         ],
         confidence=0.95,
@@ -134,9 +131,7 @@ def sample_fragment_data() -> Dict[str, Any]:
 
 
 # T128: Test artifact logger writes transcript
-def test_artifact_logger_writes_transcript(
-    temp_artifacts_dir, sample_transcript_asset
-):
+def test_artifact_logger_writes_transcript(temp_artifacts_dir, sample_transcript_asset):
     """
     Test that artifact logger writes transcript to disk.
 
@@ -168,9 +163,7 @@ def test_artifact_logger_writes_transcript(
 
 
 # T128: Test artifact logger writes translation
-def test_artifact_logger_writes_translation(
-    temp_artifacts_dir, sample_translation_asset
-):
+def test_artifact_logger_writes_translation(temp_artifacts_dir, sample_translation_asset):
     """
     Test that artifact logger writes translation to disk.
 
@@ -323,9 +316,7 @@ def test_artifact_logger_writes_metadata(
 
 
 # T130: Test artifact logger respects enable flag
-def test_artifact_logger_respects_enable_flag(
-    temp_artifacts_dir, sample_transcript_asset
-):
+def test_artifact_logger_respects_enable_flag(temp_artifacts_dir, sample_transcript_asset):
     """
     Test that artifact logger skips logging when enable_logging=False.
 

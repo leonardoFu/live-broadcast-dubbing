@@ -224,9 +224,7 @@ class TestSilenceDetection:
         yield asr
         asr.shutdown()
 
-    def test_silence_returns_empty_segments(
-        self, generate_silence, asr_component
-    ):
+    def test_silence_returns_empty_segments(self, generate_silence, asr_component):
         """Test that pure silence returns empty segments."""
         silent_audio = generate_silence(duration_seconds=2.0)
 
@@ -242,9 +240,7 @@ class TestSilenceDetection:
         # Silent audio should produce no segments or very few
         # (VAD should filter out non-speech)
 
-    def test_silence_returns_success_status(
-        self, generate_silence, asr_component
-    ):
+    def test_silence_returns_success_status(self, generate_silence, asr_component):
         """Test that silence returns SUCCESS status, not FAILED."""
         silent_audio = generate_silence(duration_seconds=1.0)
 
@@ -260,9 +256,7 @@ class TestSilenceDetection:
         assert result.status == TranscriptStatus.SUCCESS
         assert len(result.errors) == 0
 
-    def test_silence_no_hallucination(
-        self, generate_silence, asr_component
-    ):
+    def test_silence_no_hallucination(self, generate_silence, asr_component):
         """Test that silence doesn't produce hallucinated text."""
         silent_audio = generate_silence(duration_seconds=2.0)
 
@@ -399,7 +393,7 @@ class TestTimestampAlignment:
             prev_segment = result.segments[i - 1]
             curr_segment = result.segments[i]
             assert curr_segment.start_time_ms >= prev_segment.start_time_ms, (
-                f"Segment {i} starts at {curr_segment.start_time_ms} but segment {i-1} "
+                f"Segment {i} starts at {curr_segment.start_time_ms} but segment {i - 1} "
                 f"starts at {prev_segment.start_time_ms}"
             )
 
@@ -421,9 +415,7 @@ class TestRealModelIntegration:
         yield asr
         asr.shutdown()
 
-    def test_transcribe_synthetic_speech(
-        self, generate_synthetic_audio, asr_component
-    ):
+    def test_transcribe_synthetic_speech(self, generate_synthetic_audio, asr_component):
         """Test that synthetic audio can be processed without error."""
         audio_bytes = generate_synthetic_audio(duration_seconds=1.0)
 
@@ -439,9 +431,7 @@ class TestRealModelIntegration:
         assert result.status == TranscriptStatus.SUCCESS
         assert result.processing_time_ms >= 0
 
-    def test_transcribe_returns_valid_timestamps(
-        self, generate_synthetic_audio, asr_component
-    ):
+    def test_transcribe_returns_valid_timestamps(self, generate_synthetic_audio, asr_component):
         """Test that timestamps are valid for any input."""
         audio_bytes = generate_synthetic_audio(duration_seconds=2.0)
 
@@ -475,9 +465,7 @@ class TestRealModelIntegration:
         for segment in result.segments:
             assert 0.0 <= segment.confidence <= 1.0
 
-    def test_transcribe_processing_time_recorded(
-        self, generate_synthetic_audio, asr_component
-    ):
+    def test_transcribe_processing_time_recorded(self, generate_synthetic_audio, asr_component):
         """Test that processing time is always recorded."""
         audio_bytes = generate_synthetic_audio(duration_seconds=1.0)
 
@@ -516,9 +504,7 @@ class TestRealModelIntegration:
         asr1.shutdown()
         asr2.shutdown()
 
-    def test_transcribe_with_vad_enabled(
-        self, nfl_audio_path, load_audio_fragment
-    ):
+    def test_transcribe_with_vad_enabled(self, nfl_audio_path, load_audio_fragment):
         """Test transcription with VAD enabled."""
         config = ASRConfig(
             model=ASRModelConfig(model_size="tiny"),
@@ -539,9 +525,7 @@ class TestRealModelIntegration:
         assert result.status == TranscriptStatus.SUCCESS
         asr.shutdown()
 
-    def test_transcribe_with_vad_disabled(
-        self, nfl_audio_path, load_audio_fragment
-    ):
+    def test_transcribe_with_vad_disabled(self, nfl_audio_path, load_audio_fragment):
         """Test transcription with VAD disabled."""
         config = ASRConfig(
             model=ASRModelConfig(model_size="tiny"),

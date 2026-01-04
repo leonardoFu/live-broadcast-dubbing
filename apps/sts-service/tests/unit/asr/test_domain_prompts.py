@@ -5,7 +5,6 @@ TDD: These tests are written BEFORE implementation.
 """
 
 
-
 class TestGetDomainPrompt:
     """Tests for domain prompt generation."""
 

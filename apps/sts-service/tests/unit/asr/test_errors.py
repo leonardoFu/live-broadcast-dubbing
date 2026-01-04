@@ -5,7 +5,6 @@ TDD: These tests are written BEFORE implementation.
 """
 
 
-
 class TestClassifyError:
     """Tests for exception to ASRErrorType mapping."""
 

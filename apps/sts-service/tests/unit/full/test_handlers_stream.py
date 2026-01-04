@@ -87,7 +87,9 @@ class TestHandleStreamInit:
             "timeout_ms": 8000,
         }
 
-        with patch("sts_service.full.handlers.stream.load_voices_config", return_value=mock_voices_config):
+        with patch(
+            "sts_service.full.handlers.stream.load_voices_config", return_value=mock_voices_config
+        ):
             await handle_stream_init(
                 sio=mock_sio,
                 sid="socket-123",
@@ -108,7 +110,9 @@ class TestHandleStreamInit:
         assert ready_payload["capabilities"]["async_delivery"] is True
 
     @pytest.mark.asyncio
-    async def test_stream_init_validates_voice_profile(self, mock_sio, session_store, mock_voices_config):
+    async def test_stream_init_validates_voice_profile(
+        self, mock_sio, session_store, mock_voices_config
+    ):
         """T090: Invalid voice_profile emits error with code='INVALID_VOICE_PROFILE'."""
         pytest.skip("Handler not implemented yet - TDD failing test")
         # from sts_service.full.handlers.stream import handle_stream_init
@@ -128,7 +132,9 @@ class TestHandleStreamInit:
             "max_inflight": 3,
         }
 
-        with patch("sts_service.full.handlers.stream.load_voices_config", return_value=mock_voices_config):
+        with patch(
+            "sts_service.full.handlers.stream.load_voices_config", return_value=mock_voices_config
+        ):
             await handle_stream_init(
                 sio=mock_sio,
                 sid="socket-123",
@@ -168,7 +174,9 @@ class TestHandleStreamInit:
             "max_inflight": 3,
         }
 
-        with patch("sts_service.full.handlers.stream.load_voices_config", return_value=mock_voices_config):
+        with patch(
+            "sts_service.full.handlers.stream.load_voices_config", return_value=mock_voices_config
+        ):
             with patch(
                 "sts_service.full.handlers.stream.PipelineCoordinator",
                 return_value=mock_pipeline_coordinator,
@@ -266,7 +274,9 @@ class TestHandleStreamEnd:
         )
 
         # Should emit stream:complete
-        emit_calls = [call for call in mock_sio.emit.call_args_list if call[0][0] == "stream:complete"]
+        emit_calls = [
+            call for call in mock_sio.emit.call_args_list if call[0][0] == "stream:complete"
+        ]
         assert len(emit_calls) == 1
 
         complete_payload = emit_calls[0][0][1]

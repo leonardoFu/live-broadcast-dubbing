@@ -72,7 +72,7 @@ class TestDeepLEnglishToChineseTranslation:
 
         # Verify Chinese characters in output (basic check)
         # Chinese characters are in Unicode range
-        has_chinese = any('\u4e00' <= char <= '\u9fff' for char in result.translated_text)
+        has_chinese = any("\u4e00" <= char <= "\u9fff" for char in result.translated_text)
         assert has_chinese, f"Expected Chinese characters in: {result.translated_text}"
 
         # Print for manual verification

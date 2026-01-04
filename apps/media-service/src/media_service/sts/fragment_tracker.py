@@ -91,9 +91,7 @@ class FragmentTracker:
             )
 
             # Start timeout task
-            inflight.timeout_task = asyncio.create_task(
-                self._timeout_handler(segment.fragment_id)
-            )
+            inflight.timeout_task = asyncio.create_task(self._timeout_handler(segment.fragment_id))
 
             self._fragments[segment.fragment_id] = inflight
             self._sequence_counter += 1

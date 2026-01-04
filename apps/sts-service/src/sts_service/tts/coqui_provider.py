@@ -79,6 +79,7 @@ class CoquiTTSComponent(BaseTTSComponent):
         """
         try:
             from TTS.api import TTS  # noqa: F401
+
             logger.info("Coqui TTS library loaded successfully")
             return True
         except ImportError:
@@ -138,7 +139,7 @@ class CoquiTTSComponent(BaseTTSComponent):
         if voice_profile is None:
             voice_profile = VoiceProfile(
                 language=text_asset.target_language,
-                fast_mode=self._fast_mode  # Inherit fast_mode from component
+                fast_mode=self._fast_mode,  # Inherit fast_mode from component
             )
 
         # Preprocess text (placeholder - will be implemented in Phase 6)
@@ -164,7 +165,9 @@ class CoquiTTSComponent(BaseTTSComponent):
             # PCM F32LE: 4 bytes per sample per channel
             bytes_per_sample = 4 * output_channels
             num_samples = len(audio_data) // bytes_per_sample if audio_data else 0
-            calculated_duration_ms = int(num_samples * 1000 / synthesis_sample_rate) if num_samples > 0 else 0
+            calculated_duration_ms = (
+                int(num_samples * 1000 / synthesis_sample_rate) if num_samples > 0 else 0
+            )
 
             if calculated_duration_ms > 0:
                 duration_ms = calculated_duration_ms
@@ -218,9 +221,7 @@ class CoquiTTSComponent(BaseTTSComponent):
         # Basic preprocessing for now
         return text.strip()
 
-    def _synthesize_with_coqui(
-        self, text: str, voice_profile: VoiceProfile
-    ) -> tuple[bytes, int]:
+    def _synthesize_with_coqui(self, text: str, voice_profile: VoiceProfile) -> tuple[bytes, int]:
         """Synthesize using Coqui TTS library.
 
         Args:
@@ -261,10 +262,10 @@ class CoquiTTSComponent(BaseTTSComponent):
             model_name = self._get_model_name(voice_profile)
 
             # Check if model has speakers (multi-speaker model)
-            if hasattr(tts, 'speakers') and tts.speakers:
+            if hasattr(tts, "speakers") and tts.speakers:
                 # Multi-speaker model - use first speaker or p225 for VCTK
-                if 'vctk' in model_name.lower():
-                    wav = tts.tts(text=text, speaker='p225')
+                if "vctk" in model_name.lower():
+                    wav = tts.tts(text=text, speaker="p225")
                 else:
                     wav = tts.tts(text=text, speaker=tts.speakers[0])
             else:
@@ -278,9 +279,7 @@ class CoquiTTSComponent(BaseTTSComponent):
 
         return audio_data, sample_rate
 
-    def _synthesize_mock(
-        self, text: str, sample_rate_hz: int, channels: int
-    ) -> bytes:
+    def _synthesize_mock(self, text: str, sample_rate_hz: int, channels: int) -> bytes:
         """Synthesize using mock sine wave.
 
         Args:
@@ -327,10 +326,10 @@ class CoquiTTSComponent(BaseTTSComponent):
         # Language-specific models that work without voice cloning
         # These are single-speaker or multi-speaker models with built-in speakers
         language_models = {
-            "en": "tts_models/en/vctk/vits",      # Multi-speaker VITS (p225 default)
-            "es": "tts_models/es/css10/vits",      # Spanish CSS10 VITS
-            "de": "tts_models/de/css10/vits-neon", # German VITS
-            "fr": "tts_models/fr/css10/vits",      # French CSS10 VITS
+            "en": "tts_models/en/vctk/vits",  # Multi-speaker VITS (p225 default)
+            "es": "tts_models/es/css10/vits",  # Spanish CSS10 VITS
+            "de": "tts_models/de/css10/vits-neon",  # German VITS
+            "fr": "tts_models/fr/css10/vits",  # French CSS10 VITS
         }
 
         # Use XTTS only if voice cloning is enabled with a sample
@@ -341,7 +340,7 @@ class CoquiTTSComponent(BaseTTSComponent):
         return language_models.get(
             voice_profile.language,
             # Fallback to English VITS for unsupported languages
-            "tts_models/en/vctk/vits"
+            "tts_models/en/vctk/vits",
         )
 
     def _create_failed_asset(

@@ -180,9 +180,7 @@ def test_log_levels(caplog):
 
     with caplog.at_level(logging.INFO):
         # INFO level - should be logged
-        log_fragment_received(
-            fragment_id="frag-001", stream_id="stream-001", sequence_number=0
-        )
+        log_fragment_received(fragment_id="frag-001", stream_id="stream-001", sequence_number=0)
 
         # ERROR level - should be logged
         log_error(

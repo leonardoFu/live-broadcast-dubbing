@@ -139,6 +139,8 @@ def _time_stretch_rubberband(
     Raises:
         RuntimeError: If rubberband fails
     """
+    import wave
+
     # Check if rubberband is available
     try:
         result = subprocess.run(
@@ -151,24 +153,36 @@ def _time_stretch_rubberband(
     except FileNotFoundError as err:
         raise RuntimeError("rubberband not installed") from err
 
-    # Write input to temp file
-    with tempfile.NamedTemporaryFile(suffix=".raw", delete=False) as input_file:
-        input_file.write(audio_data)
+    # Convert float32 PCM to int16 for WAV
+    num_samples = len(audio_data) // 4  # 4 bytes per float32
+    float_samples = struct.unpack(f"<{num_samples}f", audio_data)
+    # Clamp and convert to int16
+    int16_samples = []
+    for s in float_samples:
+        clamped = max(-1.0, min(1.0, s))
+        int16_samples.append(int(clamped * 32767))
+    int16_data = struct.pack(f"<{num_samples}h", *int16_samples)
+
+    # Write input WAV file
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as input_file:
         input_path = input_file.name
 
-    output_path = input_path.replace(".raw", "_stretched.raw")
+    with wave.open(input_path, "wb") as wav:
+        wav.setnchannels(1)  # Mono
+        wav.setsampwidth(2)  # 16-bit
+        wav.setframerate(sample_rate_hz)
+        wav.writeframes(int16_data)
+
+    output_path = input_path.replace(".wav", "_stretched.wav")
 
     try:
-        # Run rubberband
-        # Note: rubberband expects WAV files, so we use raw mode with proper options
-        tempo_ratio = speed_factor  # rubberband uses tempo ratio (speed = 1/tempo)
+        # Run rubberband with tempo ratio
+        # -T is tempo multiplier: >1 speeds up, <1 slows down
         cmd = [
             "rubberband",
-            "-T", str(tempo_ratio),  # Tempo ratio
-            "-c", "1",  # Mono (we handle channel conversion separately)
-            "--raw",
-            "--rate", str(sample_rate_hz),
-            "--duration",  # Preserve duration (adjust tempo)
+            "-T",
+            str(speed_factor),
+            "-q",  # Quiet mode
             input_path,
             output_path,
         ]
@@ -182,9 +196,25 @@ def _time_stretch_rubberband(
         if result.returncode != 0:
             raise RuntimeError(f"rubberband failed: {result.stderr.decode()}")
 
-        # Read output
-        with open(output_path, "rb") as f:
-            stretched_data = f.read()
+        # Read output WAV and convert back to float32 PCM
+        with wave.open(output_path, "rb") as wav:
+            out_channels = wav.getnchannels()
+            out_sampwidth = wav.getsampwidth()
+            out_frames = wav.readframes(wav.getnframes())
+
+        # Convert to float32
+        if out_sampwidth == 2:
+            out_num_samples = len(out_frames) // (2 * out_channels)
+            if out_channels == 1:
+                int16_out = struct.unpack(f"<{out_num_samples}h", out_frames)
+            else:
+                # Stereo: take left channel only
+                all_samples = struct.unpack(f"<{out_num_samples * out_channels}h", out_frames)
+                int16_out = all_samples[::out_channels]
+            float_out = [s / 32767.0 for s in int16_out]
+            stretched_data = struct.pack(f"<{len(float_out)}f", *float_out)
+        else:
+            raise RuntimeError(f"Unexpected sample width from rubberband: {out_sampwidth}")
 
         return stretched_data, True
 
@@ -234,8 +264,7 @@ def _time_stretch_simple(
         else:
             # Linear interpolation
             sample = (
-                samples[src_idx_int] * (1 - src_idx_frac)
-                + samples[src_idx_int + 1] * src_idx_frac
+                samples[src_idx_int] * (1 - src_idx_frac) + samples[src_idx_int + 1] * src_idx_frac
             )
             new_samples.append(sample)
 
@@ -283,8 +312,7 @@ def resample_audio(
         else:
             # Linear interpolation
             sample = (
-                samples[src_idx_int] * (1 - src_idx_frac)
-                + samples[src_idx_int + 1] * src_idx_frac
+                samples[src_idx_int] * (1 - src_idx_frac) + samples[src_idx_int + 1] * src_idx_frac
             )
             new_samples.append(sample)
 
@@ -324,18 +352,12 @@ def align_channels(
         # Stereo to mono: average pairs
         new_samples = []
         for i in range(0, num_samples, 2):
-            avg = (
-                (samples[i] + samples[i + 1]) / 2
-                if i + 1 < num_samples
-                else samples[i]
-            )
+            avg = (samples[i] + samples[i + 1]) / 2 if i + 1 < num_samples else samples[i]
             new_samples.append(avg)
         return struct.pack(f"<{len(new_samples)}f", *new_samples)
 
     else:
-        logger.warning(
-            f"Unsupported channel conversion: {input_channels} -> {output_channels}"
-        )
+        logger.warning(f"Unsupported channel conversion: {input_channels} -> {output_channels}")
         return audio_data
 
 
@@ -378,9 +400,7 @@ def align_audio_to_duration(
     speed_factor = calculate_speed_factor(baseline_duration_ms, target_duration_ms)
 
     # Apply clamping
-    clamped_factor, was_clamped = apply_clamping(
-        speed_factor, clamp_min, clamp_max, only_speed_up
-    )
+    clamped_factor, was_clamped = apply_clamping(speed_factor, clamp_min, clamp_max, only_speed_up)
 
     # Apply time-stretch
     stretched_data, was_stretched = time_stretch_audio(
@@ -389,9 +409,7 @@ def align_audio_to_duration(
 
     # Resample if needed
     if input_sample_rate_hz != output_sample_rate_hz:
-        resampled_data = resample_audio(
-            stretched_data, input_sample_rate_hz, output_sample_rate_hz
-        )
+        resampled_data = resample_audio(stretched_data, input_sample_rate_hz, output_sample_rate_hz)
         was_resampled = True
     else:
         resampled_data = stretched_data

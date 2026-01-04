@@ -57,13 +57,9 @@ def classify_error(exception: Exception) -> TranslationErrorType:
             return TranslationErrorType.PROVIDER_ERROR
         if _DEEPL_QUOTA_EXCEPTIONS and isinstance(exception, _DEEPL_QUOTA_EXCEPTIONS):
             return TranslationErrorType.PROVIDER_ERROR
-        if _DEEPL_RATE_LIMIT_EXCEPTIONS and isinstance(
-            exception, _DEEPL_RATE_LIMIT_EXCEPTIONS
-        ):
+        if _DEEPL_RATE_LIMIT_EXCEPTIONS and isinstance(exception, _DEEPL_RATE_LIMIT_EXCEPTIONS):
             return TranslationErrorType.TIMEOUT  # Rate limiting is retryable
-        if _DEEPL_CONNECTION_EXCEPTIONS and isinstance(
-            exception, _DEEPL_CONNECTION_EXCEPTIONS
-        ):
+        if _DEEPL_CONNECTION_EXCEPTIONS and isinstance(exception, _DEEPL_CONNECTION_EXCEPTIONS):
             return TranslationErrorType.PROVIDER_ERROR
         return TranslationErrorType.PROVIDER_ERROR
 
@@ -78,9 +74,7 @@ def classify_error(exception: Exception) -> TranslationErrorType:
         return TranslationErrorType.UNKNOWN
 
 
-def is_retryable(
-    error_type: TranslationErrorType, exception: Exception | None = None
-) -> bool:
+def is_retryable(error_type: TranslationErrorType, exception: Exception | None = None) -> bool:
     """Determine if an error type is worth retrying.
 
     Retryable errors are transient and may succeed on retry:

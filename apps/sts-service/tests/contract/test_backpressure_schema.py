@@ -14,7 +14,12 @@ import pytest
 # Schema file paths (relative to repo root - worktree is at sts-service-main)
 # Path: apps/sts-service/tests/contract/test_backpressure_schema.py
 # Need to go up: contract -> tests -> sts-service -> apps -> worktree-root -> specs
-CONTRACTS_DIR = Path(__file__).parent.parent.parent.parent.parent / "specs" / "021-full-sts-service" / "contracts"
+CONTRACTS_DIR = (
+    Path(__file__).parent.parent.parent.parent.parent
+    / "specs"
+    / "021-full-sts-service"
+    / "contracts"
+)
 
 
 def create_validator(schema: dict, definition_name: str) -> Draft7Validator:
@@ -43,10 +48,12 @@ class TestBackpressureSchema:
             "action": "slow_down",
             "current_inflight": 5,
             "max_inflight": 3,
-            "threshold_exceeded": "medium"
+            "threshold_exceeded": "medium",
         }
 
-    def test_valid_backpressure_payload(self, schema: dict, valid_backpressure_payload: dict) -> None:
+    def test_valid_backpressure_payload(
+        self, schema: dict, valid_backpressure_payload: dict
+    ) -> None:
         """Validate that a correct backpressure payload passes schema validation."""
         validator = create_validator(schema, "backpressure")
         validator.validate(valid_backpressure_payload)
@@ -54,8 +61,12 @@ class TestBackpressureSchema:
     def test_backpressure_required_fields(self, schema: dict) -> None:
         """Test that all required fields are enforced."""
         required_fields = [
-            "stream_id", "severity", "action",
-            "current_inflight", "max_inflight", "threshold_exceeded"
+            "stream_id",
+            "severity",
+            "action",
+            "current_inflight",
+            "max_inflight",
+            "threshold_exceeded",
         ]
         backpressure_schema = schema["definitions"]["backpressure"]
 
@@ -98,7 +109,7 @@ class TestBackpressureSchema:
             "action": "none",
             "current_inflight": 2,
             "max_inflight": 3,
-            "threshold_exceeded": None
+            "threshold_exceeded": None,
         }
         # threshold_exceeded can be null for low severity
         validator = create_validator(schema, "backpressure")
@@ -112,7 +123,7 @@ class TestBackpressureSchema:
             "action": "pause",
             "current_inflight": 9,
             "max_inflight": 3,
-            "threshold_exceeded": "high"
+            "threshold_exceeded": "high",
         }
         validator = create_validator(schema, "backpressure")
         validator.validate(high_severity_payload)

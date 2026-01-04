@@ -23,6 +23,8 @@ dependencies = [
     "python-socketio[asyncio]>=5.0",
     # Translation
     "deepl>=1.0.0",
+    # ElevenLabs TTS
+    "elevenlabs>=0.2.0",
     # Shared internal packages
     "dubbing-common",
     "dubbing-contracts",

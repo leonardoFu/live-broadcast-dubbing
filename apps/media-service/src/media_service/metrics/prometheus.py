@@ -307,11 +307,13 @@ class WorkerMetrics:
             version: Worker version
             host: Host identifier
         """
-        self.worker_info.info({
-            "version": version,
-            "stream_id": self.stream_id,
-            "host": host,
-        })
+        self.worker_info.info(
+            {
+                "version": version,
+                "stream_id": self.stream_id,
+                "host": host,
+            }
+        )
 
     def record_segment_processed(
         self,

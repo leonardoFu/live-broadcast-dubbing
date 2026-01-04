@@ -142,16 +142,15 @@ class AudioSegmentWriter:
 
         # Create pipeline
         pipeline_str = (
-            f"appsrc name=src ! aacparse ! mp4mux ! "
-            f"filesink location={segment.file_path}"
+            f"appsrc name=src ! aacparse ! mp4mux ! filesink location={segment.file_path}"
         )
         pipeline = Gst.parse_launch(pipeline_str)
 
         # Get appsrc element
         appsrc = pipeline.get_by_name("src")
-        appsrc.set_property("caps", Gst.Caps.from_string(
-            "audio/mpeg,mpegversion=4,stream-format=raw"
-        ))
+        appsrc.set_property(
+            "caps", Gst.Caps.from_string("audio/mpeg,mpegversion=4,stream-format=raw")
+        )
         appsrc.set_property("format", 3)  # GST_FORMAT_TIME
 
         # Push data
@@ -167,10 +166,7 @@ class AudioSegmentWriter:
 
         # Wait for EOS
         bus = pipeline.get_bus()
-        bus.timed_pop_filtered(
-            Gst.CLOCK_TIME_NONE,
-            Gst.MessageType.EOS | Gst.MessageType.ERROR
-        )
+        bus.timed_pop_filtered(Gst.CLOCK_TIME_NONE, Gst.MessageType.EOS | Gst.MessageType.ERROR)
 
         pipeline.set_state(Gst.State.NULL)
 
@@ -179,8 +175,7 @@ class AudioSegmentWriter:
             segment.file_size = segment.file_path.stat().st_size
 
         logger.info(
-            f"Audio segment muxed to M4A: {segment.file_path}, "
-            f"size={segment.file_size} bytes"
+            f"Audio segment muxed to M4A: {segment.file_path}, size={segment.file_size} bytes"
         )
 
         return segment
@@ -213,10 +208,7 @@ class AudioSegmentWriter:
         # Update segment
         segment.set_dubbed(dubbed_path)
 
-        logger.info(
-            f"Dubbed audio written: {dubbed_path}, "
-            f"size={len(dubbed_data)} bytes"
-        )
+        logger.info(f"Dubbed audio written: {dubbed_path}, size={len(dubbed_data)} bytes")
 
         return segment
 

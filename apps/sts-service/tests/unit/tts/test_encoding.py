@@ -120,9 +120,7 @@ class TestEncodePcmToM4a:
     def test_encode_ffmpeg_not_available_raises_error(self):
         """Test that missing ffmpeg raises EncodingError with hint."""
         pcm_data = generate_sine_wave_pcm(100)
-        with patch(
-            "sts_service.tts.encoding._check_ffmpeg_available", return_value=False
-        ):
+        with patch("sts_service.tts.encoding._check_ffmpeg_available", return_value=False):
             with pytest.raises(EncodingError) as exc_info:
                 encode_pcm_to_m4a(
                     pcm_data=pcm_data,

@@ -180,6 +180,7 @@ class BufferCallbackProtocol(Protocol):
 
 # Validation functions (module-level)
 
+
 def validate_rtmp_url(url: str) -> bool:
     """
     Validate RTMP URL format.

@@ -60,23 +60,18 @@ def media_compose_env() -> Generator[DockerComposeManager, None, None]:
             "MEDIAMTX_API_PORT": "8889",
             "MEDIAMTX_METRICS_PORT": "9998",
             "MEDIAMTX_PLAYBACK_PORT": "9996",
-
             # MediaMTX Container Config
             "MEDIAMTX_CONTAINER_NAME": "e2e-mediamtx",
             "MEDIAMTX_LOG_LEVEL": "info",
             "MEDIAMTX_PROTOCOLS": "tcp",
-
             # Media Service Config
             "MEDIA_SERVICE_PORT": "8080",
             "MEDIA_SERVICE_CONTAINER_NAME": "e2e-media-service",
             "MEDIA_SERVICE_IMAGE": "media-service:e2e",
-
             # STS Service URL (use container name for E2E shared network)
             "STS_SERVICE_URL": "http://e2e-echo-sts:3000",
-
             # Orchestrator URL (for MediaMTX hooks)
             "ORCHESTRATOR_URL": "http://media-service:8080",
-
             # Logging
             "LOG_LEVEL": "DEBUG",
             # GStreamer Debug (for audio/output pipeline investigation)
@@ -84,17 +79,13 @@ def media_compose_env() -> Generator[DockerComposeManager, None, None]:
             # rtmpsink:6 and flvmux:5 for output stream debugging
             # appsrc:6 for output pipeline buffer flow
             "GST_DEBUG": "flvdemux:5,aacparse:5,queue:6,appsink:6,appsrc:6,h264parse:5,GST_PADS:5,GST_CAPS:5,rtmpsink:6,flvmux:5",
-
             # Network (use default network name, will connect manually)
             # "NETWORK_NAME": "dubbing-network",  # Let compose create its own network
-
             # Volumes
             "SEGMENTS_VOLUME_NAME": "e2e-media-segments",
-
             # Circuit Breaker
             "CIRCUIT_BREAKER_THRESHOLD": "5",
             "CIRCUIT_BREAKER_TIMEOUT": "60",
-
             # Segment Config
             "SEGMENT_DIR": "/tmp/segments",
             "MAX_CONCURRENT_STREAMS": "10",
@@ -136,20 +127,16 @@ def sts_compose_env() -> Generator[DockerComposeManager, None, None]:
             "STS_CONTAINER_NAME": "e2e-echo-sts",
             "STS_HOST": "0.0.0.0",
             "STS_PORT": "3000",
-
             # Logging
             "LOG_LEVEL": "INFO",
-
             # Processing Config (CPU-only for macOS)
             "DEVICE": "cpu",
             "ASR_MODEL": "tiny",  # Smallest Whisper model for faster loading
             "TTS_PROVIDER": "coqui",  # Use real Coqui TTS (no mocking)
             "TRANSLATION_PROVIDER": "deepl",  # Use mock translation for E2E tests
             "DEEPL_AUTH_KEY": "8e373354-4ca7-4fec-b563-93b2fa6930cc:fx",
-
             # Network (use default network name, will connect manually)
             # "NETWORK_NAME": "sts-network",  # Let compose create its own network
-
             # Health Check
             "HEALTHCHECK_INTERVAL": "10s",
             "HEALTHCHECK_TIMEOUT": "5s",
@@ -302,7 +289,9 @@ def publish_test_fixture(
 
 
 @pytest.fixture
-async def sts_monitor(dual_compose_env: dict[str, DockerComposeManager]) -> Generator[SocketIOMonitor, None, None]:
+async def sts_monitor(
+    dual_compose_env: dict[str, DockerComposeManager],
+) -> Generator[SocketIOMonitor, None, None]:
     """Socket.IO monitor for capturing STS events.
 
     Connects to real STS service and captures fragment:processed events.

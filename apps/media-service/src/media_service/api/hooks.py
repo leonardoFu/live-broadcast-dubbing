@@ -101,7 +101,7 @@ async def handle_ready_event(event: HookEvent, request: Request) -> JSONResponse
             extra={
                 "stream_id": stream_id,
                 "correlation_id": ready_event.correlation_id,
-            }
+            },
         )
 
         return JSONResponse(
@@ -191,7 +191,7 @@ async def handle_not_ready_event(event: HookEvent, request: Request) -> JSONResp
             extra={
                 "stream_id": stream_id,
                 "correlation_id": not_ready_event.correlation_id,
-            }
+            },
         )
 
         return JSONResponse(

@@ -38,7 +38,7 @@ def sts_client():
     """Create an StsSocketIOClient instance."""
     return StsSocketIOClient(
         server_url="http://sts-service:8000",
-        namespace="/sts",  # Use STS namespace
+        namespace="/",  # Use default namespace
         reconnect_attempts=5,
         reconnect_delay=1.0,
     )
@@ -163,7 +163,7 @@ class TestStsSocketIOClientConnect:
         """Test that connect uses the correct namespace."""
         await sts_client.connect()
         call_kwargs = mock_socketio.connect.call_args.kwargs
-        assert "/sts" in call_kwargs.get("namespaces", [])
+        assert "/" in call_kwargs.get("namespaces", [])
 
     @pytest.mark.asyncio
     async def test_connect_sets_connected_flag(
@@ -217,10 +217,12 @@ class TestStsSocketIOClientInitStream:
         # Simulate stream:ready response
         async def emit_and_respond(*args, **kwargs):
             if args[0] == "stream:init":
-                await sts_client._handle_stream_ready({
-                    "session_id": "session-123",
-                    "max_inflight": 3,
-                })
+                await sts_client._handle_stream_ready(
+                    {
+                        "session_id": "session-123",
+                        "max_inflight": 3,
+                    }
+                )
 
         mock_socketio.emit.side_effect = emit_and_respond
 
@@ -239,10 +241,12 @@ class TestStsSocketIOClientInitStream:
 
         async def emit_and_respond(*args, **kwargs):
             if args[0] == "stream:init":
-                await sts_client._handle_stream_ready({
-                    "session_id": "session-123",
-                    "max_inflight": 3,
-                })
+                await sts_client._handle_stream_ready(
+                    {
+                        "session_id": "session-123",
+                        "max_inflight": 3,
+                    }
+                )
 
         mock_socketio.emit.side_effect = emit_and_respond
 
@@ -272,10 +276,12 @@ class TestStsSocketIOClientInitStream:
 
         async def emit_and_respond(*args, **kwargs):
             if args[0] == "stream:init":
-                await sts_client._handle_stream_ready({
-                    "session_id": "session-123",
-                    "max_inflight": 3,
-                })
+                await sts_client._handle_stream_ready(
+                    {
+                        "session_id": "session-123",
+                        "max_inflight": 3,
+                    }
+                )
 
         mock_socketio.emit.side_effect = emit_and_respond
 
@@ -288,14 +294,14 @@ class TestStsSocketIOClientStreamReady:
     """Tests for stream:ready handling."""
 
     @pytest.mark.asyncio
-    async def test_handle_stream_ready_sets_session_id(
-        self, sts_client: StsSocketIOClient
-    ) -> None:
+    async def test_handle_stream_ready_sets_session_id(self, sts_client: StsSocketIOClient) -> None:
         """Test that stream:ready sets session ID."""
-        await sts_client._handle_stream_ready({
-            "session_id": "session-456",
-            "max_inflight": 5,
-        })
+        await sts_client._handle_stream_ready(
+            {
+                "session_id": "session-456",
+                "max_inflight": 5,
+            }
+        )
 
         assert sts_client.session_id == "session-456"
 
@@ -304,10 +310,12 @@ class TestStsSocketIOClientStreamReady:
         self, sts_client: StsSocketIOClient
     ) -> None:
         """Test that stream:ready sets max inflight."""
-        await sts_client._handle_stream_ready({
-            "session_id": "session-456",
-            "max_inflight": 10,
-        })
+        await sts_client._handle_stream_ready(
+            {
+                "session_id": "session-456",
+                "max_inflight": 10,
+            }
+        )
 
         assert sts_client.max_inflight == 10
 
@@ -316,20 +324,22 @@ class TestStsSocketIOClientStreamReady:
         self, sts_client: StsSocketIOClient
     ) -> None:
         """Test that stream:ready uses default max inflight if not provided."""
-        await sts_client._handle_stream_ready({
-            "session_id": "session-456",
-        })
+        await sts_client._handle_stream_ready(
+            {
+                "session_id": "session-456",
+            }
+        )
 
         assert sts_client.max_inflight == 3
 
     @pytest.mark.asyncio
-    async def test_handle_stream_ready_sets_ready_flag(
-        self, sts_client: StsSocketIOClient
-    ) -> None:
+    async def test_handle_stream_ready_sets_ready_flag(self, sts_client: StsSocketIOClient) -> None:
         """Test that stream:ready sets stream ready flag."""
-        await sts_client._handle_stream_ready({
-            "session_id": "session-456",
-        })
+        await sts_client._handle_stream_ready(
+            {
+                "session_id": "session-456",
+            }
+        )
 
         assert sts_client.is_stream_ready
 
@@ -359,8 +369,11 @@ class TestStsSocketIOClientSendFragment:
 
     @pytest.mark.asyncio
     async def test_send_fragment_emits_fragment_data(
-        self, sts_client: StsSocketIOClient, mock_socketio: AsyncMock,
-        stream_config: StreamConfig, audio_segment: AudioSegment
+        self,
+        sts_client: StsSocketIOClient,
+        mock_socketio: AsyncMock,
+        stream_config: StreamConfig,
+        audio_segment: AudioSegment,
     ) -> None:
         """Test that send_fragment emits fragment:data event."""
         await sts_client.connect()
@@ -368,10 +381,12 @@ class TestStsSocketIOClientSendFragment:
         # Simulate stream ready
         async def emit_and_respond(*args, **kwargs):
             if args[0] == "stream:init":
-                await sts_client._handle_stream_ready({
-                    "session_id": "session-123",
-                    "max_inflight": 3,
-                })
+                await sts_client._handle_stream_ready(
+                    {
+                        "session_id": "session-123",
+                        "max_inflight": 3,
+                    }
+                )
 
         mock_socketio.emit.side_effect = emit_and_respond
         await sts_client.init_stream("test-stream", stream_config)
@@ -387,18 +402,23 @@ class TestStsSocketIOClientSendFragment:
 
     @pytest.mark.asyncio
     async def test_send_fragment_increments_sequence(
-        self, sts_client: StsSocketIOClient, mock_socketio: AsyncMock,
-        stream_config: StreamConfig, audio_segment: AudioSegment
+        self,
+        sts_client: StsSocketIOClient,
+        mock_socketio: AsyncMock,
+        stream_config: StreamConfig,
+        audio_segment: AudioSegment,
     ) -> None:
         """Test that send_fragment increments sequence number."""
         await sts_client.connect()
 
         async def emit_and_respond(*args, **kwargs):
             if args[0] == "stream:init":
-                await sts_client._handle_stream_ready({
-                    "session_id": "session-123",
-                    "max_inflight": 3,
-                })
+                await sts_client._handle_stream_ready(
+                    {
+                        "session_id": "session-123",
+                        "max_inflight": 3,
+                    }
+                )
 
         mock_socketio.emit.side_effect = emit_and_respond
         await sts_client.init_stream("test-stream", stream_config)
@@ -414,18 +434,23 @@ class TestStsSocketIOClientSendFragment:
 
     @pytest.mark.asyncio
     async def test_send_fragment_returns_fragment_id(
-        self, sts_client: StsSocketIOClient, mock_socketio: AsyncMock,
-        stream_config: StreamConfig, audio_segment: AudioSegment
+        self,
+        sts_client: StsSocketIOClient,
+        mock_socketio: AsyncMock,
+        stream_config: StreamConfig,
+        audio_segment: AudioSegment,
     ) -> None:
         """Test that send_fragment returns fragment ID."""
         await sts_client.connect()
 
         async def emit_and_respond(*args, **kwargs):
             if args[0] == "stream:init":
-                await sts_client._handle_stream_ready({
-                    "session_id": "session-123",
-                    "max_inflight": 3,
-                })
+                await sts_client._handle_stream_ready(
+                    {
+                        "session_id": "session-123",
+                        "max_inflight": 3,
+                    }
+                )
 
         mock_socketio.emit.side_effect = emit_and_respond
         await sts_client.init_stream("test-stream", stream_config)
@@ -437,18 +462,23 @@ class TestStsSocketIOClientSendFragment:
 
     @pytest.mark.asyncio
     async def test_send_fragment_file_not_found(
-        self, sts_client: StsSocketIOClient, mock_socketio: AsyncMock,
-        stream_config: StreamConfig, tmp_path: Path
+        self,
+        sts_client: StsSocketIOClient,
+        mock_socketio: AsyncMock,
+        stream_config: StreamConfig,
+        tmp_path: Path,
     ) -> None:
         """Test that send_fragment raises FileNotFoundError for missing file."""
         await sts_client.connect()
 
         async def emit_and_respond(*args, **kwargs):
             if args[0] == "stream:init":
-                await sts_client._handle_stream_ready({
-                    "session_id": "session-123",
-                    "max_inflight": 3,
-                })
+                await sts_client._handle_stream_ready(
+                    {
+                        "session_id": "session-123",
+                        "max_inflight": 3,
+                    }
+                )
 
         mock_socketio.emit.side_effect = emit_and_respond
         await sts_client.init_stream("test-stream", stream_config)
@@ -479,13 +509,15 @@ class TestStsSocketIOClientFragmentProcessed:
         callback = AsyncMock()
         sts_client.set_fragment_processed_callback(callback)
 
-        await sts_client._handle_fragment_processed({
-            "fragment_id": "frag-001",
-            "stream_id": "stream-001",
-            "sequence_number": 0,
-            "status": "success",
-            "processing_time_ms": 500,
-        })
+        await sts_client._handle_fragment_processed(
+            {
+                "fragment_id": "frag-001",
+                "stream_id": "stream-001",
+                "sequence_number": 0,
+                "status": "success",
+                "processing_time_ms": 500,
+            }
+        )
 
         callback.assert_called_once()
 
@@ -497,13 +529,15 @@ class TestStsSocketIOClientFragmentProcessed:
         callback = AsyncMock()
         sts_client.set_fragment_processed_callback(callback)
 
-        await sts_client._handle_fragment_processed({
-            "fragment_id": "frag-001",
-            "stream_id": "stream-001",
-            "sequence_number": 5,
-            "status": "success",
-            "processing_time_ms": 1000,
-        })
+        await sts_client._handle_fragment_processed(
+            {
+                "fragment_id": "frag-001",
+                "stream_id": "stream-001",
+                "sequence_number": 5,
+                "status": "success",
+                "processing_time_ms": 1000,
+            }
+        )
 
         payload: FragmentProcessedPayload = callback.call_args[0][0]
         assert payload.fragment_id == "frag-001"
@@ -517,53 +551,55 @@ class TestStsSocketIOClientFragmentProcessed:
     ) -> None:
         """Test that fragment:processed works without callback."""
         # Should not raise
-        await sts_client._handle_fragment_processed({
-            "fragment_id": "frag-001",
-            "stream_id": "stream-001",
-            "sequence_number": 0,
-            "status": "success",
-            "processing_time_ms": 500,
-        })
+        await sts_client._handle_fragment_processed(
+            {
+                "fragment_id": "frag-001",
+                "stream_id": "stream-001",
+                "sequence_number": 0,
+                "status": "success",
+                "processing_time_ms": 500,
+            }
+        )
 
 
 class TestStsSocketIOClientBackpressure:
     """Tests for backpressure handling."""
 
     @pytest.mark.asyncio
-    async def test_handle_backpressure_calls_callback(
-        self, sts_client: StsSocketIOClient
-    ) -> None:
+    async def test_handle_backpressure_calls_callback(self, sts_client: StsSocketIOClient) -> None:
         """Test that backpressure calls the callback."""
         callback = AsyncMock()
         sts_client.set_backpressure_callback(callback)
 
-        await sts_client._handle_backpressure({
-            "stream_id": "stream-001",
-            "severity": "medium",
-            "current_inflight": 5,
-            "queue_depth": 10,
-            "action": "slow_down",
-            "recommended_delay_ms": 500,
-        })
+        await sts_client._handle_backpressure(
+            {
+                "stream_id": "stream-001",
+                "severity": "medium",
+                "current_inflight": 5,
+                "queue_depth": 10,
+                "action": "slow_down",
+                "recommended_delay_ms": 500,
+            }
+        )
 
         callback.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_handle_backpressure_passes_payload(
-        self, sts_client: StsSocketIOClient
-    ) -> None:
+    async def test_handle_backpressure_passes_payload(self, sts_client: StsSocketIOClient) -> None:
         """Test that backpressure passes correct payload."""
         callback = AsyncMock()
         sts_client.set_backpressure_callback(callback)
 
-        await sts_client._handle_backpressure({
-            "stream_id": "stream-001",
-            "severity": "high",
-            "current_inflight": 10,
-            "queue_depth": 20,
-            "action": "pause",
-            "recommended_delay_ms": 1000,
-        })
+        await sts_client._handle_backpressure(
+            {
+                "stream_id": "stream-001",
+                "severity": "high",
+                "current_inflight": 10,
+                "queue_depth": 20,
+                "action": "pause",
+                "recommended_delay_ms": 1000,
+            }
+        )
 
         payload: BackpressurePayload = callback.call_args[0][0]
         assert payload.severity == "high"
@@ -575,34 +611,34 @@ class TestStsSocketIOClientError:
     """Tests for error handling."""
 
     @pytest.mark.asyncio
-    async def test_handle_error_calls_callback(
-        self, sts_client: StsSocketIOClient
-    ) -> None:
+    async def test_handle_error_calls_callback(self, sts_client: StsSocketIOClient) -> None:
         """Test that error calls the callback."""
         callback = AsyncMock()
         sts_client.set_error_callback(callback)
 
-        await sts_client._handle_error({
-            "code": "TIMEOUT",
-            "message": "Processing timeout",
-            "retryable": True,
-        })
+        await sts_client._handle_error(
+            {
+                "code": "TIMEOUT",
+                "message": "Processing timeout",
+                "retryable": True,
+            }
+        )
 
         callback.assert_called_once_with("TIMEOUT", "Processing timeout", True)
 
     @pytest.mark.asyncio
-    async def test_handle_error_non_retryable(
-        self, sts_client: StsSocketIOClient
-    ) -> None:
+    async def test_handle_error_non_retryable(self, sts_client: StsSocketIOClient) -> None:
         """Test that non-retryable error is passed correctly."""
         callback = AsyncMock()
         sts_client.set_error_callback(callback)
 
-        await sts_client._handle_error({
-            "code": "INVALID_CONFIG",
-            "message": "Invalid stream configuration",
-            "retryable": False,
-        })
+        await sts_client._handle_error(
+            {
+                "code": "INVALID_CONFIG",
+                "message": "Invalid stream configuration",
+                "retryable": False,
+            }
+        )
 
         callback.assert_called_once_with("INVALID_CONFIG", "Invalid stream configuration", False)
 
@@ -619,10 +655,12 @@ class TestStsSocketIOClientEndStream:
 
         async def emit_and_respond(*args, **kwargs):
             if args[0] == "stream:init":
-                await sts_client._handle_stream_ready({
-                    "session_id": "session-123",
-                    "max_inflight": 3,
-                })
+                await sts_client._handle_stream_ready(
+                    {
+                        "session_id": "session-123",
+                        "max_inflight": 3,
+                    }
+                )
 
         mock_socketio.emit.side_effect = emit_and_respond
         await sts_client.init_stream("test-stream", stream_config)
@@ -643,10 +681,12 @@ class TestStsSocketIOClientEndStream:
 
         async def emit_and_respond(*args, **kwargs):
             if args[0] == "stream:init":
-                await sts_client._handle_stream_ready({
-                    "session_id": "session-123",
-                    "max_inflight": 3,
-                })
+                await sts_client._handle_stream_ready(
+                    {
+                        "session_id": "session-123",
+                        "max_inflight": 3,
+                    }
+                )
 
         mock_socketio.emit.side_effect = emit_and_respond
         await sts_client.init_stream("test-stream", stream_config)
@@ -659,9 +699,7 @@ class TestStsSocketIOClientEndStream:
         assert not sts_client.is_stream_ready
 
     @pytest.mark.asyncio
-    async def test_end_stream_no_op_when_not_connected(
-        self, sts_client: StsSocketIOClient
-    ) -> None:
+    async def test_end_stream_no_op_when_not_connected(self, sts_client: StsSocketIOClient) -> None:
         """Test that end_stream is no-op when not connected."""
         # Should not raise
         await sts_client.end_stream()
@@ -701,10 +739,12 @@ class TestStsSocketIOClientDisconnect:
 
         async def emit_and_respond(*args, **kwargs):
             if args[0] == "stream:init":
-                await sts_client._handle_stream_ready({
-                    "session_id": "session-123",
-                    "max_inflight": 3,
-                })
+                await sts_client._handle_stream_ready(
+                    {
+                        "session_id": "session-123",
+                        "max_inflight": 3,
+                    }
+                )
 
         mock_socketio.emit.side_effect = emit_and_respond
         await sts_client.init_stream("test-stream", stream_config)
@@ -714,9 +754,7 @@ class TestStsSocketIOClientDisconnect:
         assert not sts_client.is_stream_ready
 
     @pytest.mark.asyncio
-    async def test_disconnect_no_op_when_not_connected(
-        self, sts_client: StsSocketIOClient
-    ) -> None:
+    async def test_disconnect_no_op_when_not_connected(self, sts_client: StsSocketIOClient) -> None:
         """Test that disconnect is no-op when not connected."""
         # Should not raise
         await sts_client.disconnect()
@@ -725,27 +763,21 @@ class TestStsSocketIOClientDisconnect:
 class TestStsSocketIOClientCallbacks:
     """Tests for callback setters."""
 
-    def test_set_fragment_processed_callback(
-        self, sts_client: StsSocketIOClient
-    ) -> None:
+    def test_set_fragment_processed_callback(self, sts_client: StsSocketIOClient) -> None:
         """Test setting fragment processed callback."""
         callback = AsyncMock()
         sts_client.set_fragment_processed_callback(callback)
 
         assert sts_client._on_fragment_processed is callback
 
-    def test_set_backpressure_callback(
-        self, sts_client: StsSocketIOClient
-    ) -> None:
+    def test_set_backpressure_callback(self, sts_client: StsSocketIOClient) -> None:
         """Test setting backpressure callback."""
         callback = AsyncMock()
         sts_client.set_backpressure_callback(callback)
 
         assert sts_client._on_backpressure is callback
 
-    def test_set_error_callback(
-        self, sts_client: StsSocketIOClient
-    ) -> None:
+    def test_set_error_callback(self, sts_client: StsSocketIOClient) -> None:
         """Test setting error callback."""
         callback = AsyncMock()
         sts_client.set_error_callback(callback)

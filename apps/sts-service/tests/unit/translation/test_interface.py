@@ -4,7 +4,6 @@ Tests for Translation component interface (Protocol + BaseClass).
 TDD: These tests are written BEFORE the implementation.
 """
 
-
 import pytest
 
 

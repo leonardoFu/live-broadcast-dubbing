@@ -58,7 +58,9 @@ class TestHandleFragmentData:
     """Tests for fragment:data handler (T095-T096)."""
 
     @pytest.mark.asyncio
-    async def test_fragment_data_emits_immediate_ack(self, mock_sio, session_store, sample_audio_data):
+    async def test_fragment_data_emits_immediate_ack(
+        self, mock_sio, session_store, sample_audio_data
+    ):
         """T095: fragment:data emits fragment:ack within <50ms with status='queued'."""
         pytest.skip("Handler not implemented yet - TDD failing test")
         # from sts_service.full.handlers.fragment import handle_fragment_data
@@ -178,7 +180,9 @@ class TestEmitFragmentProcessed:
         )
 
         # Should emit fragment:processed
-        processed_calls = [call for call in mock_sio.emit.call_args_list if call[0][0] == "fragment:processed"]
+        processed_calls = [
+            call for call in mock_sio.emit.call_args_list if call[0][0] == "fragment:processed"
+        ]
         assert len(processed_calls) == 1
 
         processed_payload = processed_calls[0][0][1]
@@ -223,7 +227,9 @@ class TestEmitFragmentProcessed:
         )
 
         # Should emit fragment:processed with error
-        processed_calls = [call for call in mock_sio.emit.call_args_list if call[0][0] == "fragment:processed"]
+        processed_calls = [
+            call for call in mock_sio.emit.call_args_list if call[0][0] == "fragment:processed"
+        ]
         assert len(processed_calls) == 1
 
         processed_payload = processed_calls[0][0][1]

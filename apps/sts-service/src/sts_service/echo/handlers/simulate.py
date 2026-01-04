@@ -39,10 +39,7 @@ async def handle_simulate_disconnect(
     delay_ms = data.get("delay_ms", 0)
     reason = data.get("reason", "test")
 
-    logger.info(
-        f"Simulate disconnect requested: sid={sid}, "
-        f"delay_ms={delay_ms}, reason={reason}"
-    )
+    logger.info(f"Simulate disconnect requested: sid={sid}, delay_ms={delay_ms}, reason={reason}")
 
     # Send acknowledgment before disconnecting
     ack_payload = {

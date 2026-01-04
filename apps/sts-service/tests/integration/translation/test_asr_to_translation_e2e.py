@@ -36,7 +36,9 @@ from .conftest import skip_without_deepl, translate_transcript
 
 
 # Path to test fixtures directory (relative to repo root)
-FIXTURES_DIR = Path(__file__).parent.parent.parent.parent.parent.parent / "tests" / "fixtures" / "test-streams"
+FIXTURES_DIR = (
+    Path(__file__).parent.parent.parent.parent.parent.parent / "tests" / "fixtures" / "test-streams"
+)
 
 
 @pytest.fixture
@@ -53,7 +55,6 @@ def load_audio_fragment():
     """Return a function that loads an audio fragment from a file."""
     import subprocess
 
-
     def _load_fragment(
         path: Path,
         start_ms: int,
@@ -67,13 +68,20 @@ def load_audio_fragment():
         cmd = [
             "ffmpeg",
             "-y",
-            "-ss", str(start_seconds),
-            "-t", str(duration_seconds),
-            "-i", str(path),
-            "-ar", str(sample_rate),
-            "-ac", "1",
-            "-f", "f32le",
-            "-acodec", "pcm_f32le",
+            "-ss",
+            str(start_seconds),
+            "-t",
+            str(duration_seconds),
+            "-i",
+            str(path),
+            "-ar",
+            str(sample_rate),
+            "-ac",
+            "1",
+            "-f",
+            "f32le",
+            "-acodec",
+            "pcm_f32le",
             "pipe:1",
         ]
 
@@ -189,14 +197,16 @@ class TestASRToTranslationWithMock:
                     translator=translator,
                     target_language="zh",
                 )
-                fragments.append({
-                    "sequence": i,
-                    "asr_text": transcript.total_text,
-                    "translated_text": translated.translated_text,
-                    "asr_asset_id": transcript.asset_id,
-                    "translation_asset_id": translated.asset_id,
-                    "lineage_correct": transcript.asset_id in translated.parent_asset_ids,
-                })
+                fragments.append(
+                    {
+                        "sequence": i,
+                        "asr_text": transcript.total_text,
+                        "translated_text": translated.translated_text,
+                        "asr_asset_id": transcript.asset_id,
+                        "translation_asset_id": translated.asset_id,
+                        "lineage_correct": transcript.asset_id in translated.parent_asset_ids,
+                    }
+                )
 
         # Verify we got some fragments
         assert len(fragments) > 0, "Should have at least one successful fragment"
@@ -260,7 +270,7 @@ class TestASRToDeepLTranslation:
         assert result.target_language == "ZH"
 
         # Verify Chinese characters in output
-        has_chinese = any('\u4e00' <= char <= '\u9fff' for char in result.translated_text)
+        has_chinese = any("\u4e00" <= char <= "\u9fff" for char in result.translated_text)
         assert has_chinese, f"Expected Chinese characters in: {result.translated_text}"
 
         print("\n--- E2E Pipeline: Audio → ASR → DeepL (EN→ZH) ---")
@@ -304,20 +314,22 @@ class TestASRToDeepLTranslation:
                     target_language="ZH",
                 )
 
-                results.append({
-                    "sequence": i,
-                    "start_ms": start_ms,
-                    "asr_text": transcript.total_text,
-                    "chinese_text": translated.translated_text,
-                    "asr_time_ms": transcript.processing_time_ms,
-                    "translation_time_ms": translated.processing_time_ms,
-                })
+                results.append(
+                    {
+                        "sequence": i,
+                        "start_ms": start_ms,
+                        "asr_text": transcript.total_text,
+                        "chinese_text": translated.translated_text,
+                        "asr_time_ms": transcript.processing_time_ms,
+                        "translation_time_ms": translated.processing_time_ms,
+                    }
+                )
 
         assert len(results) > 0, "Should have at least one successful segment"
 
         print("\n--- Multi-Segment E2E: Audio → ASR → DeepL (EN→ZH) ---")
         for r in results:
-            print(f"\n[Segment {r['sequence']}] ({r['start_ms']}ms - {r['start_ms']+3000}ms)")
+            print(f"\n[Segment {r['sequence']}] ({r['start_ms']}ms - {r['start_ms'] + 3000}ms)")
             print(f"  EN: {r['asr_text']}")
             print(f"  ZH: {r['chinese_text']}")
             print(f"  Timing: ASR={r['asr_time_ms']}ms, Translation={r['translation_time_ms']}ms")
@@ -424,12 +436,14 @@ class TestE2EPipelinePerformance:
             )
             trans_time = (time.time() - trans_start) * 1000
 
-            measurements.append({
-                "asr_ms": asr_time,
-                "translation_ms": trans_time,
-                "total_ms": asr_time + trans_time,
-                "text_length": len(transcript.total_text),
-            })
+            measurements.append(
+                {
+                    "asr_ms": asr_time,
+                    "translation_ms": trans_time,
+                    "total_ms": asr_time + trans_time,
+                    "text_length": len(transcript.total_text),
+                }
+            )
 
         if not measurements:
             pytest.skip("No successful transcriptions")

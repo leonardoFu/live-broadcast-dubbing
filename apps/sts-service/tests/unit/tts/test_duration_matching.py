@@ -24,24 +24,18 @@ class TestCalculateSpeedFactor:
     def test_speed_factor_calculation_basic(self):
         """Test speed_factor = baseline_duration / target_duration."""
         # Baseline 5000ms, target 4000ms -> need to speed up by 1.25x
-        speed_factor = calculate_speed_factor(
-            baseline_duration_ms=5000, target_duration_ms=4000
-        )
+        speed_factor = calculate_speed_factor(baseline_duration_ms=5000, target_duration_ms=4000)
         assert abs(speed_factor - 1.25) < 0.001
 
     def test_speed_factor_calculation_slow_down(self):
         """Test speed factor < 1.0 for slowing down."""
         # Baseline 3000ms, target 5000ms -> need to slow down by 0.6x
-        speed_factor = calculate_speed_factor(
-            baseline_duration_ms=3000, target_duration_ms=5000
-        )
+        speed_factor = calculate_speed_factor(baseline_duration_ms=3000, target_duration_ms=5000)
         assert abs(speed_factor - 0.6) < 0.001
 
     def test_speed_factor_calculation_no_change(self):
         """Test speed factor = 1.0 when durations match."""
-        speed_factor = calculate_speed_factor(
-            baseline_duration_ms=2000, target_duration_ms=2000
-        )
+        speed_factor = calculate_speed_factor(baseline_duration_ms=2000, target_duration_ms=2000)
         assert speed_factor == 1.0
 
     def test_speed_factor_zero_target_raises(self):

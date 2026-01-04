@@ -4,7 +4,6 @@ Implements stream:init, stream:ready, stream:pause, stream:resume, stream:end,
 and stream:complete messages as defined in spec 016.
 """
 
-
 from pydantic import BaseModel, Field
 
 

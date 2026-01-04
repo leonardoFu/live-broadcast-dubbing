@@ -97,10 +97,13 @@ class TestOutputPipelineBuild:
         mock_gst.Caps.from_string.return_value = MagicMock()
         mock_pipeline.get_bus.return_value = MagicMock()
 
-        with patch.dict("media_service.pipeline.output.__dict__", {
-            "GST_AVAILABLE": True,
-            "Gst": mock_gst,
-        }):
+        with patch.dict(
+            "media_service.pipeline.output.__dict__",
+            {
+                "GST_AVAILABLE": True,
+                "Gst": mock_gst,
+            },
+        ):
             from media_service.pipeline.output import OutputPipeline
 
             # Need to reimport to get patched version
@@ -114,6 +117,7 @@ class TestOutputPipelineBuild:
 
             # Override module-level GST_AVAILABLE
             import media_service.pipeline.output as output_module
+
             orig_gst_available = output_module.GST_AVAILABLE
             orig_gst = getattr(output_module, "Gst", None)
 

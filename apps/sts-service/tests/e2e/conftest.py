@@ -152,9 +152,7 @@ def full_sts_service(
                 response = httpx.get(HEALTH_ENDPOINT, timeout=5.0)
                 if response.status_code == 200:
                     elapsed = time.time() - start_time
-                    logger.info(
-                        f"✓ Service healthy after {elapsed:.1f}s: {response.json()}"
-                    )
+                    logger.info(f"✓ Service healthy after {elapsed:.1f}s: {response.json()}")
                     logger.info("=" * 80)
                     break
                 else:

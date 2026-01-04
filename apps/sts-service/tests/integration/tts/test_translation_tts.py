@@ -11,7 +11,6 @@ Requirements:
 - TTS mock components (no external dependencies)
 """
 
-
 from sts_service.translation.factory import create_translation_component
 from sts_service.translation.models import TextAsset, TranslationStatus
 from sts_service.tts.factory import create_tts_component
@@ -184,13 +183,15 @@ class TestMultiFragmentStreamProcessing:
 
         for text_asset in multi_fragment_text_assets:
             audio_asset = synthesize_from_translation(text_asset, tts)
-            results.append({
-                "sequence": audio_asset.sequence_number,
-                "text_asset_id": text_asset.asset_id,
-                "audio_asset_id": audio_asset.asset_id,
-                "status": audio_asset.status,
-                "lineage_correct": text_asset.asset_id in audio_asset.parent_asset_ids,
-            })
+            results.append(
+                {
+                    "sequence": audio_asset.sequence_number,
+                    "text_asset_id": text_asset.asset_id,
+                    "audio_asset_id": audio_asset.asset_id,
+                    "status": audio_asset.status,
+                    "lineage_correct": text_asset.asset_id in audio_asset.parent_asset_ids,
+                }
+            )
 
         # Verify all fragments processed
         assert len(results) == len(multi_fragment_text_assets)
@@ -310,6 +311,7 @@ class TestPipelineErrorHandling:
         )
 
         from sts_service.tts.coqui_provider import CoquiTTSComponent
+
         tts = CoquiTTSComponent()
 
         audio_asset = synthesize_from_translation(text_asset, tts)

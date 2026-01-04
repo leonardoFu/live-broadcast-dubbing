@@ -216,7 +216,11 @@ class TestModelCachingLive:
 
         # Instance identifiers should differ
         print(f"\nFast mode: {fast_instance}, Quality mode: {quality_instance}")
-        assert "vits" in fast_instance or "fast" in fast_instance.lower() or fast_instance != quality_instance
+        assert (
+            "vits" in fast_instance
+            or "fast" in fast_instance.lower()
+            or fast_instance != quality_instance
+        )
 
         tts_fast.shutdown()
         tts_quality.shutdown()
@@ -277,8 +281,7 @@ class TestCacheLifecycle:
         tts = CoquiTTSComponent(fast_mode=True)
 
         texts = [
-            create_text_asset(f"Sentence number {i} for sequential testing.")
-            for i in range(5)
+            create_text_asset(f"Sentence number {i} for sequential testing.") for i in range(5)
         ]
 
         times = []

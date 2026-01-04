@@ -62,9 +62,7 @@ class TestPipelineWithRealASR:
         mock.component_instance = "mock-translate-v1"
         mock.is_ready = True
 
-        def translate_side_effect(
-            source_text: str, *args: Any, **kwargs: Any
-        ) -> MagicMock:
+        def translate_side_effect(source_text: str, *args: Any, **kwargs: Any) -> MagicMock:
             result = MagicMock()
             result.asset_id = "trans-asset-001"
             result.status = AssetStatus.SUCCESS
@@ -160,9 +158,7 @@ class TestPipelineWithRealASR:
         )
 
         # Assert - Pipeline should succeed
-        assert result.status == ProcessingStatus.SUCCESS, (
-            f"Pipeline failed: {result.error}"
-        )
+        assert result.status == ProcessingStatus.SUCCESS, f"Pipeline failed: {result.error}"
 
         # Assert - Transcript should be non-empty (real speech)
         # Note: NFL commentary should produce some text
@@ -309,9 +305,7 @@ class TestPipelineWithRealASR:
         assert result.stage_timings is not None
 
         # Real ASR should take at least a few milliseconds
-        assert result.stage_timings.asr_ms > 0, (
-            "ASR timing should be > 0 for real transcription"
-        )
+        assert result.stage_timings.asr_ms > 0, "ASR timing should be > 0 for real transcription"
 
         # For a 2-second clip on CPU, expect <3000ms processing
         # (adjust based on hardware)

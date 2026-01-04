@@ -52,7 +52,7 @@ def sample_config():
 @pytest.fixture
 def temp_config_file(sample_config):
     """Create a temporary config file."""
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
         yaml.dump(sample_config, f)
         yield f.name
     os.unlink(f.name)
@@ -119,9 +119,7 @@ class TestSelectModel:
     def test_explicit_model_override(self, sample_config):
         """Test explicit model_name override in VoiceProfile."""
         custom_model = "tts_models/custom/test_model"
-        profile = VoiceProfile(
-            language="en", fast_mode=False, model_name=custom_model
-        )
+        profile = VoiceProfile(language="en", fast_mode=False, model_name=custom_model)
         model = select_model(profile, sample_config)
         assert model == custom_model
 
@@ -138,20 +136,20 @@ class TestSelectVoice:
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
             # Write WAV header + data
             f.write(b"RIFF")
-            f.write((36 + data_size).to_bytes(4, 'little'))  # File size
+            f.write((36 + data_size).to_bytes(4, "little"))  # File size
             f.write(b"WAVE")
             f.write(b"fmt ")
-            f.write((16).to_bytes(4, 'little'))  # Chunk size
-            f.write((1).to_bytes(2, 'little'))   # Audio format (PCM)
-            f.write((1).to_bytes(2, 'little'))   # Channels (mono)
-            f.write((sample_rate).to_bytes(4, 'little'))  # Sample rate
-            f.write((sample_rate * 2).to_bytes(4, 'little'))  # Byte rate
-            f.write((2).to_bytes(2, 'little'))   # Block align
-            f.write((16).to_bytes(2, 'little'))  # Bits per sample
+            f.write((16).to_bytes(4, "little"))  # Chunk size
+            f.write((1).to_bytes(2, "little"))  # Audio format (PCM)
+            f.write((1).to_bytes(2, "little"))  # Channels (mono)
+            f.write((sample_rate).to_bytes(4, "little"))  # Sample rate
+            f.write((sample_rate * 2).to_bytes(4, "little"))  # Byte rate
+            f.write((2).to_bytes(2, "little"))  # Block align
+            f.write((16).to_bytes(2, "little"))  # Bits per sample
             f.write(b"data")
-            f.write((data_size).to_bytes(4, 'little'))  # Data size
+            f.write((data_size).to_bytes(4, "little"))  # Data size
             # Write 5 seconds of silence (16kHz, 16-bit)
-            f.write(b'\x00' * data_size)
+            f.write(b"\x00" * data_size)
             yield f.name
         os.unlink(f.name)
 
@@ -226,20 +224,20 @@ class TestValidateVoiceSample:
 
                 # Write WAV header
                 f.write(b"RIFF")
-                f.write((36 + data_size).to_bytes(4, 'little'))
+                f.write((36 + data_size).to_bytes(4, "little"))
                 f.write(b"WAVE")
                 f.write(b"fmt ")
-                f.write((16).to_bytes(4, 'little'))
-                f.write((1).to_bytes(2, 'little'))   # PCM
-                f.write((channels).to_bytes(2, 'little'))
-                f.write((sample_rate).to_bytes(4, 'little'))
-                f.write((byte_rate).to_bytes(4, 'little'))
-                f.write((channels * bits_per_sample // 8).to_bytes(2, 'little'))
-                f.write((bits_per_sample).to_bytes(2, 'little'))
+                f.write((16).to_bytes(4, "little"))
+                f.write((1).to_bytes(2, "little"))  # PCM
+                f.write((channels).to_bytes(2, "little"))
+                f.write((sample_rate).to_bytes(4, "little"))
+                f.write((byte_rate).to_bytes(4, "little"))
+                f.write((channels * bits_per_sample // 8).to_bytes(2, "little"))
+                f.write((bits_per_sample).to_bytes(2, "little"))
                 f.write(b"data")
-                f.write((data_size).to_bytes(4, 'little'))
+                f.write((data_size).to_bytes(4, "little"))
                 # Write silence
-                f.write(b'\x00' * data_size)
+                f.write(b"\x00" * data_size)
                 created_files.append(f.name)
                 return f.name
 

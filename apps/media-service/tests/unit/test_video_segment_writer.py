@@ -180,13 +180,19 @@ class TestVideoSegmentWriterDelete:
     ) -> None:
         """Test delete only removes the specified segment's file."""
         segment1 = VideoSegment(
-            fragment_id="video-1", stream_id="s1", batch_number=0,
-            t0_ns=0, duration_ns=6_000_000_000,
+            fragment_id="video-1",
+            stream_id="s1",
+            batch_number=0,
+            t0_ns=0,
+            duration_ns=6_000_000_000,
             file_path=segment_dir / "s1" / "000000_video.mp4",
         )
         segment2 = VideoSegment(
-            fragment_id="video-2", stream_id="s1", batch_number=1,
-            t0_ns=6_000_000_000, duration_ns=6_000_000_000,
+            fragment_id="video-2",
+            stream_id="s1",
+            batch_number=1,
+            t0_ns=6_000_000_000,
+            duration_ns=6_000_000_000,
             file_path=segment_dir / "s1" / "000001_video.mp4",
         )
 

@@ -60,16 +60,13 @@ class ASRComponentProtocol(Protocol):
     """Protocol for ASR component."""
 
     @property
-    def component_name(self) -> str:
-        ...
+    def component_name(self) -> str: ...
 
     @property
-    def component_instance(self) -> str:
-        ...
+    def component_instance(self) -> str: ...
 
     @property
-    def is_ready(self) -> bool:
-        ...
+    def is_ready(self) -> bool: ...
 
     def transcribe(
         self,
@@ -81,8 +78,7 @@ class ASRComponentProtocol(Protocol):
         sample_rate_hz: int = 16000,
         domain: str = "general",
         language: str = "en",
-    ) -> ASRTranscriptAsset:
-        ...
+    ) -> ASRTranscriptAsset: ...
 
 
 @runtime_checkable
@@ -90,16 +86,13 @@ class TranslationComponentProtocol(Protocol):
     """Protocol for Translation component."""
 
     @property
-    def component_name(self) -> str:
-        ...
+    def component_name(self) -> str: ...
 
     @property
-    def component_instance(self) -> str:
-        ...
+    def component_instance(self) -> str: ...
 
     @property
-    def is_ready(self) -> bool:
-        ...
+    def is_ready(self) -> bool: ...
 
     def translate(
         self,
@@ -111,8 +104,7 @@ class TranslationComponentProtocol(Protocol):
         parent_asset_ids: list[str],
         speaker_policy: object | None = None,
         normalization_policy: object | None = None,
-    ) -> TextAsset:
-        ...
+    ) -> TextAsset: ...
 
 
 @runtime_checkable
@@ -120,16 +112,13 @@ class TTSComponentProtocol(Protocol):
     """Protocol for TTS component."""
 
     @property
-    def component_name(self) -> str:
-        ...
+    def component_name(self) -> str: ...
 
     @property
-    def component_instance(self) -> str:
-        ...
+    def component_instance(self) -> str: ...
 
     @property
-    def is_ready(self) -> bool:
-        ...
+    def is_ready(self) -> bool: ...
 
     def synthesize(
         self,
@@ -138,8 +127,7 @@ class TTSComponentProtocol(Protocol):
         output_sample_rate_hz: int = 16000,
         output_channels: int = 1,
         voice_profile: object | None = None,
-    ) -> TTSAudioAsset:
-        ...
+    ) -> TTSAudioAsset: ...
 
 
 # -----------------------------------------------------------------------------
@@ -230,12 +218,17 @@ class PipelineCoordinator:
             cmd = [
                 "ffmpeg",
                 "-y",
-                "-i", str(input_path),
-                "-ar", str(sample_rate),
-                "-ac", str(channels),
-                "-f", "f32le",
-                "-acodec", "pcm_f32le",
-                "pipe:1"
+                "-i",
+                str(input_path),
+                "-ar",
+                str(sample_rate),
+                "-ac",
+                str(channels),
+                "-f",
+                "f32le",
+                "-acodec",
+                "pcm_f32le",
+                "pipe:1",
             ]
             result = subprocess.run(cmd, capture_output=True, check=False)
 
@@ -295,7 +288,9 @@ class PipelineCoordinator:
         try:
             # Step 1: Decode audio from base64
             audio_bytes_encoded = base64.b64decode(fragment_data.audio.data_base64)
-            logger.info(f"DEBUG pipeline: Encoded audio size: {len(audio_bytes_encoded)} bytes, format={fragment_data.audio.format}, reported duration={fragment_data.audio.duration_ms}ms")
+            logger.info(
+                f"DEBUG pipeline: Encoded audio size: {len(audio_bytes_encoded)} bytes, format={fragment_data.audio.format}, reported duration={fragment_data.audio.duration_ms}ms"
+            )
 
             # Step 1.5: Decode M4A/AAC to PCM if needed
             audio_bytes = self._decode_audio_to_pcm(
@@ -308,7 +303,9 @@ class PipelineCoordinator:
             # DEBUG: Check decoded audio size
             expected_samples = 16000 * (fragment_data.audio.duration_ms / 1000.0)
             actual_samples = len(audio_bytes) / 4  # 4 bytes per f32le sample
-            logger.info(f"DEBUG pipeline: Decoded PCM size: {len(audio_bytes)} bytes ({actual_samples} samples), expected: {expected_samples} samples for {fragment_data.audio.duration_ms}ms")
+            logger.info(
+                f"DEBUG pipeline: Decoded PCM size: {len(audio_bytes)} bytes ({actual_samples} samples), expected: {expected_samples} samples for {fragment_data.audio.duration_ms}ms"
+            )
 
             # Step 2: ASR transcription
             logger.info("asr_started")
@@ -329,7 +326,9 @@ class PipelineCoordinator:
             record_stage_timing("asr", stage_timings.asr_ms)
 
             # DEBUG: Log ASR result
-            logger.info(f"DEBUG: ASR result has {len(getattr(asr_result, 'segments', []))} segments")
+            logger.info(
+                f"DEBUG: ASR result has {len(getattr(asr_result, 'segments', []))} segments"
+            )
             logger.info(f"DEBUG: ASR total_text: '{getattr(asr_result, 'total_text', 'NO ATTR')}'")
 
             # Check ASR status
@@ -337,7 +336,8 @@ class PipelineCoordinator:
                 return self._create_failed_result(
                     fragment_data=fragment_data,
                     stage=ErrorStage.ASR,
-                    error_message=getattr(asr_result, 'error_message', None) or "ASR processing failed",
+                    error_message=getattr(asr_result, "error_message", None)
+                    or "ASR processing failed",
                     stage_timings=stage_timings,
                     processing_time_ms=self._elapsed_ms(start_time),
                     retryable=True,
@@ -345,19 +345,17 @@ class PipelineCoordinator:
 
             # Extract transcript - check for real string values
             raw_transcript = None
-            if hasattr(asr_result, 'total_text'):
+            if hasattr(asr_result, "total_text"):
                 raw_transcript = asr_result.total_text
             if raw_transcript is None or not isinstance(raw_transcript, str):
-                if hasattr(asr_result, 'transcript'):
+                if hasattr(asr_result, "transcript"):
                     raw_transcript = asr_result.transcript
             if raw_transcript is None or not isinstance(raw_transcript, str):
                 # Try joining segments
-                segments = getattr(asr_result, 'segments', [])
-                if segments and hasattr(segments, '__iter__'):
+                segments = getattr(asr_result, "segments", [])
+                if segments and hasattr(segments, "__iter__"):
                     try:
-                        raw_transcript = " ".join(
-                            str(getattr(seg, 'text', '')) for seg in segments
-                        )
+                        raw_transcript = " ".join(str(getattr(seg, "text", "")) for seg in segments)
                     except Exception:
                         raw_transcript = ""
 
@@ -373,7 +371,7 @@ class PipelineCoordinator:
                     status=AssetStatus.SUCCESS,
                     transcript=transcript,
                     segments=[],
-                    confidence=getattr(asr_result, 'confidence', 0.0),
+                    confidence=getattr(asr_result, "confidence", 0.0),
                     language=session.source_language,
                     audio_duration_ms=fragment_data.audio.duration_ms,
                     parent_asset_ids=[],
@@ -390,7 +388,7 @@ class PipelineCoordinator:
                 sequence_number=fragment_data.sequence_number,
                 source_language=session.source_language,
                 target_language=session.target_language,
-                parent_asset_ids=[getattr(asr_result, 'asset_id', f"asr-{uuid.uuid4()}")],
+                parent_asset_ids=[getattr(asr_result, "asset_id", f"asr-{uuid.uuid4()}")],
             )
             stage_timings.translation_ms = int((time.perf_counter() - translation_start) * 1000)
 
@@ -402,7 +400,8 @@ class PipelineCoordinator:
                 return self._create_failed_result(
                     fragment_data=fragment_data,
                     stage=ErrorStage.TRANSLATION,
-                    error_message=getattr(translation_result, 'error_message', None) or "Translation failed",
+                    error_message=getattr(translation_result, "error_message", None)
+                    or "Translation failed",
                     stage_timings=stage_timings,
                     processing_time_ms=self._elapsed_ms(start_time),
                     retryable=True,
@@ -411,7 +410,13 @@ class PipelineCoordinator:
 
             # Extract translated text
             raw_translated = translation_result.translated_text
-            translated_text = str(raw_translated) if isinstance(raw_translated, str) else str(raw_translated) if raw_translated else ""
+            translated_text = (
+                str(raw_translated)
+                if isinstance(raw_translated, str)
+                else str(raw_translated)
+                if raw_translated
+                else ""
+            )
 
             # Log translation artifact if enabled
             if self.artifact_logger:
@@ -454,8 +459,8 @@ class PipelineCoordinator:
             logger.info(
                 "DEBUG: TTS result",
                 tts_status=str(tts_result.status),
-                audio_bytes_len=len(getattr(tts_result, 'audio_bytes', b'')),
-                duration_ms=getattr(tts_result, 'duration_ms', 0),
+                audio_bytes_len=len(getattr(tts_result, "audio_bytes", b"")),
+                duration_ms=getattr(tts_result, "duration_ms", 0),
             )
 
             # Check TTS status
@@ -463,7 +468,8 @@ class PipelineCoordinator:
                 return self._create_failed_result(
                     fragment_data=fragment_data,
                     stage=ErrorStage.TTS,
-                    error_message=getattr(tts_result, 'error_message', None) or "TTS synthesis failed",
+                    error_message=getattr(tts_result, "error_message", None)
+                    or "TTS synthesis failed",
                     stage_timings=stage_timings,
                     processing_time_ms=self._elapsed_ms(start_time),
                     retryable=False,  # Duration mismatch is not retryable
@@ -477,17 +483,17 @@ class PipelineCoordinator:
 
             # Step 5: Encode audio to base64
             logger.info("DEBUG: Step 5 - Encoding audio to base64")
-            audio_bytes_out = getattr(tts_result, 'audio_bytes', b'')
+            audio_bytes_out = getattr(tts_result, "audio_bytes", b"")
             logger.info("DEBUG: audio_bytes_out len", audio_len=len(audio_bytes_out))
             if not audio_bytes_out:
                 # Try to get from payload_ref (mock may not set audio_bytes)
-                audio_bytes_out = b'\x00\x00' * (session.sample_rate_hz * 6)  # 6s silence fallback
+                audio_bytes_out = b"\x00\x00" * (session.sample_rate_hz * 6)  # 6s silence fallback
 
-            audio_b64 = base64.b64encode(audio_bytes_out).decode('utf-8')
+            audio_b64 = base64.b64encode(audio_bytes_out).decode("utf-8")
 
             # Build duration metadata
-            tts_duration_ms = getattr(tts_result, 'duration_ms', fragment_data.audio.duration_ms)
-            tts_duration_metadata = getattr(tts_result, 'duration_metadata', None)
+            tts_duration_ms = getattr(tts_result, "duration_ms", fragment_data.audio.duration_ms)
+            tts_duration_metadata = getattr(tts_result, "duration_metadata", None)
 
             if tts_duration_metadata:
                 duration_metadata = DurationMetadata(
@@ -498,7 +504,11 @@ class PipelineCoordinator:
                 )
             else:
                 # Calculate from available data
-                variance = abs(tts_duration_ms - fragment_data.audio.duration_ms) / fragment_data.audio.duration_ms * 100
+                variance = (
+                    abs(tts_duration_ms - fragment_data.audio.duration_ms)
+                    / fragment_data.audio.duration_ms
+                    * 100
+                )
                 duration_metadata = DurationMetadata(
                     original_duration_ms=fragment_data.audio.duration_ms,
                     dubbed_duration_ms=tts_duration_ms,
@@ -508,9 +518,9 @@ class PipelineCoordinator:
 
             # Build dubbed audio response
             dubbed_audio = AudioData(
-                format=getattr(tts_result, 'format', 'pcm_s16le'),
-                sample_rate_hz=getattr(tts_result, 'sample_rate_hz', session.sample_rate_hz),
-                channels=getattr(tts_result, 'channels', session.channels),
+                format=getattr(tts_result, "format", "pcm_s16le"),
+                sample_rate_hz=getattr(tts_result, "sample_rate_hz", session.sample_rate_hz),
+                channels=getattr(tts_result, "channels", session.channels),
                 duration_ms=tts_duration_ms,
                 data_base64=audio_b64,
             )
@@ -534,7 +544,9 @@ class PipelineCoordinator:
                     asset_id=f"audio-dubbed-{fragment_data.fragment_id}",
                     fragment_id=fragment_data.fragment_id,
                     stream_id=fragment_data.stream_id,
-                    status=AssetStatus.SUCCESS if status == ProcessingStatus.SUCCESS else AssetStatus.PARTIAL,
+                    status=AssetStatus.SUCCESS
+                    if status == ProcessingStatus.SUCCESS
+                    else AssetStatus.PARTIAL,
                     audio_bytes=audio_bytes_out,
                     format=dubbed_audio.format,
                     sample_rate_hz=dubbed_audio.sample_rate_hz,
@@ -634,15 +646,15 @@ class PipelineCoordinator:
         if isinstance(status, AssetStatus):
             return status == AssetStatus.FAILED
         # Handle mock status attributes - check for AssetStatus comparison
-        if hasattr(status, '__eq__'):
+        if hasattr(status, "__eq__"):
             # Direct comparison works for mocks configured with AssetStatus
             if status == AssetStatus.FAILED:
                 return True
             if status == AssetStatus.SUCCESS or status == AssetStatus.PARTIAL:
                 return False
         # Fallback: check string value
-        status_value = getattr(status, 'value', str(status)).lower()
-        return 'failed' in status_value
+        status_value = getattr(status, "value", str(status)).lower()
+        return "failed" in status_value
 
     def _is_partial(self, status: object) -> bool:
         """Check if status indicates partial success."""
@@ -651,11 +663,11 @@ class PipelineCoordinator:
         if isinstance(status, AssetStatus):
             return status == AssetStatus.PARTIAL
         # Handle mock status attributes
-        if hasattr(status, '__eq__'):
+        if hasattr(status, "__eq__"):
             if status == AssetStatus.PARTIAL:
                 return True
-        status_value = getattr(status, 'value', str(status)).lower()
-        return 'partial' in status_value
+        status_value = getattr(status, "value", str(status)).lower()
+        return "partial" in status_value
 
     def _elapsed_ms(self, start_time: float) -> int:
         """Calculate elapsed time in milliseconds."""

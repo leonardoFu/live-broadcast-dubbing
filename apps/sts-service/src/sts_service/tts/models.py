@@ -51,24 +51,47 @@ class VoiceProfile(BaseModel):
     """Configuration for voice selection and synthesis parameters.
 
     This entity is used as input configuration, not persisted as an asset.
+
+    Supports both Coqui TTS (local) and ElevenLabs (cloud API) providers:
+    - Coqui fields: model_name, fast_mode, voice_sample_path, speaker_name, use_voice_cloning
+    - ElevenLabs fields: voice_id, elevenlabs_model_id, stability, similarity_boost
+    - Shared fields: language, speed_clamp_min, speed_clamp_max, only_speed_up
     """
 
     language: str = Field(..., description="Target language (ISO 639-1)")
-    model_name: str | None = Field(
-        default=None, description="Explicit model override"
-    )
-    fast_mode: bool = Field(
-        default=False, description="Use fast model for low latency"
-    )
+
+    # Coqui TTS specific fields
+    model_name: str | None = Field(default=None, description="Explicit Coqui model override")
+    fast_mode: bool = Field(default=False, description="Use fast Coqui model for low latency")
     voice_sample_path: str | None = Field(
-        default=None, description="Path to voice cloning sample"
+        default=None, description="Path to voice cloning sample (Coqui)"
     )
-    speaker_name: str | None = Field(
-        default=None, description="Named speaker fallback"
-    )
+    speaker_name: str | None = Field(default=None, description="Named speaker fallback (Coqui)")
     use_voice_cloning: bool = Field(
-        default=False, description="Enable voice cloning (requires voice_sample_path)"
+        default=False, description="Enable voice cloning (Coqui, requires voice_sample_path)"
     )
+
+    # ElevenLabs specific fields
+    voice_id: str | None = Field(
+        default=None, description="ElevenLabs voice ID (overrides language default)"
+    )
+    elevenlabs_model_id: str | None = Field(
+        default=None, description="ElevenLabs model ID (default: eleven_flash_v2_5)"
+    )
+    stability: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="ElevenLabs voice stability (0.0-1.0, higher = more stable)",
+    )
+    similarity_boost: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="ElevenLabs similarity boost (0.0-1.0, higher = more similar to original)",
+    )
+
+    # Shared duration matching settings
     speed_clamp_min: float = Field(
         default=0.5, gt=0, description="Minimum speed factor for duration matching"
     )
@@ -94,9 +117,16 @@ class VoiceProfile(BaseModel):
         json_schema_extra={
             "example": {
                 "language": "en",
+                # Coqui fields
                 "fast_mode": False,
                 "use_voice_cloning": False,
                 "speaker_name": "p225",
+                # ElevenLabs fields
+                "voice_id": "iP95p4xoKVk53GoZ742B",
+                "elevenlabs_model_id": "eleven_flash_v2_5",
+                "stability": 0.5,
+                "similarity_boost": 0.75,
+                # Duration matching
                 "speed_clamp_min": 0.5,
                 "speed_clamp_max": 2.0,
                 "only_speed_up": True,
@@ -146,9 +176,7 @@ class TTSConfig(BaseModel):
     def validate_sample_rate(cls, v: int) -> int:
         """Ensure sample rate is in allowed list."""
         if v not in ALLOWED_SAMPLE_RATES:
-            raise ValueError(
-                f"sample_rate_hz must be one of {ALLOWED_SAMPLE_RATES}, got {v}"
-            )
+            raise ValueError(f"sample_rate_hz must be one of {ALLOWED_SAMPLE_RATES}, got {v}")
         return v
 
     model_config = ConfigDict(
@@ -179,9 +207,7 @@ class TTSMetrics(BaseModel):
     # Timing breakdown
     preprocess_time_ms: int = Field(..., ge=0, description="Time spent preprocessing text")
     synthesis_time_ms: int = Field(..., ge=0, description="Time spent synthesizing audio")
-    alignment_time_ms: int = Field(
-        default=0, ge=0, description="Time spent on duration matching"
-    )
+    alignment_time_ms: int = Field(default=0, ge=0, description="Time spent on duration matching")
     total_time_ms: int = Field(..., ge=0, description="Total processing time")
 
     # Duration information
@@ -241,12 +267,8 @@ class AudioAsset(AssetIdentifiers):
     """
 
     # Component identification
-    component: str = Field(
-        default="tts", description="Always 'tts' for this asset type"
-    )
-    component_instance: str = Field(
-        ..., description="Provider identifier (e.g., 'coqui-xtts-v2')"
-    )
+    component: str = Field(default="tts", description="Always 'tts' for this asset type")
+    component_instance: str = Field(..., description="Provider identifier (e.g., 'coqui-xtts-v2')")
 
     # Audio format metadata
     audio_format: AudioFormat = Field(..., description="Audio encoding format")
@@ -255,14 +277,10 @@ class AudioAsset(AssetIdentifiers):
     duration_ms: int = Field(..., ge=0, description="Audio duration in milliseconds")
 
     # Payload reference
-    payload_ref: str = Field(
-        ..., description="Reference to PCM bytes (mem:// or file://)"
-    )
+    payload_ref: str = Field(..., description="Reference to PCM bytes (mem:// or file://)")
 
     # Audio bytes (actual synthesized audio data)
-    audio_bytes: bytes = Field(
-        default=b"", description="Raw audio bytes (PCM format)"
-    )
+    audio_bytes: bytes = Field(default=b"", description="Raw audio bytes (PCM format)")
 
     # Language metadata
     language: str = Field(..., description="Synthesis language (ISO 639-1)")
@@ -290,9 +308,7 @@ class AudioAsset(AssetIdentifiers):
     def validate_sample_rate(cls, v: int) -> int:
         """Ensure sample rate is in allowed list."""
         if v not in ALLOWED_SAMPLE_RATES:
-            raise ValueError(
-                f"sample_rate_hz must be one of {ALLOWED_SAMPLE_RATES}, got {v}"
-            )
+            raise ValueError(f"sample_rate_hz must be one of {ALLOWED_SAMPLE_RATES}, got {v}")
         return v
 
     @property
@@ -306,9 +322,7 @@ class AudioAsset(AssetIdentifiers):
 
         Returns True if status is FAILED and any error is retryable.
         """
-        return self.status == AudioStatus.FAILED and any(
-            e.retryable for e in self.errors
-        )
+        return self.status == AudioStatus.FAILED and any(e.retryable for e in self.errors)
 
     model_config = ConfigDict(
         json_schema_extra={

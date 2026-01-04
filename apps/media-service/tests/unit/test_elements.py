@@ -42,9 +42,11 @@ class TestBuildRtspsrcElement:
         """Test that build_rtspsrc_element returns a configured element."""
         mock_gst, mock_element = mock_gst_module
 
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": mock_gst, "GST_AVAILABLE": True}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": mock_gst, "GST_AVAILABLE": True}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = mock_gst
             elements.GST_AVAILABLE = True
 
@@ -56,9 +58,11 @@ class TestBuildRtspsrcElement:
         """Test that rtspsrc location property is set correctly."""
         mock_gst, mock_element = mock_gst_module
 
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": mock_gst, "GST_AVAILABLE": True}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": mock_gst, "GST_AVAILABLE": True}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = mock_gst
             elements.GST_AVAILABLE = True
 
@@ -72,9 +76,11 @@ class TestBuildRtspsrcElement:
         """Test that rtspsrc uses TCP protocol (protocols=tcp)."""
         mock_gst, mock_element = mock_gst_module
 
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": mock_gst, "GST_AVAILABLE": True}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": mock_gst, "GST_AVAILABLE": True}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = mock_gst
             elements.GST_AVAILABLE = True
 
@@ -87,9 +93,11 @@ class TestBuildRtspsrcElement:
         """Test that rtspsrc has default latency of 200ms."""
         mock_gst, mock_element = mock_gst_module
 
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": mock_gst, "GST_AVAILABLE": True}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": mock_gst, "GST_AVAILABLE": True}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = mock_gst
             elements.GST_AVAILABLE = True
 
@@ -101,9 +109,11 @@ class TestBuildRtspsrcElement:
         """Test that rtspsrc respects custom latency parameter."""
         mock_gst, mock_element = mock_gst_module
 
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": mock_gst, "GST_AVAILABLE": True}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": mock_gst, "GST_AVAILABLE": True}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = mock_gst
             elements.GST_AVAILABLE = True
 
@@ -119,9 +129,11 @@ class TestBuildAppsinkElement:
         """Test that build_appsink_element returns a configured element."""
         mock_gst, mock_element = mock_gst_module
 
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": mock_gst, "GST_AVAILABLE": True}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": mock_gst, "GST_AVAILABLE": True}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = mock_gst
             elements.GST_AVAILABLE = True
 
@@ -133,9 +145,11 @@ class TestBuildAppsinkElement:
         """Test that appsink name is set correctly."""
         mock_gst, mock_element = mock_gst_module
 
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": mock_gst, "GST_AVAILABLE": True}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": mock_gst, "GST_AVAILABLE": True}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = mock_gst
             elements.GST_AVAILABLE = True
 
@@ -147,9 +161,11 @@ class TestBuildAppsinkElement:
         """Test that appsink sets correct caps for H.264 video."""
         mock_gst, mock_element = mock_gst_module
 
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": mock_gst, "GST_AVAILABLE": True}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": mock_gst, "GST_AVAILABLE": True}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = mock_gst
             elements.GST_AVAILABLE = True
 
@@ -163,9 +179,11 @@ class TestBuildAppsinkElement:
         """Test that appsink sets correct caps for AAC audio."""
         mock_gst, mock_element = mock_gst_module
 
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": mock_gst, "GST_AVAILABLE": True}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": mock_gst, "GST_AVAILABLE": True}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = mock_gst
             elements.GST_AVAILABLE = True
 
@@ -177,9 +195,11 @@ class TestBuildAppsinkElement:
         """Test that appsink has emit-signals enabled."""
         mock_gst, mock_element = mock_gst_module
 
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": mock_gst, "GST_AVAILABLE": True}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": mock_gst, "GST_AVAILABLE": True}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = mock_gst
             elements.GST_AVAILABLE = True
 
@@ -191,9 +211,11 @@ class TestBuildAppsinkElement:
         """Test that appsink has sync=false for live streams."""
         mock_gst, mock_element = mock_gst_module
 
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": mock_gst, "GST_AVAILABLE": True}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": mock_gst, "GST_AVAILABLE": True}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = mock_gst
             elements.GST_AVAILABLE = True
 
@@ -209,9 +231,11 @@ class TestBuildAppsrcElement:
         """Test that build_appsrc_element returns a configured element."""
         mock_gst, mock_element = mock_gst_module
 
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": mock_gst, "GST_AVAILABLE": True}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": mock_gst, "GST_AVAILABLE": True}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = mock_gst
             elements.GST_AVAILABLE = True
 
@@ -223,9 +247,11 @@ class TestBuildAppsrcElement:
         """Test that appsrc has is-live=true."""
         mock_gst, mock_element = mock_gst_module
 
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": mock_gst, "GST_AVAILABLE": True}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": mock_gst, "GST_AVAILABLE": True}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = mock_gst
             elements.GST_AVAILABLE = True
 
@@ -237,9 +263,11 @@ class TestBuildAppsrcElement:
         """Test that appsrc has format=time."""
         mock_gst, mock_element = mock_gst_module
 
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": mock_gst, "GST_AVAILABLE": True}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": mock_gst, "GST_AVAILABLE": True}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = mock_gst
             elements.GST_AVAILABLE = True
 
@@ -252,9 +280,11 @@ class TestBuildAppsrcElement:
         """Test that appsrc name is set correctly."""
         mock_gst, mock_element = mock_gst_module
 
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": mock_gst, "GST_AVAILABLE": True}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": mock_gst, "GST_AVAILABLE": True}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = mock_gst
             elements.GST_AVAILABLE = True
 
@@ -266,9 +296,11 @@ class TestBuildAppsrcElement:
         """Test that appsrc sets caps correctly."""
         mock_gst, mock_element = mock_gst_module
 
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": mock_gst, "GST_AVAILABLE": True}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": mock_gst, "GST_AVAILABLE": True}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = mock_gst
             elements.GST_AVAILABLE = True
 
@@ -284,9 +316,11 @@ class TestBuildFlvmuxElement:
         """Test that build_flvmux_element returns a configured element."""
         mock_gst, mock_element = mock_gst_module
 
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": mock_gst, "GST_AVAILABLE": True}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": mock_gst, "GST_AVAILABLE": True}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = mock_gst
             elements.GST_AVAILABLE = True
 
@@ -298,9 +332,11 @@ class TestBuildFlvmuxElement:
         """Test that flvmux has streamable=true for RTMP."""
         mock_gst, mock_element = mock_gst_module
 
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": mock_gst, "GST_AVAILABLE": True}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": mock_gst, "GST_AVAILABLE": True}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = mock_gst
             elements.GST_AVAILABLE = True
 
@@ -316,9 +352,11 @@ class TestBuildRtmpsinkElement:
         """Test that build_rtmpsink_element returns a configured element."""
         mock_gst, mock_element = mock_gst_module
 
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": mock_gst, "GST_AVAILABLE": True}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": mock_gst, "GST_AVAILABLE": True}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = mock_gst
             elements.GST_AVAILABLE = True
 
@@ -330,9 +368,11 @@ class TestBuildRtmpsinkElement:
         """Test that rtmpsink location is set correctly."""
         mock_gst, mock_element = mock_gst_module
 
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": mock_gst, "GST_AVAILABLE": True}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": mock_gst, "GST_AVAILABLE": True}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = mock_gst
             elements.GST_AVAILABLE = True
 
@@ -349,9 +389,11 @@ class TestBuildFlvdemuxElement:
         """Test that build_flvdemux_element returns an element."""
         mock_gst, mock_element = mock_gst_module
 
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": mock_gst, "GST_AVAILABLE": True}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": mock_gst, "GST_AVAILABLE": True}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = mock_gst
             elements.GST_AVAILABLE = True
 
@@ -363,9 +405,11 @@ class TestBuildFlvdemuxElement:
         """Test that flvdemux element is created with correct name."""
         mock_gst, mock_element = mock_gst_module
 
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": mock_gst, "GST_AVAILABLE": True}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": mock_gst, "GST_AVAILABLE": True}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = mock_gst
             elements.GST_AVAILABLE = True
 
@@ -381,9 +425,11 @@ class TestBuildQueueElement:
         """Test that build_queue_element returns an element."""
         mock_gst, mock_element = mock_gst_module
 
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": mock_gst, "GST_AVAILABLE": True}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": mock_gst, "GST_AVAILABLE": True}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = mock_gst
             elements.GST_AVAILABLE = True
 
@@ -395,9 +441,11 @@ class TestBuildQueueElement:
         """Test that queue uses default max buffers of 200."""
         mock_gst, mock_element = mock_gst_module
 
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": mock_gst, "GST_AVAILABLE": True}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": mock_gst, "GST_AVAILABLE": True}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = mock_gst
             elements.GST_AVAILABLE = True
 
@@ -409,9 +457,11 @@ class TestBuildQueueElement:
         """Test that queue respects custom max buffers."""
         mock_gst, mock_element = mock_gst_module
 
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": mock_gst, "GST_AVAILABLE": True}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": mock_gst, "GST_AVAILABLE": True}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = mock_gst
             elements.GST_AVAILABLE = True
 
@@ -423,9 +473,11 @@ class TestBuildQueueElement:
         """Test that queue has unlimited bytes and time."""
         mock_gst, mock_element = mock_gst_module
 
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": mock_gst, "GST_AVAILABLE": True}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": mock_gst, "GST_AVAILABLE": True}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = mock_gst
             elements.GST_AVAILABLE = True
 
@@ -442,9 +494,11 @@ class TestBuildH264parseElement:
         """Test that build_h264parse_element returns an element."""
         mock_gst, mock_element = mock_gst_module
 
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": mock_gst, "GST_AVAILABLE": True}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": mock_gst, "GST_AVAILABLE": True}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = mock_gst
             elements.GST_AVAILABLE = True
 
@@ -456,9 +510,11 @@ class TestBuildH264parseElement:
         """Test that h264parse element is created with correct name."""
         mock_gst, mock_element = mock_gst_module
 
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": mock_gst, "GST_AVAILABLE": True}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": mock_gst, "GST_AVAILABLE": True}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = mock_gst
             elements.GST_AVAILABLE = True
 
@@ -474,9 +530,11 @@ class TestBuildAacparseElement:
         """Test that build_aacparse_element returns an element."""
         mock_gst, mock_element = mock_gst_module
 
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": mock_gst, "GST_AVAILABLE": True}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": mock_gst, "GST_AVAILABLE": True}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = mock_gst
             elements.GST_AVAILABLE = True
 
@@ -488,9 +546,11 @@ class TestBuildAacparseElement:
         """Test that aacparse element is created with correct name."""
         mock_gst, mock_element = mock_gst_module
 
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": mock_gst, "GST_AVAILABLE": True}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": mock_gst, "GST_AVAILABLE": True}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = mock_gst
             elements.GST_AVAILABLE = True
 
@@ -506,9 +566,11 @@ class TestBuildMp4muxElement:
         """Test that build_mp4mux_element returns an element."""
         mock_gst, mock_element = mock_gst_module
 
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": mock_gst, "GST_AVAILABLE": True}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": mock_gst, "GST_AVAILABLE": True}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = mock_gst
             elements.GST_AVAILABLE = True
 
@@ -520,9 +582,11 @@ class TestBuildMp4muxElement:
         """Test that mp4mux element is created with correct name."""
         mock_gst, mock_element = mock_gst_module
 
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": mock_gst, "GST_AVAILABLE": True}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": mock_gst, "GST_AVAILABLE": True}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = mock_gst
             elements.GST_AVAILABLE = True
 
@@ -534,9 +598,11 @@ class TestBuildMp4muxElement:
         """Test that mp4mux respects fragment duration."""
         mock_gst, mock_element = mock_gst_module
 
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": mock_gst, "GST_AVAILABLE": True}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": mock_gst, "GST_AVAILABLE": True}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = mock_gst
             elements.GST_AVAILABLE = True
 
@@ -548,17 +614,22 @@ class TestBuildMp4muxElement:
         """Test that mp4mux doesn't set fragment-duration when zero."""
         mock_gst, mock_element = mock_gst_module
 
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": mock_gst, "GST_AVAILABLE": True}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": mock_gst, "GST_AVAILABLE": True}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = mock_gst
             elements.GST_AVAILABLE = True
 
             elements.build_mp4mux_element(fragment_duration=0)
 
             # Should not have called set_property with fragment-duration
-            calls = [call for call in mock_element.set_property.call_args_list
-                    if call[0][0] == "fragment-duration"]
+            calls = [
+                call
+                for call in mock_element.set_property.call_args_list
+                if call[0][0] == "fragment-duration"
+            ]
             assert len(calls) == 0
 
 
@@ -569,9 +640,11 @@ class TestBuildFilesinkElement:
         """Test that build_filesink_element returns an element."""
         mock_gst, mock_element = mock_gst_module
 
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": mock_gst, "GST_AVAILABLE": True}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": mock_gst, "GST_AVAILABLE": True}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = mock_gst
             elements.GST_AVAILABLE = True
 
@@ -583,9 +656,11 @@ class TestBuildFilesinkElement:
         """Test that filesink location is set correctly."""
         mock_gst, mock_element = mock_gst_module
 
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": mock_gst, "GST_AVAILABLE": True}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": mock_gst, "GST_AVAILABLE": True}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = mock_gst
             elements.GST_AVAILABLE = True
 
@@ -600,9 +675,11 @@ class TestGstNotAvailable:
 
     def test_build_rtspsrc_raises_when_gst_unavailable(self) -> None:
         """Test that build_rtspsrc_element raises when GStreamer unavailable."""
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": None, "GST_AVAILABLE": False}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": None, "GST_AVAILABLE": False}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = None
             elements.GST_AVAILABLE = False
 
@@ -613,9 +690,11 @@ class TestGstNotAvailable:
 
     def test_build_appsink_raises_when_gst_unavailable(self) -> None:
         """Test that build_appsink_element raises when GStreamer unavailable."""
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": None, "GST_AVAILABLE": False}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": None, "GST_AVAILABLE": False}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = None
             elements.GST_AVAILABLE = False
 
@@ -626,9 +705,11 @@ class TestGstNotAvailable:
 
     def test_build_appsrc_raises_when_gst_unavailable(self) -> None:
         """Test that build_appsrc_element raises when GStreamer unavailable."""
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": None, "GST_AVAILABLE": False}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": None, "GST_AVAILABLE": False}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = None
             elements.GST_AVAILABLE = False
 
@@ -639,9 +720,11 @@ class TestGstNotAvailable:
 
     def test_build_flvmux_raises_when_gst_unavailable(self) -> None:
         """Test that build_flvmux_element raises when GStreamer unavailable."""
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": None, "GST_AVAILABLE": False}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": None, "GST_AVAILABLE": False}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = None
             elements.GST_AVAILABLE = False
 
@@ -652,9 +735,11 @@ class TestGstNotAvailable:
 
     def test_build_rtmpsink_raises_when_gst_unavailable(self) -> None:
         """Test that build_rtmpsink_element raises when GStreamer unavailable."""
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": None, "GST_AVAILABLE": False}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": None, "GST_AVAILABLE": False}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = None
             elements.GST_AVAILABLE = False
 
@@ -665,9 +750,11 @@ class TestGstNotAvailable:
 
     def test_build_flvdemux_raises_when_gst_unavailable(self) -> None:
         """Test that build_flvdemux_element raises when GStreamer unavailable."""
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": None, "GST_AVAILABLE": False}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": None, "GST_AVAILABLE": False}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = None
             elements.GST_AVAILABLE = False
 
@@ -678,9 +765,11 @@ class TestGstNotAvailable:
 
     def test_build_queue_raises_when_gst_unavailable(self) -> None:
         """Test that build_queue_element raises when GStreamer unavailable."""
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": None, "GST_AVAILABLE": False}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": None, "GST_AVAILABLE": False}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = None
             elements.GST_AVAILABLE = False
 
@@ -691,9 +780,11 @@ class TestGstNotAvailable:
 
     def test_build_h264parse_raises_when_gst_unavailable(self) -> None:
         """Test that build_h264parse_element raises when GStreamer unavailable."""
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": None, "GST_AVAILABLE": False}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": None, "GST_AVAILABLE": False}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = None
             elements.GST_AVAILABLE = False
 
@@ -704,9 +795,11 @@ class TestGstNotAvailable:
 
     def test_build_aacparse_raises_when_gst_unavailable(self) -> None:
         """Test that build_aacparse_element raises when GStreamer unavailable."""
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": None, "GST_AVAILABLE": False}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": None, "GST_AVAILABLE": False}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = None
             elements.GST_AVAILABLE = False
 
@@ -717,9 +810,11 @@ class TestGstNotAvailable:
 
     def test_build_mp4mux_raises_when_gst_unavailable(self) -> None:
         """Test that build_mp4mux_element raises when GStreamer unavailable."""
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": None, "GST_AVAILABLE": False}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": None, "GST_AVAILABLE": False}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = None
             elements.GST_AVAILABLE = False
 
@@ -730,9 +825,11 @@ class TestGstNotAvailable:
 
     def test_build_filesink_raises_when_gst_unavailable(self) -> None:
         """Test that build_filesink_element raises when GStreamer unavailable."""
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": None, "GST_AVAILABLE": False}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": None, "GST_AVAILABLE": False}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = None
             elements.GST_AVAILABLE = False
 
@@ -750,9 +847,11 @@ class TestElementCreationFailure:
         mock_gst, _ = mock_gst_module
         mock_gst.ElementFactory.make.return_value = None
 
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": mock_gst, "GST_AVAILABLE": True}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": mock_gst, "GST_AVAILABLE": True}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = mock_gst
             elements.GST_AVAILABLE = True
 
@@ -766,9 +865,11 @@ class TestElementCreationFailure:
         mock_gst, _ = mock_gst_module
         mock_gst.ElementFactory.make.return_value = None
 
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": mock_gst, "GST_AVAILABLE": True}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": mock_gst, "GST_AVAILABLE": True}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = mock_gst
             elements.GST_AVAILABLE = True
 
@@ -782,9 +883,11 @@ class TestElementCreationFailure:
         mock_gst, _ = mock_gst_module
         mock_gst.ElementFactory.make.return_value = None
 
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": mock_gst, "GST_AVAILABLE": True}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": mock_gst, "GST_AVAILABLE": True}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = mock_gst
             elements.GST_AVAILABLE = True
 
@@ -798,9 +901,11 @@ class TestElementCreationFailure:
         mock_gst, _ = mock_gst_module
         mock_gst.ElementFactory.make.return_value = None
 
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": mock_gst, "GST_AVAILABLE": True}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": mock_gst, "GST_AVAILABLE": True}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = mock_gst
             elements.GST_AVAILABLE = True
 
@@ -814,9 +919,11 @@ class TestElementCreationFailure:
         mock_gst, _ = mock_gst_module
         mock_gst.ElementFactory.make.return_value = None
 
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": mock_gst, "GST_AVAILABLE": True}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": mock_gst, "GST_AVAILABLE": True}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = mock_gst
             elements.GST_AVAILABLE = True
 
@@ -830,9 +937,11 @@ class TestElementCreationFailure:
         mock_gst, _ = mock_gst_module
         mock_gst.ElementFactory.make.return_value = None
 
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": mock_gst, "GST_AVAILABLE": True}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": mock_gst, "GST_AVAILABLE": True}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = mock_gst
             elements.GST_AVAILABLE = True
 
@@ -846,9 +955,11 @@ class TestElementCreationFailure:
         mock_gst, _ = mock_gst_module
         mock_gst.ElementFactory.make.return_value = None
 
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": mock_gst, "GST_AVAILABLE": True}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": mock_gst, "GST_AVAILABLE": True}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = mock_gst
             elements.GST_AVAILABLE = True
 
@@ -862,9 +973,11 @@ class TestElementCreationFailure:
         mock_gst, _ = mock_gst_module
         mock_gst.ElementFactory.make.return_value = None
 
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": mock_gst, "GST_AVAILABLE": True}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": mock_gst, "GST_AVAILABLE": True}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = mock_gst
             elements.GST_AVAILABLE = True
 
@@ -878,9 +991,11 @@ class TestElementCreationFailure:
         mock_gst, _ = mock_gst_module
         mock_gst.ElementFactory.make.return_value = None
 
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": mock_gst, "GST_AVAILABLE": True}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": mock_gst, "GST_AVAILABLE": True}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = mock_gst
             elements.GST_AVAILABLE = True
 
@@ -894,9 +1009,11 @@ class TestElementCreationFailure:
         mock_gst, _ = mock_gst_module
         mock_gst.ElementFactory.make.return_value = None
 
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": mock_gst, "GST_AVAILABLE": True}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": mock_gst, "GST_AVAILABLE": True}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = mock_gst
             elements.GST_AVAILABLE = True
 
@@ -910,9 +1027,11 @@ class TestElementCreationFailure:
         mock_gst, _ = mock_gst_module
         mock_gst.ElementFactory.make.return_value = None
 
-        with patch.dict("media_service.pipeline.elements.__dict__",
-                       {"Gst": mock_gst, "GST_AVAILABLE": True}):
+        with patch.dict(
+            "media_service.pipeline.elements.__dict__", {"Gst": mock_gst, "GST_AVAILABLE": True}
+        ):
             from media_service.pipeline import elements
+
             elements.Gst = mock_gst
             elements.GST_AVAILABLE = True
 

@@ -74,12 +74,8 @@ class AudioFragment(BaseModel):
     )
 
     # Timing
-    start_time_ms: int = Field(
-        ..., ge=0, description="Fragment start in stream timeline (ms)"
-    )
-    end_time_ms: int = Field(
-        ..., gt=0, description="Fragment end in stream timeline (ms)"
-    )
+    start_time_ms: int = Field(..., ge=0, description="Fragment start in stream timeline (ms)")
+    end_time_ms: int = Field(..., gt=0, description="Fragment end in stream timeline (ms)")
 
     # Payload
     payload_ref: str = Field(
@@ -91,9 +87,7 @@ class AudioFragment(BaseModel):
         default="general",
         description="Domain hint for vocabulary priming (sports, news, interview, general)",
     )
-    language: str | None = Field(
-        default="en", description="Expected language code (ISO 639-1)"
-    )
+    language: str | None = Field(default="en", description="Expected language code (ISO 639-1)")
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -152,12 +146,8 @@ class TranscriptSegment(BaseModel):
     segment_abs_time = fragment_start_time + segment_rel_time
     """
 
-    start_time_ms: int = Field(
-        ..., ge=0, description="Segment start (absolute stream time)"
-    )
-    end_time_ms: int = Field(
-        ..., gt=0, description="Segment end (absolute stream time)"
-    )
+    start_time_ms: int = Field(..., ge=0, description="Segment start (absolute stream time)")
+    end_time_ms: int = Field(..., gt=0, description="Segment end (absolute stream time)")
     text: str = Field(..., min_length=1, description="Human-readable transcript text")
     confidence: float = Field(
         ..., ge=0.0, le=1.0, description="Segment-level confidence score (0.0-1.0)"
@@ -210,9 +200,7 @@ class ASRError(BaseModel):
     """Structured error information for failed or partial transcriptions."""
 
     error_type: ASRErrorType = Field(..., description="Error classification")
-    message: str = Field(
-        ..., description="Human-readable error message (safe for logs)"
-    )
+    message: str = Field(..., description="Human-readable error message (safe for logs)")
     retryable: bool = Field(..., description="Whether this error is worth retrying")
     details: dict[str, Any] | None = Field(
         default=None, description="Additional error context (debug info)"
@@ -239,9 +227,7 @@ class AssetIdentifiers(BaseModel):
     """Base identifiers for all STS assets."""
 
     stream_id: str = Field(..., description="Logical stream/session identifier")
-    sequence_number: int = Field(
-        ..., ge=0, description="Monotonically increasing fragment index"
-    )
+    sequence_number: int = Field(..., ge=0, description="Monotonically increasing fragment index")
     asset_id: str = Field(
         default_factory=lambda: str(uuid.uuid4()),
         description="Globally unique identifier for this artifact",
@@ -253,9 +239,7 @@ class AssetIdentifiers(BaseModel):
     created_at: datetime = Field(
         default_factory=datetime.utcnow, description="Timestamp of artifact creation"
     )
-    component: str = Field(
-        ..., description="Name of component that produced this artifact"
-    )
+    component: str = Field(..., description="Name of component that produced this artifact")
     component_instance: str = Field(
         ..., description="Provider identifier (e.g., 'faster-whisper-base')"
     )
@@ -268,9 +252,7 @@ class TranscriptAsset(AssetIdentifiers):
     """
 
     # Override component field with ASR-specific default
-    component: str = Field(
-        default="asr", description="Always 'asr' for this asset type"
-    )
+    component: str = Field(default="asr", description="Always 'asr' for this asset type")
 
     # Language information
     language: str = Field(..., description="Detected or specified language code")
@@ -349,9 +331,7 @@ class TranscriptAsset(AssetIdentifiers):
     @property
     def is_retryable(self) -> bool:
         """Whether this result should be retried."""
-        return self.status == TranscriptStatus.FAILED and any(
-            e.retryable for e in self.errors
-        )
+        return self.status == TranscriptStatus.FAILED and any(e.retryable for e in self.errors)
 
 
 # -----------------------------------------------------------------------------
@@ -392,18 +372,14 @@ class VADConfig(BaseModel):
     min_speech_duration_ms: int = Field(
         default=250, ge=0, description="Discard speech shorter than this"
     )
-    speech_pad_ms: int = Field(
-        default=400, ge=0, description="Padding around detected speech"
-    )
+    speech_pad_ms: int = Field(default=400, ge=0, description="Padding around detected speech")
 
 
 class TranscriptionConfig(BaseModel):
     """Transcription behavior configuration."""
 
     language: str = Field(default="en", description="Expected language code")
-    word_timestamps: bool = Field(
-        default=True, description="Enable word-level timestamps"
-    )
+    word_timestamps: bool = Field(default=True, description="Enable word-level timestamps")
     beam_size: int = Field(default=8, ge=1, le=10, description="Beam search width")
     best_of: int = Field(default=8, ge=1, le=10, description="Number of candidates")
     temperature: list[float] = Field(
@@ -412,9 +388,7 @@ class TranscriptionConfig(BaseModel):
     compression_ratio_threshold: float = Field(
         default=2.4, ge=1.0, description="Compression ratio quality guard"
     )
-    log_prob_threshold: float = Field(
-        default=-1.0, description="Log probability quality guard"
-    )
+    log_prob_threshold: float = Field(default=-1.0, description="Log probability quality guard")
     no_speech_threshold: float = Field(
         default=0.6, ge=0.0, le=1.0, description="No-speech detection threshold"
     )
@@ -437,9 +411,7 @@ class ASRConfig(BaseModel):
     model: ASRModelConfig = Field(default_factory=ASRModelConfig)
     vad: VADConfig = Field(default_factory=VADConfig)
     transcription: TranscriptionConfig = Field(default_factory=TranscriptionConfig)
-    utterance_shaping: UtteranceShapingConfig = Field(
-        default_factory=UtteranceShapingConfig
-    )
+    utterance_shaping: UtteranceShapingConfig = Field(default_factory=UtteranceShapingConfig)
 
     # Operational settings
     timeout_ms: int = Field(

@@ -104,11 +104,14 @@ class StreamAnalyzer:
         """
         cmd = [
             "ffprobe",
-            "-v", "quiet",
-            "-print_format", "json",
+            "-v",
+            "quiet",
+            "-print_format",
+            "json",
             "-show_streams",
             "-show_format",
-            "-timeout", str(timeout * 1000000),  # microseconds
+            "-timeout",
+            str(timeout * 1000000),  # microseconds
             url,
         ]
 
@@ -174,12 +177,17 @@ class StreamAnalyzer:
         """
         cmd = [
             "ffprobe",
-            "-v", "quiet",
-            "-print_format", "json",
+            "-v",
+            "quiet",
+            "-print_format",
+            "json",
             "-show_frames",
-            "-select_streams", "v:0,a:0",  # First video and audio streams
-            "-read_intervals", f"%+{duration_sec}",
-            "-timeout", str(timeout * 1000000),
+            "-select_streams",
+            "v:0,a:0",  # First video and audio streams
+            "-read_intervals",
+            f"%+{duration_sec}",
+            "-timeout",
+            str(timeout * 1000000),
             url,
         ]
 
@@ -201,13 +209,15 @@ class StreamAnalyzer:
             if pts_time is None:
                 continue
 
-            frames.append(PTSFrame(
-                pts=float(frame.get("pts", 0)),
-                pts_time=float(pts_time),
-                stream_index=int(frame.get("stream_index", 0)),
-                media_type=frame.get("media_type", "unknown"),
-                duration=float(frame.get("duration", 0)) if frame.get("duration") else None,
-            ))
+            frames.append(
+                PTSFrame(
+                    pts=float(frame.get("pts", 0)),
+                    pts_time=float(pts_time),
+                    stream_index=int(frame.get("stream_index", 0)),
+                    media_type=frame.get("media_type", "unknown"),
+                    duration=float(frame.get("duration", 0)) if frame.get("duration") else None,
+                )
+            )
 
         return frames
 
@@ -365,8 +375,10 @@ def analyze_fixture(fixture_path: Path) -> dict:
     # Get stream info using file path
     cmd = [
         "ffprobe",
-        "-v", "quiet",
-        "-print_format", "json",
+        "-v",
+        "quiet",
+        "-print_format",
+        "json",
         "-show_format",
         "-show_streams",
         str(fixture_path),

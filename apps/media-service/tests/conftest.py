@@ -138,6 +138,7 @@ def mock_socketio() -> Generator[MagicMock, None, None]:
             def decorator(func: Any) -> Any:
                 mock_client._handlers[event] = func
                 return func
+
             return decorator
 
         mock_client.on = on_handler

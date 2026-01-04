@@ -149,17 +149,13 @@ class TestSpeedFactorClamping:
     def test_only_speed_up_mode(self):
         """Test only_speed_up prevents slowing down."""
         # Factor < 1.0 should be clamped to 1.0 when only_speed_up=True
-        factor, was_clamped = apply_clamping(
-            0.8, clamp_min=0.5, clamp_max=2.0, only_speed_up=True
-        )
+        factor, was_clamped = apply_clamping(0.8, clamp_min=0.5, clamp_max=2.0, only_speed_up=True)
         assert factor == 1.0
         assert was_clamped is True
 
     def test_only_speed_up_allows_speed_up(self):
         """Test only_speed_up still allows speeding up."""
-        factor, was_clamped = apply_clamping(
-            1.5, clamp_min=0.5, clamp_max=2.0, only_speed_up=True
-        )
+        factor, was_clamped = apply_clamping(1.5, clamp_min=0.5, clamp_max=2.0, only_speed_up=True)
         assert factor == 1.5
         assert was_clamped is False
 

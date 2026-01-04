@@ -93,9 +93,7 @@ class TestFullPipelineWithRealModules:
         mock.component_instance = "mock-translate-v1"
         mock.is_ready = True
 
-        def translate_side_effect(
-            source_text: str, *args: Any, **kwargs: Any
-        ) -> MagicMock:
+        def translate_side_effect(source_text: str, *args: Any, **kwargs: Any) -> MagicMock:
             result = MagicMock()
             result.asset_id = f"trans-{hash(source_text) % 10000:04d}"
             result.status = AssetStatus.SUCCESS
@@ -204,9 +202,7 @@ class TestFullPipelineWithRealModules:
         )
 
         # Assert - Pipeline should succeed
-        assert result.status == ProcessingStatus.SUCCESS, (
-            f"Pipeline failed: {result.error}"
-        )
+        assert result.status == ProcessingStatus.SUCCESS, f"Pipeline failed: {result.error}"
 
         # Assert - Dubbed audio should be present
         assert result.dubbed_audio is not None, "Expected dubbed audio output"
@@ -258,9 +254,7 @@ class TestFullPipelineWithRealModules:
         assert result.status == ProcessingStatus.SUCCESS
 
         # Translation should have been called (even if transcript is empty)
-        assert mock_translation_component.translate.called, (
-            "Translation should be called"
-        )
+        assert mock_translation_component.translate.called, "Translation should be called"
 
         # TTS should have been called
         assert mock_tts_component.synthesize.called, "TTS should be called"
@@ -317,9 +311,7 @@ class TestFullPipelineWithRealModules:
 
         # Duration variance should be within threshold (<10%)
         variance = result.metadata.duration_variance_percent
-        assert variance < 10.0, (
-            f"Duration variance {variance:.2f}% exceeds 10% threshold"
-        )
+        assert variance < 10.0, f"Duration variance {variance:.2f}% exceeds 10% threshold"
 
     @requires_faster_whisper
     @pytest.mark.integration
@@ -405,9 +397,7 @@ class TestFullPipelineEmptyTranscript:
         mock.component_instance = "mock-translate-v1"
         mock.is_ready = True
 
-        def translate_side_effect(
-            source_text: str, *args: Any, **kwargs: Any
-        ) -> MagicMock:
+        def translate_side_effect(source_text: str, *args: Any, **kwargs: Any) -> MagicMock:
             result = MagicMock()
             result.asset_id = "trans-empty-001"
             result.status = AssetStatus.SUCCESS
@@ -680,9 +670,7 @@ class TestFullPipelineWithRealTTS:
         mock.component_instance = "mock-v1"
         mock.is_ready = True
 
-        def translate_side_effect(
-            source_text: str, *args: Any, **kwargs: Any
-        ) -> MagicMock:
+        def translate_side_effect(source_text: str, *args: Any, **kwargs: Any) -> MagicMock:
             result = MagicMock()
             result.asset_id = "trans-mock"
             result.status = AssetStatus.SUCCESS

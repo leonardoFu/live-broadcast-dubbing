@@ -188,9 +188,7 @@ class SocketIOMonitor:
                 logger.debug(f"Event {event_name} didn't match predicate, waiting...")
 
         except asyncio.TimeoutError:
-            raise TimeoutError(
-                f"Timeout waiting for event '{event_name}' after {timeout}s"
-            )
+            raise TimeoutError(f"Timeout waiting for event '{event_name}' after {timeout}s")
 
     async def wait_for_events(
         self,
