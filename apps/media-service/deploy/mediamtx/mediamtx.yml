@@ -46,25 +46,27 @@ playbackAddress: :9996
 
 # Path Configuration (FR-015)
 paths:
-  # Default configuration for all paths
-  all_others:
-    # Dynamic path creation with publisher as source
+  # Input paths: Allow multiple readers without triggering not-ready
+  # When worker's input pipeline (rtmpsrc) connects as a reader, don't send not-ready
+  ~^live/.+/in$:
     source: publisher
     sourceOnDemand: no
-
-    # Recording disabled in v0 (FR-013)
     record: no
-
-    # Hook Configuration (FR-004, FR-005, FR-006, FR-007)
-    # Called when a stream becomes ready (published)
+    # Only run hooks when PUBLISHER connects/disconnects (not readers)
     runOnReady: /hooks/mtx-hook ready
-
-    # Called when a stream becomes unavailable (disconnected)
     runOnNotReady: /hooks/mtx-hook not-ready
 
-    # Hook Environment Variables
-    # These are passed to the hook script:
-    # - MTX_PATH: Stream path (e.g., live/stream123/in)
-    # - MTX_QUERY: Query string from URL (e.g., lang=es)
-    # - MTX_SOURCE_TYPE: Source protocol (rtmp, rtsp, webrtc)
-    # - MTX_SOURCE_ID: Unique source connection identifier
+  # Output paths: Normal hook behavior for monitoring
+  ~^live/.+/out$:
+    source: publisher
+    sourceOnDemand: no
+    record: no
+    # Don't trigger hooks for output streams (we don't need to start workers for /out)
+    # runOnReady and runOnNotReady intentionally omitted
+
+  # Fallback for other paths (legacy/test paths)
+  all_others:
+    source: publisher
+    sourceOnDemand: no
+    record: no
+    # No hooks on fallback paths

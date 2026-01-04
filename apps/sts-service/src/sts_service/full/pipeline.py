@@ -617,7 +617,9 @@ class PipelineCoordinator:
         # Step 6: Record final metrics and build result
         total_time = time.perf_counter() - start_time
         # observe_fragment_latency(total_time)  # TODO: Add this metric
-        record_fragment_success(session.stream_id, int(total_time * 1000))
+        record_fragment_success(
+            session.stream_id, int(total_time * 1000), stage_timings.model_dump()
+        )
 
         logger.info(
             "fragment_processed",

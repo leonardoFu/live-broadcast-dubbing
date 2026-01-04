@@ -236,9 +236,18 @@ class SegmentBuffer:
             segment_dir=self.segment_dir,
         )
 
+        # [DEBUG-SOLVER] Check for SPS/PPS/IDR in ENTIRE segment data
+        has_sps = b'\x00\x00\x00\x01\x67' in data or b'\x00\x00\x01\x67' in data
+        has_pps = b'\x00\x00\x00\x01\x68' in data or b'\x00\x00\x01\x68' in data
+        has_idr = b'\x00\x00\x00\x01\x65' in data or b'\x00\x00\x01\x65' in data
+        # Show first 20 bytes as hex
+        first_bytes = data[:20].hex() if len(data) >= 20 else data.hex()
+
         logger.info(
             f"Video segment emitted: batch={self._video_batch_number}, "
-            f"duration={acc.duration_ns / 1e9:.2f}s, buffers={acc.buffer_count}"
+            f"duration={acc.duration_ns / 1e9:.2f}s, buffers={acc.buffer_count}, "
+            f"size={len(data)}, has_SPS={has_sps}, has_PPS={has_pps}, has_IDR={has_idr}, "
+            f"first_bytes={first_bytes}"
         )
 
         self._video_batch_number += 1
