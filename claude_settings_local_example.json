@@ -1,0 +1,55 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "osascript -e 'display notification \"Claude Code has finished\" with title \"Claude Code\" sound name \"Glass\"'"
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash",
+      "WebSearch",
+      "Edit",
+      "WebFetch(domain:*.org)",
+      "WebFetch(domain:*.com)",
+      "WebFetch(domain:*.co)"
+    ],
+    "deny": [
+      "Bash(rm -rf /:*)"
+    ],
+    "ask": [
+      "Bash(rm:*)",
+      "Bash(sudo:*)",
+      "Bash(git push:*)",
+      "Bash(git commit:*)",
+      "Bash(gh pr:*)",
+      "Bash(gh repo:*)"
+    ],
+    "defaultMode": "acceptEdits"
+  },
+  "sandbox": {
+    "enabled": false,
+    "autoAllowBashIfSandboxed": true,
+    "allowUnsandboxedCommands": false,
+    "network": {
+      "allowLocalBinding": true
+    },
+    "excludedCommands": [
+      "python",
+      "python3",
+      "pip",
+      "pip3",
+      "poetry",
+      "uv",
+      "pytest",
+      "ruff",
+      "mypy"
+    ]
+  }
+}
