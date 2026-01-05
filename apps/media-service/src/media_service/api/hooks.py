@@ -90,7 +90,7 @@ async def handle_ready_event(event: HookEvent, request: Request) -> JSONResponse
             sts_url=sts_url,
             segment_dir=segment_dir / stream_id,
             source_language=os.getenv("WORKER_SOURCE_LANGUAGE", "en"),
-            target_language=os.getenv("WORKER_TARGET_LANGUAGE", "es"),
+            target_language=os.getenv("WORKER_TARGET_LANGUAGE", "zh"),
         )
 
         # Start worker (idempotent - safe to call multiple times)

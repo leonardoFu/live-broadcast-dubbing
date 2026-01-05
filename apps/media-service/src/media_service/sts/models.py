@@ -35,7 +35,7 @@ class StreamConfig:
     """
 
     source_language: str = "en"
-    target_language: str = "es"
+    target_language: str = "zh"
     voice_profile: str = "default"
     format: str = "m4a"
     sample_rate_hz: int = 48000

@@ -90,7 +90,7 @@ class StreamSession:
 
     # Configuration (from stream:init)
     source_language: str = "en"
-    target_language: str = "es"
+    target_language: str = "zh"
     voice_profile: str = "default"
     chunk_duration_ms: int = 6000
     sample_rate_hz: int = 48000

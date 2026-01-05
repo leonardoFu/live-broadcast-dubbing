@@ -2,6 +2,24 @@
   "default": {
     "model": "tts_models/en/vctk/vits",
     "speaker": "p225",
+    "language": "zh",
+    "description": "Default voice for Chinese TTS"
+  },
+  "chinese_female_1": {
+    "language": "zh",
+    "gender": "female",
+    "description": "Chinese female voice - Lily (ElevenLabs multilingual)",
+    "voice_id": "Xb7hH8MSUJpSbSDYk0k2"
+  },
+  "chinese_male_1": {
+    "language": "zh",
+    "gender": "male",
+    "description": "Chinese male voice - multilingual",
+    "voice_id": null
+  },
+  "english_default": {
+    "model": "tts_models/en/vctk/vits",
+    "speaker": "p225",
     "language": "en",
     "description": "Default English voice - VITS VCTK p225"
   },

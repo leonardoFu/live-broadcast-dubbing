@@ -141,6 +141,12 @@ class InputPipeline:
         video_queue = Gst.ElementFactory.make("queue", "video_queue")
         self._video_appsink = Gst.ElementFactory.make("appsink", "video_sink")
 
+        # Configure h264parse to insert SPS/PPS before every IDR frame.
+        # This ensures that each video segment will have codec configuration data
+        # at the start, which is critical for the output pipeline to properly
+        # parse and mux the video for RTMP streaming.
+        h264parse.set_property("config-interval", -1)  # -1 = insert before every IDR
+
         # Configure video queue for better buffering
         video_queue.set_property("max-size-buffers", 0)  # Unlimited buffers
         video_queue.set_property("max-size-bytes", 0)  # Unlimited bytes
@@ -341,6 +347,23 @@ class InputPipeline:
 
             pts_ns = buffer.pts if buffer.pts != Gst.CLOCK_TIME_NONE else 0
             duration_ns = buffer.duration if buffer.duration != Gst.CLOCK_TIME_NONE else 0
+
+            # If duration is missing, estimate from framerate (caps) or assume 30fps
+            if duration_ns == 0:
+                caps = sample.get_caps()
+                framerate_fps = 30.0  # Default assumption
+                if caps and not caps.is_empty():
+                    structure = caps.get_structure(0)
+                    if structure.has_field("framerate"):
+                        # get_fraction returns (success, numerator, denominator)
+                        success, num, denom = structure.get_fraction("framerate")
+                        if success and num > 0 and denom > 0:
+                            framerate_fps = float(num) / float(denom)
+                # Duration = 1/fps * 1e9 ns
+                duration_ns = int((1.0 / framerate_fps) * 1_000_000_000)
+                logger.debug(
+                    f"Estimated video buffer duration: fps={framerate_fps}, duration={duration_ns}ns ({duration_ns / 1e6:.2f}ms)"
+                )
 
             try:
                 self._on_video_buffer(data, pts_ns, duration_ns)

@@ -61,7 +61,7 @@ class WorkerConfig:
     sts_url: str
     segment_dir: Path
     source_language: str = "en"
-    target_language: str = "es"
+    target_language: str = "zh"
     voice_profile: str = "default"
     segment_duration_ns: int = 6_000_000_000  # 6 seconds
 
@@ -97,6 +97,7 @@ class WorkerRunner:
         self.metrics = WorkerMetrics(stream_id=config.stream_id)
         self._running = False
         self._task: asyncio.Task | None = None
+        self._skip_sts = False  # Set during start() based on SKIP_STS_CONNECTION env
 
         # Initialize components
         self._init_components()
@@ -149,11 +150,11 @@ class WorkerRunner:
 
         try:
             # Connect to STS Service (skip if SKIP_STS_CONNECTION is set for integration tests)
-            skip_sts = os.getenv("SKIP_STS_CONNECTION", "false").lower() == "true"
-            if skip_sts:
+            self._skip_sts = os.getenv("SKIP_STS_CONNECTION", "false").lower() == "true"
+            if self._skip_sts:
                 logger.warning(
                     "Skipping STS connection (SKIP_STS_CONNECTION=true) - "
-                    "worker will not process audio segments"
+                    "audio will pass through unchanged (fallback mode)"
                 )
             else:
                 await self._connect_sts()
@@ -298,13 +299,19 @@ class WorkerRunner:
     ) -> None:
         """Process audio segment.
 
-        Writes to disk and sends to STS for dubbing.
+        Writes to disk and sends to STS for dubbing (or uses fallback if STS is skipped).
         """
         try:
             # Write original segment to disk
             segment = await self.audio_writer.write(segment, data)
 
             self.metrics.record_segment_processed("audio", segment.file_size)
+
+            # If STS is skipped, use fallback (passthrough) mode
+            if self._skip_sts:
+                logger.info(f"Using passthrough for audio segment {segment.batch_number} (STS skipped)")
+                await self._use_fallback(segment)
+                return
 
             # Send to STS (with circuit breaker protection)
             await self._send_to_sts(segment)
@@ -396,16 +403,20 @@ class WorkerRunner:
         self.metrics.set_sts_inflight(self.fragment_tracker.inflight_count)
         self.metrics.set_circuit_breaker_state(self.circuit_breaker.state_value)
 
-        if payload.is_success and payload.dubbed_audio:
+        if (payload.is_success or payload.is_partial) and payload.dubbed_audio:
             # Write dubbed audio
             dubbed_data = payload.dubbed_audio.decode_audio()
+            logger.info(f"Dubbed audio decoded: batch={inflight.segment.batch_number}, size={len(dubbed_data)} bytes")
             segment = inflight.segment
             segment = await self.audio_writer.write_dubbed(segment, dubbed_data)
 
             # Push to A/V sync
             pair = await self.av_sync.push_audio(segment, dubbed_data)
             if pair:
+                logger.info(f"A/V pair ready: batch={pair.video_segment.batch_number}, outputting...")
                 await self._output_pair(pair)
+            else:
+                logger.info(f"A/V sync waiting for video: audio batch={segment.batch_number}")
 
         elif payload.is_failed:
             # Use fallback
@@ -467,12 +478,24 @@ class WorkerRunner:
                 pair.video_segment.duration_ns,
             )
 
-            # Audio is already in raw AAC format (from aacparse in input pipeline).
-            # The segment writer saves raw AAC bytes to .m4a files (not proper container),
-            # so the data is already in a format the output pipeline's aacparse can handle.
-            # No conversion needed.
+            # Prepare audio data for output
+            audio_data = pair.audio_data
+            if pair.audio_segment.is_dubbed:
+                # Dubbed audio comes from STS in M4A container format.
+                # Convert to raw ADTS AAC for the output pipeline's aacparse.
+                try:
+                    audio_data = self.output_pipeline.convert_m4a_bytes_to_adts(audio_data)
+                    logger.info(
+                        f"🔊 Converted M4A to ADTS: {len(pair.audio_data)} -> {len(audio_data)} bytes"
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to convert M4A to ADTS: {e}")
+                    # Fall back to original audio data
+                    audio_data = pair.audio_data
+            # Original audio is already in raw AAC/ADTS format from input aacparse
+
             audio_ok = self.output_pipeline.push_audio(
-                pair.audio_data,
+                audio_data,
                 pair.pts_ns,
                 pair.audio_segment.duration_ns,
             )

@@ -70,6 +70,11 @@ class OutputPipeline:
         self._state = "NULL"
         self._bus: Gst.Bus | None = None
 
+        # Store SPS/PPS NAL units extracted from first video segment
+        # These will be prepended to all subsequent segments to ensure
+        # codec parameters are always available for h264parse/flvmux
+        self._sps_pps_data: bytes | None = None
+
     def build(self) -> None:
         """Build the GStreamer output pipeline.
 
@@ -91,15 +96,33 @@ class OutputPipeline:
         if self._pipeline is None:
             raise RuntimeError("Failed to create GStreamer pipeline")
 
-        # Create video path elements
+        # Create video path elements with DECODE → ENCODE pipeline
+        # This re-encodes video to ensure proper keyframe alignment and codec_data generation
         self._video_appsrc = Gst.ElementFactory.make("appsrc", "video_src")
-        h264parse = Gst.ElementFactory.make("h264parse", "h264parse")
+        h264parse_in = Gst.ElementFactory.make("h264parse", "h264parse_in")
+        avdec_h264 = Gst.ElementFactory.make("avdec_h264", "avdec_h264")
+        videoconvert = Gst.ElementFactory.make("videoconvert", "videoconvert")
+        x264enc = Gst.ElementFactory.make("x264enc", "x264enc")
+        h264parse_out = Gst.ElementFactory.make("h264parse", "h264parse_out")
         video_queue = Gst.ElementFactory.make("queue", "video_queue")
 
-        # Configure h264parse to insert SPS/PPS before each IDR frame.
-        # This is critical for RTMP streaming where the decoder may join mid-stream
-        # and needs the codec configuration data to start decoding.
-        h264parse.set_property("config-interval", -1)  # -1 = insert before every IDR
+        # Configure input h264parse to handle byte-stream input
+        h264parse_in.set_property("config-interval", -1)  # Insert SPS/PPS for decoder
+
+        # Configure x264enc for low-latency streaming
+        # - tune=zerolatency: minimize latency
+        # - key-int-max=30: keyframe every 1 second at 30fps
+        # - bframes=0: no B-frames for lower latency
+        # - speed-preset=veryfast: balance quality/speed
+        # - bitrate=2000: maintain quality (kbps)
+        x264enc.set_property("tune", 0x00000004)  # zerolatency
+        x264enc.set_property("key-int-max", 30)
+        x264enc.set_property("bframes", 0)
+        x264enc.set_property("speed-preset", 3)  # veryfast
+        x264enc.set_property("bitrate", 2000)
+
+        # Configure output h264parse for AVC output to flvmux
+        h264parse_out.set_property("config-interval", -1)
 
         # Create audio path elements
         self._audio_appsrc = Gst.ElementFactory.make("appsrc", "audio_src")
@@ -113,7 +136,11 @@ class OutputPipeline:
         # Verify all elements created
         elements = [
             ("video_src", self._video_appsrc),
-            ("h264parse", h264parse),
+            ("h264parse_in", h264parse_in),
+            ("avdec_h264", avdec_h264),
+            ("videoconvert", videoconvert),
+            ("x264enc", x264enc),
+            ("h264parse_out", h264parse_out),
             ("video_queue", video_queue),
             ("audio_src", self._audio_appsrc),
             ("aacparse", aacparse),
@@ -127,7 +154,12 @@ class OutputPipeline:
                 raise RuntimeError(f"Failed to create {elem_name} element")
 
         # Configure video appsrc
-        video_caps = Gst.Caps.from_string("video/x-h264,stream-format=byte-stream,alignment=au")
+        # Note: We use byte-stream format and let h264parse convert to AVC for flvmux.
+        # The h264parse will extract SPS/PPS from the byte-stream data and set codec_data.
+        # config-interval=-1 ensures SPS/PPS is re-inserted before each IDR frame.
+        video_caps = Gst.Caps.from_string(
+            "video/x-h264,stream-format=byte-stream,alignment=au"
+        )
         self._video_appsrc.set_property("caps", video_caps)
         self._video_appsrc.set_property("is-live", True)
         self._video_appsrc.set_property("format", 3)  # GST_FORMAT_TIME
@@ -152,11 +184,19 @@ class OutputPipeline:
         for _, elem in elements:
             self._pipeline.add(elem)
 
-        # Link video path
-        if not self._video_appsrc.link(h264parse):
-            raise RuntimeError("Failed to link video_src -> h264parse")
-        if not h264parse.link(video_queue):
-            raise RuntimeError("Failed to link h264parse -> video_queue")
+        # Link video path: appsrc → h264parse_in → avdec_h264 → videoconvert → x264enc → h264parse_out → queue
+        if not self._video_appsrc.link(h264parse_in):
+            raise RuntimeError("Failed to link video_src -> h264parse_in")
+        if not h264parse_in.link(avdec_h264):
+            raise RuntimeError("Failed to link h264parse_in -> avdec_h264")
+        if not avdec_h264.link(videoconvert):
+            raise RuntimeError("Failed to link avdec_h264 -> videoconvert")
+        if not videoconvert.link(x264enc):
+            raise RuntimeError("Failed to link videoconvert -> x264enc")
+        if not x264enc.link(h264parse_out):
+            raise RuntimeError("Failed to link x264enc -> h264parse_out")
+        if not h264parse_out.link(video_queue):
+            raise RuntimeError("Failed to link h264parse_out -> video_queue")
 
         # Link audio path
         if not self._audio_appsrc.link(aacparse):
@@ -185,7 +225,10 @@ class OutputPipeline:
         self._bus = self._pipeline.get_bus()
 
         self._state = "READY"
-        logger.info(f"Output pipeline built for {self._rtmp_url}")
+        logger.info(
+            f"🎬 Output pipeline built with VIDEO RE-ENCODING for {self._rtmp_url}\n"
+            f"   Pipeline: appsrc → h264parse → avdec_h264 → videoconvert → x264enc → h264parse → flvmux → rtmpsink"
+        )
 
     def _on_bus_message(self, bus: Gst.Bus, message: Gst.Message) -> bool:
         """Handle GStreamer bus messages.
@@ -586,6 +629,75 @@ class OutputPipeline:
             logger.error(f"❌ Error pushing segment files: {e}", exc_info=True)
             return False
 
+    def _extract_sps_pps(self, data: bytes) -> bytes | None:
+        """Extract SPS and PPS NAL units from H.264 byte-stream data.
+
+        Scans the data for SPS (NAL type 7) and PPS (NAL type 8) NAL units
+        and returns them as a contiguous byte string with start codes.
+
+        Args:
+            data: H.264 byte-stream data
+
+        Returns:
+            Bytes containing SPS and PPS NAL units with start codes,
+            or None if not found
+        """
+        sps_data = None
+        pps_data = None
+
+        # Find all NAL unit start positions
+        i = 0
+        while i < len(data) - 4:
+            # Look for 4-byte start code (0x00000001)
+            if data[i:i+4] == b'\x00\x00\x00\x01':
+                nal_type = data[i+4] & 0x1F
+                # Find the end of this NAL unit (next start code or end of data)
+                next_start = len(data)
+                for j in range(i + 4, min(len(data) - 3, i + 10000)):
+                    if data[j:j+4] == b'\x00\x00\x00\x01' or data[j:j+3] == b'\x00\x00\x01':
+                        next_start = j
+                        break
+
+                if nal_type == 7 and sps_data is None:  # SPS
+                    sps_data = data[i:next_start]
+                    logger.debug(f"Found SPS at offset {i}, size={len(sps_data)}")
+                elif nal_type == 8 and pps_data is None:  # PPS
+                    pps_data = data[i:next_start]
+                    logger.debug(f"Found PPS at offset {i}, size={len(pps_data)}")
+
+                if sps_data and pps_data:
+                    break
+
+                i = next_start
+            # Look for 3-byte start code (0x000001)
+            elif data[i:i+3] == b'\x00\x00\x01':
+                nal_type = data[i+3] & 0x1F
+                # Find the end of this NAL unit
+                next_start = len(data)
+                for j in range(i + 3, min(len(data) - 3, i + 10000)):
+                    if data[j:j+4] == b'\x00\x00\x00\x01' or data[j:j+3] == b'\x00\x00\x01':
+                        next_start = j
+                        break
+
+                if nal_type == 7 and sps_data is None:  # SPS
+                    # Convert to 4-byte start code for consistency
+                    sps_data = b'\x00\x00\x00\x01' + data[i+3:next_start]
+                    logger.debug(f"Found SPS (3-byte) at offset {i}, size={len(sps_data)}")
+                elif nal_type == 8 and pps_data is None:  # PPS
+                    pps_data = b'\x00\x00\x00\x01' + data[i+3:next_start]
+                    logger.debug(f"Found PPS (3-byte) at offset {i}, size={len(pps_data)}")
+
+                if sps_data and pps_data:
+                    break
+
+                i = next_start
+            else:
+                i += 1
+
+        if sps_data and pps_data:
+            return sps_data + pps_data
+        return None
+
     def push_video(self, data: bytes, pts_ns: int, duration_ns: int = 0) -> bool:
         """Push video buffer to output pipeline.
 
@@ -603,6 +715,31 @@ class OutputPipeline:
         if self._video_appsrc is None:
             raise RuntimeError("Pipeline not built - call build() first")
 
+        # Check for SPS/PPS in entire data (h264parse inserts them before each IDR)
+        has_sps = b'\x00\x00\x00\x01\x67' in data or b'\x00\x00\x01\x67' in data
+        has_pps = b'\x00\x00\x00\x01\x68' in data or b'\x00\x00\x01\x68' in data
+        # Check if SPS/PPS is at the START (first 100 bytes) for proper initialization
+        has_sps_at_start = b'\x00\x00\x00\x01\x67' in data[:100] or b'\x00\x00\x01\x67' in data[:100]
+        has_pps_at_start = b'\x00\x00\x00\x01\x68' in data[:200] or b'\x00\x00\x01\x68' in data[:200]
+
+        # Extract and store SPS/PPS from first segment that has them
+        if self._sps_pps_data is None and has_sps and has_pps:
+            self._sps_pps_data = self._extract_sps_pps(data)
+            if self._sps_pps_data:
+                logger.info(
+                    f"📼 Extracted SPS/PPS from video data: {len(self._sps_pps_data)} bytes"
+                )
+
+        # Prepend SPS/PPS if data lacks codec parameters at START
+        # (even if they exist later in the segment, h264parse needs them early)
+        original_size = len(data)
+        if self._sps_pps_data and not (has_sps_at_start and has_pps_at_start):
+            data = self._sps_pps_data + data
+            logger.info(
+                f"📼 Prepended SPS/PPS: {len(self._sps_pps_data)} bytes to "
+                f"{original_size} bytes (SPS/PPS was later in segment)"
+            )
+
         # Poll bus messages to process pipeline state changes
         self._poll_bus_messages()
 
@@ -611,6 +748,11 @@ class OutputPipeline:
         buffer.pts = pts_ns
         if duration_ns > 0:
             buffer.duration = duration_ns
+
+        # Mark buffer as keyframe since we always have SPS/PPS at start
+        # (either originally or prepended). This helps h264parse/flvmux process correctly.
+        # LIVE flag indicates this is a live stream, no DELTA_UNIT means it's a keyframe.
+        buffer.set_flags(Gst.BufferFlags.LIVE)
 
         ret = self._video_appsrc.emit("push-buffer", buffer)
         success = ret == Gst.FlowReturn.OK

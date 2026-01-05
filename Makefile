@@ -466,6 +466,9 @@ sts-elevenlabs-logs:
 	@echo "📋 Viewing ElevenLabs STS Docker logs..."
 	docker compose -f $(STS_SERVICE)/docker-compose.elevenlabs.yml logs -f --tail=200
 
+sts-pipeline-view:
+	@./scripts/sts-pipeline-view.sh
+
 # =============================================================================
 # Integrated Development (Media + STS Docker)
 # =============================================================================
