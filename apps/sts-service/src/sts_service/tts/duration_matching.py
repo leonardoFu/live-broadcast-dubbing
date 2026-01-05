@@ -438,3 +438,48 @@ def align_audio_to_duration(
         was_resampled=was_resampled,
         was_channel_converted=was_channel_converted,
     )
+
+
+def pad_audio_with_silence(
+    audio_data: bytes,
+    current_duration_ms: int,
+    target_duration_ms: int,
+    sample_rate_hz: int,
+    channels: int,
+    bytes_per_sample: int = 4,  # float32 = 4 bytes
+) -> tuple[bytes, int]:
+    """Pad audio with silence to reach target duration.
+
+    This is used when TTS audio is shorter than the target segment duration.
+    Padding with silence maintains A/V sync without time-stretching artifacts.
+
+    Args:
+        audio_data: PCM audio bytes (float32 format)
+        current_duration_ms: Current audio duration in milliseconds
+        target_duration_ms: Target duration in milliseconds
+        sample_rate_hz: Sample rate in Hz
+        channels: Number of audio channels
+        bytes_per_sample: Bytes per sample (default 4 for float32)
+
+    Returns:
+        Tuple of (padded_audio_data, padding_ms_added)
+    """
+    if current_duration_ms >= target_duration_ms:
+        # Audio is already long enough or longer
+        return audio_data, 0
+
+    # Calculate how many samples we need to add
+    padding_ms = target_duration_ms - current_duration_ms
+    samples_to_add = int((padding_ms / 1000.0) * sample_rate_hz * channels)
+    padding_bytes = samples_to_add * bytes_per_sample
+
+    # Create silence (zeros for float32)
+    silence = b"\x00" * padding_bytes
+
+    logger.info(
+        f"Padding audio with silence: "
+        f"current={current_duration_ms}ms, target={target_duration_ms}ms, "
+        f"padding={padding_ms}ms, bytes={padding_bytes}"
+    )
+
+    return audio_data + silence, padding_ms

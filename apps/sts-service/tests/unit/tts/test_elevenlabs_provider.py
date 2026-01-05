@@ -333,6 +333,34 @@ class TestElevenLabsVoiceSelection:
         call_args = mock_elevenlabs_api.text_to_speech.convert.call_args
         assert call_args.kwargs.get("voice_id") == "EXAVITQu4vr4xnSDxMaL"
 
+    def test_elevenlabs_voice_id_chinese_uses_lily(
+        self, mock_elevenlabs_api, mock_audio_segment, default_tts_config
+    ):
+        """Test Chinese language uses Lily voice."""
+        from sts_service.tts.elevenlabs_provider import ElevenLabsTTSComponent
+
+        text_asset = TextAsset(
+            stream_id="test",
+            sequence_number=0,
+            asset_id="text-123",
+            parent_asset_ids=[],
+            component_instance="mock-translation-v1",
+            status=TranslationStatus.SUCCESS,
+            source_language="en",
+            target_language="zh",
+            translated_text="你好",
+        )
+        voice_profile = VoiceProfile(language="zh")
+
+        with patch.dict(os.environ, {"ELEVENLABS_API_KEY": "test-api-key"}):
+            component = ElevenLabsTTSComponent(config=default_tts_config)
+            component.synthesize(text_asset=text_asset, voice_profile=voice_profile)
+
+        # Should use Lily (Chinese) voice
+        mock_elevenlabs_api.text_to_speech.convert.assert_called_once()
+        call_args = mock_elevenlabs_api.text_to_speech.convert.call_args
+        assert call_args.kwargs.get("voice_id") == "Xb7hH8MSUJpSbSDYk0k2"
+
     def test_elevenlabs_voice_id_unsupported_language_fallback(
         self, mock_elevenlabs_api, mock_audio_segment, default_tts_config
     ):
@@ -347,10 +375,10 @@ class TestElevenLabsVoiceSelection:
             component_instance="mock-translation-v1",
             status=TranslationStatus.SUCCESS,
             source_language="en",
-            target_language="zh",  # Chinese - not in default mapping
-            translated_text="你好",
+            target_language="ko",  # Korean - not in default mapping
+            translated_text="안녕하세요",
         )
-        voice_profile = VoiceProfile(language="zh")
+        voice_profile = VoiceProfile(language="ko")
 
         with patch.dict(os.environ, {"ELEVENLABS_API_KEY": "test-api-key"}):
             component = ElevenLabsTTSComponent(config=default_tts_config)

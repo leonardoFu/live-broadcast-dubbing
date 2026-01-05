@@ -343,7 +343,7 @@ class ASRModelConfig(BaseModel):
     """Configuration for the Whisper model instance."""
 
     model_size: str = Field(
-        default="base",
+        default="small",
         pattern=r"^(tiny|base|small|medium|large-v[123]|turbo)$",
         description="Whisper model size",
     )

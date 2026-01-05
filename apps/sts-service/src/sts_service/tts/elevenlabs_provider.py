@@ -66,6 +66,7 @@ DEFAULT_VOICES: dict[str, str] = {
     "it": "onwK4e9ZLuTAKqWW03F9",  # Giovanni (Italian)
     "pt": "cjVigY5qzO86Huf0OWal",  # Domi (Portuguese)
     "ja": "EXAVITQu4vr4xnSDxMaL",  # Hiro (Japanese)
+    "zh": "Xb7hH8MSUJpSbSDYk0k2",  # Lily (Chinese - multilingual)
 }
 
 # Fallback voice when language not in mapping

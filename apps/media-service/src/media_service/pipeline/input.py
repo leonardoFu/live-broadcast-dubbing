@@ -348,6 +348,23 @@ class InputPipeline:
             pts_ns = buffer.pts if buffer.pts != Gst.CLOCK_TIME_NONE else 0
             duration_ns = buffer.duration if buffer.duration != Gst.CLOCK_TIME_NONE else 0
 
+            # If duration is missing, estimate from framerate (caps) or assume 30fps
+            if duration_ns == 0:
+                caps = sample.get_caps()
+                framerate_fps = 30.0  # Default assumption
+                if caps and not caps.is_empty():
+                    structure = caps.get_structure(0)
+                    if structure.has_field("framerate"):
+                        # get_fraction returns (success, numerator, denominator)
+                        success, num, denom = structure.get_fraction("framerate")
+                        if success and num > 0 and denom > 0:
+                            framerate_fps = float(num) / float(denom)
+                # Duration = 1/fps * 1e9 ns
+                duration_ns = int((1.0 / framerate_fps) * 1_000_000_000)
+                logger.debug(
+                    f"Estimated video buffer duration: fps={framerate_fps}, duration={duration_ns}ns ({duration_ns / 1e6:.2f}ms)"
+                )
+
             try:
                 self._on_video_buffer(data, pts_ns, duration_ns)
             except Exception as e:

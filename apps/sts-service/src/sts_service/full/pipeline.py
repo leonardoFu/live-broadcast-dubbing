@@ -18,8 +18,10 @@ from typing import Optional, Protocol, runtime_checkable
 from sts_service.asr.models import TranscriptAsset as ASRTranscriptAsset
 from sts_service.asr.models import TranscriptStatus
 from sts_service.translation.models import TextAsset, TranslationStatus
+from sts_service.tts.duration_matching import pad_audio_with_silence
+from sts_service.tts.encoding import encode_pcm_to_m4a
 from sts_service.tts.models import AudioAsset as TTSAudioAsset
-from sts_service.tts.models import AudioStatus
+from sts_service.tts.models import AudioFormat, AudioStatus
 
 from .models.asset import (
     AssetStatus,
@@ -481,17 +483,15 @@ class PipelineCoordinator:
             if self._is_partial(tts_result.status):
                 status = ProcessingStatus.PARTIAL
 
-            # Step 5: Encode audio to base64
-            logger.info("DEBUG: Step 5 - Encoding audio to base64")
+            # Step 5: Get audio bytes and encode to AAC (M4A) format
+            logger.info("DEBUG: Step 5 - Encoding audio to AAC")
             audio_bytes_out = getattr(tts_result, "audio_bytes", b"")
-            logger.info("DEBUG: audio_bytes_out len", audio_len=len(audio_bytes_out))
+            logger.info("DEBUG: audio_bytes_out len (PCM)", audio_len=len(audio_bytes_out))
             if not audio_bytes_out:
                 # Try to get from payload_ref (mock may not set audio_bytes)
                 audio_bytes_out = b"\x00\x00" * (session.sample_rate_hz * 6)  # 6s silence fallback
 
-            audio_b64 = base64.b64encode(audio_bytes_out).decode("utf-8")
-
-            # Build duration metadata
+            # Build duration metadata first (needed for encoding)
             tts_duration_ms = getattr(tts_result, "duration_ms", fragment_data.audio.duration_ms)
             tts_duration_metadata = getattr(tts_result, "duration_metadata", None)
 
@@ -516,19 +516,81 @@ class PipelineCoordinator:
                     speed_ratio=1.0,
                 )
 
-            # Build dubbed audio response
             # Get audio format - ElevenLabs uses audio_format (enum), others may use format (string)
-            audio_format = getattr(tts_result, "audio_format", None)
-            if audio_format is not None:
-                # Handle enum (has .value) or string
-                tts_format = getattr(audio_format, "value", str(audio_format))
-            else:
-                tts_format = getattr(tts_result, "format", "pcm_s16le")
+            tts_audio_format = getattr(tts_result, "audio_format", None)
+            tts_sample_rate = getattr(tts_result, "sample_rate_hz", session.sample_rate_hz)
+            tts_channels = getattr(tts_result, "channels", session.channels)
 
+            # Check if audio is PCM format and needs AAC encoding
+            is_pcm = False
+            if tts_audio_format is not None:
+                # Handle enum (has .value) or string
+                format_value = getattr(tts_audio_format, "value", str(tts_audio_format))
+                is_pcm = "pcm" in format_value.lower()
+            else:
+                is_pcm = True  # Assume PCM if no format specified
+
+            # Pad audio with silence if shorter than target duration
+            # This handles cases where TTS audio is shorter than the segment duration
+            # (e.g., translated speech is shorter than original, and only_speed_up=True
+            # prevents time-stretching to slow down the audio)
+            target_duration_ms = fragment_data.audio.duration_ms
+            if is_pcm and audio_bytes_out and tts_duration_ms < target_duration_ms:
+                audio_bytes_out, padding_ms = pad_audio_with_silence(
+                    audio_data=audio_bytes_out,
+                    current_duration_ms=tts_duration_ms,
+                    target_duration_ms=target_duration_ms,
+                    sample_rate_hz=tts_sample_rate,
+                    channels=tts_channels,
+                    bytes_per_sample=4,  # float32
+                )
+                # Update duration metadata to reflect the padded duration
+                tts_duration_ms = target_duration_ms
+                duration_metadata = DurationMetadata(
+                    original_duration_ms=fragment_data.audio.duration_ms,
+                    dubbed_duration_ms=target_duration_ms,
+                    duration_variance_percent=0.0,  # Now matches target
+                    speed_ratio=1.0,
+                )
+                logger.info(
+                    "DEBUG: Audio padded with silence",
+                    padding_ms=padding_ms,
+                    new_duration_ms=tts_duration_ms,
+                )
+
+            # Encode PCM to AAC (M4A) for media-service compatibility
+            if is_pcm and audio_bytes_out:
+                try:
+                    logger.info(
+                        "DEBUG: Encoding PCM to AAC",
+                        pcm_bytes=len(audio_bytes_out),
+                        sample_rate=tts_sample_rate,
+                        channels=tts_channels,
+                    )
+                    audio_bytes_out = encode_pcm_to_m4a(
+                        pcm_data=audio_bytes_out,
+                        sample_rate_hz=tts_sample_rate,
+                        channels=tts_channels,
+                        input_format=AudioFormat.PCM_F32LE,
+                        bitrate_kbps=128,
+                    )
+                    output_format = "m4a"
+                    logger.info("DEBUG: AAC encoding complete", aac_bytes=len(audio_bytes_out))
+                except Exception as e:
+                    logger.error("Failed to encode PCM to AAC", error=str(e))
+                    # Fall back to PCM format (may not work with media-service)
+                    output_format = "pcm_f32le"
+            else:
+                # Audio is already in a container format
+                output_format = getattr(tts_audio_format, "value", str(tts_audio_format)) if tts_audio_format else "m4a"
+
+            audio_b64 = base64.b64encode(audio_bytes_out).decode("utf-8")
+
+            # Build dubbed audio response with AAC format
             dubbed_audio = AudioData(
-                format=tts_format,
-                sample_rate_hz=getattr(tts_result, "sample_rate_hz", session.sample_rate_hz),
-                channels=getattr(tts_result, "channels", session.channels),
+                format=output_format,
+                sample_rate_hz=tts_sample_rate,
+                channels=tts_channels,
                 duration_ms=tts_duration_ms,
                 data_base64=audio_b64,
             )
