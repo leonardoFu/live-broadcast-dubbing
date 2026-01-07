@@ -483,3 +483,34 @@ def pad_audio_with_silence(
     )
 
     return audio_data + silence, padding_ms
+
+
+def generate_silence(
+    duration_ms: int,
+    sample_rate_hz: int,
+    channels: int,
+    bytes_per_sample: int = 4,  # float32 = 4 bytes
+) -> bytes:
+    """Generate silence audio of specified duration.
+
+    Used when ASR returns empty transcription (no speech detected).
+    Generating silence maintains A/V sync without processing overhead.
+
+    Args:
+        duration_ms: Duration of silence in milliseconds
+        sample_rate_hz: Sample rate in Hz
+        channels: Number of audio channels
+        bytes_per_sample: Bytes per sample (default 4 for float32)
+
+    Returns:
+        PCM silence bytes (all zeros)
+    """
+    samples = int((duration_ms / 1000.0) * sample_rate_hz * channels)
+    silence_bytes = samples * bytes_per_sample
+
+    logger.info(
+        f"Generating silence: duration={duration_ms}ms, "
+        f"sample_rate={sample_rate_hz}Hz, channels={channels}, bytes={silence_bytes}"
+    )
+
+    return b"\x00" * silence_bytes

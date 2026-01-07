@@ -364,7 +364,7 @@ class VADConfig(BaseModel):
 
     enabled: bool = Field(default=True, description="Enable VAD filtering")
     threshold: float = Field(
-        default=0.5, ge=0.0, le=1.0, description="Speech probability threshold"
+        default=0.2, ge=0.0, le=1.0, description="Speech probability threshold"
     )
     min_silence_duration_ms: int = Field(
         default=300, ge=0, description="Minimum silence to separate speech chunks"

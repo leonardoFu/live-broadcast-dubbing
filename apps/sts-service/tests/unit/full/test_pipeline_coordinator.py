@@ -29,7 +29,8 @@ from sts_service.full.models.fragment import (
     FragmentResult,
     ProcessingStatus,
 )
-from sts_service.full.models.stream import StreamConfig, StreamSession, StreamState
+from sts_service.full.models.stream import StreamConfig, StreamState
+from sts_service.full.session import StreamSession
 
 # Pipeline coordinator will be implemented in Phase 2
 from sts_service.full.pipeline import PipelineCoordinator
@@ -43,7 +44,7 @@ from sts_service.full.pipeline import PipelineCoordinator
 @pytest.fixture
 def sample_audio_bytes() -> bytes:
     """Generate sample PCM audio bytes (silence)."""
-    # 6 seconds of silence at 48kHz, 16-bit mono
+    # 6 seconds of silence at 48kHz, 16-bit mono (matches mock TTS output)
     num_samples = 48000 * 6
     return b"\x00\x00" * num_samples
 
@@ -58,7 +59,7 @@ def sample_fragment_data(sample_audio_bytes: bytes) -> FragmentData:
         sequence_number=0,
         timestamp=1704067200000,
         audio=AudioData(
-            format="m4a",
+            format="pcm_f32le",  # Use PCM to bypass ffmpeg decoding in tests
             sample_rate_hz=48000,
             channels=1,
             duration_ms=6000,
@@ -72,20 +73,67 @@ def sample_fragment_data(sample_audio_bytes: bytes) -> FragmentData:
 def sample_stream_session() -> StreamSession:
     """Create a sample StreamSession for testing."""
     return StreamSession(
+        sid="sid-12345",
         stream_id="stream-abc-123",
-        session_id="session-xyz-789",
         worker_id="worker-001",
-        socket_id="sid-12345",
-        config=StreamConfig(
-            source_language="en",
-            target_language="es",
-            voice_profile="spanish_male_1",
-            chunk_duration_ms=6000,
-            sample_rate_hz=48000,
-            channels=1,
-            format="m4a",
-        ),
+        session_id="session-xyz-789",
         state=StreamState.READY,
+        source_language="en",
+        target_language="es",
+        voice_profile="spanish_male_1",
+        chunk_duration_ms=6000,
+        sample_rate_hz=48000,
+        channels=1,
+        format="pcm_f32le",
+        max_inflight=3,
+    )
+
+
+# Fixtures for empty transcript tests (uses 16kHz to match ASR processing)
+@pytest.fixture
+def pcm_16k_audio_bytes() -> bytes:
+    """Generate PCM f32le audio bytes at 16kHz (silence)."""
+    num_samples = 16000 * 6  # 6 seconds at 16kHz
+    bytes_per_sample = 4  # float32
+    return b"\x00" * (num_samples * bytes_per_sample)
+
+
+@pytest.fixture
+def pcm_16k_fragment_data(pcm_16k_audio_bytes: bytes) -> FragmentData:
+    """Create FragmentData with 16kHz PCM for empty transcript tests."""
+    audio_b64 = base64.b64encode(pcm_16k_audio_bytes).decode("utf-8")
+    return FragmentData(
+        fragment_id="frag-001",
+        stream_id="stream-abc-123",
+        sequence_number=0,
+        timestamp=1704067200000,
+        audio=AudioData(
+            format="pcm_f32le",
+            sample_rate_hz=16000,
+            channels=1,
+            duration_ms=6000,
+            data_base64=audio_b64,
+        ),
+        metadata=FragmentMetadata(pts_ns=0),
+    )
+
+
+@pytest.fixture
+def pcm_16k_stream_session() -> StreamSession:
+    """Create StreamSession with 16kHz settings for empty transcript tests."""
+    return StreamSession(
+        sid="sid-12345",
+        stream_id="stream-abc-123",
+        worker_id="worker-001",
+        session_id="session-xyz-789",
+        state=StreamState.READY,
+        source_language="en",
+        target_language="es",
+        voice_profile="spanish_male_1",
+        chunk_duration_ms=6000,
+        sample_rate_hz=16000,
+        channels=1,
+        format="pcm_f32le",
         max_inflight=3,
     )
 
@@ -734,15 +782,22 @@ class TestPipelineEdgeCases:
     """Additional edge case tests for pipeline coordinator."""
 
     @pytest.mark.asyncio
-    async def test_pipeline_handles_empty_transcript(
+    async def test_pipeline_handles_empty_transcript_with_silence_passthrough(
         self,
         sample_fragment_data: FragmentData,
         sample_stream_session: StreamSession,
         mock_translation_component,
         mock_tts_component,
     ):
-        """Pipeline handles empty transcript (silence audio)."""
-        # Arrange - Mock ASR to return empty transcript (silence)
+        """Pipeline generates silence when ASR returns empty transcript (no speech).
+
+        When VAD/ASR detects no speech:
+        1. ASR returns SUCCESS with empty transcript
+        2. Pipeline skips Translation and TTS
+        3. Pipeline generates silence matching input duration
+        4. Returns SUCCESS with silence audio
+        """
+        # Arrange - Mock ASR to return empty transcript (silence/no speech)
         mock_asr = MagicMock()
         mock_asr.component_name = "asr"
         mock_asr.component_instance = "mock-asr-v1"
@@ -752,7 +807,8 @@ class TestPipelineEdgeCases:
             fragment_id="frag-001",
             stream_id="stream-abc-123",
             status=AssetStatus.SUCCESS,
-            transcript="",  # Empty transcript
+            transcript="",  # Empty transcript (no speech detected)
+            total_text="",  # Empty total_text
             segments=[],
             confidence=0.0,
             language="en",
@@ -774,9 +830,76 @@ class TestPipelineEdgeCases:
             session=sample_stream_session,
         )
 
-        # Assert - Should still succeed with empty/silence output
+        # Assert - Should succeed with silence passthrough
         assert result.status == ProcessingStatus.SUCCESS
         assert result.transcript == ""
+        assert result.translated_text == ""
+
+        # Assert - Translation and TTS should NOT be called (skipped)
+        mock_translation_component.translate.assert_not_called()
+        mock_tts_component.synthesize.assert_not_called()
+
+        # Assert - Dubbed audio should be present (silence)
+        assert result.dubbed_audio is not None
+        assert result.dubbed_audio.duration_ms == sample_fragment_data.audio.duration_ms
+
+        # Assert - Duration metadata shows no variance (silence matches input)
+        assert result.metadata is not None
+        assert result.metadata.original_duration_ms == sample_fragment_data.audio.duration_ms
+        assert result.metadata.dubbed_duration_ms == sample_fragment_data.audio.duration_ms
+        assert result.metadata.duration_variance_percent == 0.0
+
+    @pytest.mark.asyncio
+    async def test_pipeline_handles_whitespace_only_transcript_as_empty(
+        self,
+        sample_fragment_data: FragmentData,
+        sample_stream_session: StreamSession,
+        mock_translation_component,
+        mock_tts_component,
+    ):
+        """Pipeline treats whitespace-only transcript as empty (silence passthrough)."""
+        # Arrange - Mock ASR to return whitespace-only transcript
+        mock_asr = MagicMock()
+        mock_asr.component_name = "asr"
+        mock_asr.component_instance = "mock-asr-v1"
+        mock_asr.is_ready = True
+        mock_asr.transcribe.return_value = MagicMock(
+            asset_id="asr-asset-001",
+            fragment_id="frag-001",
+            stream_id="stream-abc-123",
+            status=AssetStatus.SUCCESS,
+            transcript="   \n\t  ",  # Whitespace only
+            total_text="   \n\t  ",
+            segments=[],
+            confidence=0.0,
+            language="en",
+            audio_duration_ms=6000,
+            latency_ms=500,
+            parent_asset_ids=[],
+            error_message=None,
+        )
+
+        coordinator = PipelineCoordinator(
+            asr=mock_asr,
+            translation=mock_translation_component,
+            tts=mock_tts_component,
+        )
+
+        # Act
+        result = await coordinator.process_fragment(
+            fragment_data=sample_fragment_data,
+            session=sample_stream_session,
+        )
+
+        # Assert - Should succeed with silence passthrough
+        assert result.status == ProcessingStatus.SUCCESS
+
+        # Assert - Translation and TTS should NOT be called
+        mock_translation_component.translate.assert_not_called()
+        mock_tts_component.synthesize.assert_not_called()
+
+        # Assert - Dubbed audio should be present (silence)
+        assert result.dubbed_audio is not None
 
     @pytest.mark.asyncio
     async def test_pipeline_returns_partial_on_duration_warning(

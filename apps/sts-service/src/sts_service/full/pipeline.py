@@ -18,7 +18,7 @@ from typing import Optional, Protocol, runtime_checkable
 from sts_service.asr.models import TranscriptAsset as ASRTranscriptAsset
 from sts_service.asr.models import TranscriptStatus
 from sts_service.translation.models import TextAsset, TranslationStatus
-from sts_service.tts.duration_matching import pad_audio_with_silence
+from sts_service.tts.duration_matching import generate_silence, pad_audio_with_silence
 from sts_service.tts.encoding import encode_pcm_to_m4a
 from sts_service.tts.models import AudioAsset as TTSAudioAsset
 from sts_service.tts.models import AudioFormat, AudioStatus
@@ -380,6 +380,82 @@ class PipelineCoordinator:
                     latency_ms=stage_timings.asr_ms,
                 )
                 self.artifact_logger.log_transcript(transcript_asset)
+
+            # Handle empty transcript (silence/no speech detected by VAD)
+            # Skip translation and TTS, generate silence matching input duration
+            if not transcript.strip():
+                logger.info(
+                    "empty_transcript_detected",
+                    message="No speech detected, generating silence passthrough",
+                )
+
+                # Generate silence matching input duration
+                silence_pcm = generate_silence(
+                    duration_ms=fragment_data.audio.duration_ms,
+                    sample_rate_hz=session.sample_rate_hz,
+                    channels=session.channels,
+                    bytes_per_sample=4,  # float32
+                )
+
+                # Encode silence to AAC for media-service compatibility
+                try:
+                    silence_aac = encode_pcm_to_m4a(
+                        pcm_data=silence_pcm,
+                        sample_rate_hz=session.sample_rate_hz,
+                        channels=session.channels,
+                        input_format=AudioFormat.PCM_F32LE,
+                        bitrate_kbps=128,
+                    )
+                    output_format = "m4a"
+                except Exception as e:
+                    logger.warning("silence_encoding_failed", error=str(e))
+                    silence_aac = silence_pcm
+                    output_format = "pcm_f32le"
+
+                silence_b64 = base64.b64encode(silence_aac).decode("utf-8")
+
+                # Build silence audio response
+                dubbed_audio = AudioData(
+                    format=output_format,
+                    sample_rate_hz=session.sample_rate_hz,
+                    channels=session.channels,
+                    duration_ms=fragment_data.audio.duration_ms,
+                    data_base64=silence_b64,
+                )
+
+                duration_metadata = DurationMetadata(
+                    original_duration_ms=fragment_data.audio.duration_ms,
+                    dubbed_duration_ms=fragment_data.audio.duration_ms,
+                    duration_variance_percent=0.0,
+                    speed_ratio=1.0,
+                )
+
+                # Record metrics
+                total_time = time.perf_counter() - start_time
+                record_fragment_success(
+                    session.stream_id, int(total_time * 1000), stage_timings.model_dump()
+                )
+
+                logger.info(
+                    "fragment_processed_silence",
+                    status="success",
+                    total_time_ms=int(total_time * 1000),
+                    asr_ms=stage_timings.asr_ms,
+                )
+
+                return FragmentResult(
+                    fragment_id=fragment_data.fragment_id,
+                    stream_id=fragment_data.stream_id,
+                    sequence_number=fragment_data.sequence_number,
+                    status=ProcessingStatus.SUCCESS,
+                    dubbed_audio=dubbed_audio,
+                    transcript="",
+                    translated_text="",
+                    processing_time_ms=self._elapsed_ms(start_time),
+                    stage_timings=stage_timings,
+                    metadata=duration_metadata,
+                    error=None,
+                )
 
             # Step 3: Translation
             logger.info("translation_started")
