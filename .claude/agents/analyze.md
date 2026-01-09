@@ -1,153 +1,81 @@
 ---
 name: speckit-analyze
-description: Perform cross-artifact consistency and quality analysis
-model: sonnet
-type: command-wrapper
-command: .claude/commands/speckit.analyze.md
+description: Cross-artifact consistency and quality analysis
+model: haiku
 color: cyan
 ---
 
 # Analyze Agent
 
-This agent performs non-destructive analysis across spec.md, plan.md, and tasks.md to detect issues.
+Non-destructive analysis across spec.md, plan.md, and tasks.md to detect issues.
 
-**Agent Type**: Command-wrapper (wraps `.claude/commands/speckit.analyze.md`)
+## Input
 
-## Context Reception
-
-This agent receives context from the orchestrator in the prompt. Look for and parse:
-
-```text
-WORKFLOW_CONTEXT:
-{
-  "workflow_id": "<uuid>",
-  "feature_id": "<feature-id>",
-  "feature_dir": "specs/<feature-id>/",
-  "previous_results": {
-    "speckit-specify": { "status": "success", "spec_file": "..." },
-    "speckit-plan": { "status": "success", "plan_file": "...", "data_model_file": "..." },
-    "speckit-tasks": { "status": "success", "tasks_file": "...", "task_count": 23 }
-  }
-}
-
-USER_REQUEST: <original user request text>
-```
-
-**Extract from context**:
-- `feature_id`: Feature being analyzed
-- `feature_dir`: Base directory for all spec artifacts
-- `previous_results.speckit-specify.spec_file`: Path to spec.md
-- `previous_results.speckit-plan.plan_file`: Path to plan.md
-- `previous_results.speckit-tasks.tasks_file`: Path to tasks.md
-- `USER_REQUEST`: Original user request for understanding intent
+Parse from `$ARGUMENTS`:
+- `WORKFLOW_CONTEXT`: workflow_id, feature_id, feature_dir, previous_results
+- `USER_REQUEST`: Original request
+- `RESPONSE_FORMAT`: JSON structure for response
 
 ## Execution
 
-Execute the original command and capture its output, then wrap the result in JSON format.
+### Step 1: Initialize
 
-### Step 1: Load Original Command
+Run `.specify/scripts/bash/check-prerequisites.sh --json --require-tasks --include-tasks` and parse:
+- `FEATURE_DIR`, `AVAILABLE_DOCS`
 
-Read and execute the logic from `.claude/commands/speckit.analyze.md` with the user's input.
+Derive paths:
+- SPEC = FEATURE_DIR/spec.md
+- PLAN = FEATURE_DIR/plan.md
+- TASKS = FEATURE_DIR/tasks.md
 
-**User Input**: $ARGUMENTS
+Abort if any required file missing.
 
-### Step 2: Execute Command Logic
+### Step 2: Load Artifacts
 
-**IMPORTANT**: Do not re-implement the command logic. Instead, invoke the existing command:
+**From spec.md**: Overview, Functional/Non-Functional Requirements, User Stories, Edge Cases
+**From plan.md**: Architecture, Data Model, Phases, Constraints
+**From tasks.md**: Task IDs, Descriptions, Phase grouping, [P] markers, File paths
+**From constitution**: `.specify/memory/constitution.md` principles
 
-```
-Execute all steps from .claude/commands/speckit.analyze.md exactly as written.
-Pass through the user's arguments: $ARGUMENTS
-```
+### Step 3: Build Semantic Models
 
-This includes:
-- Detecting 6 types of issues: Duplication, Ambiguity, Underspecification, Constitution Alignment, Coverage Gaps, Inconsistency
-- Building semantic models (requirements, user stories, tasks) internally
-- Generating structured report with findings (max 50)
-- Assigning severity: CRITICAL, HIGH, MEDIUM, LOW
-- Prioritizing Constitution violations as always CRITICAL
-- Producing coverage table mapping requirements to tasks
+- Requirements inventory with stable keys
+- User story/action inventory with acceptance criteria
+- Task coverage mapping (task → requirements)
+- Constitution rule set (MUST/SHOULD statements)
 
-### Step 3: Capture Results
+### Step 4: Detection Passes (max 50 findings)
 
-After the command completes, extract:
-- Analysis report path (if saved)
-- Total findings count
-- Findings by severity
-- Coverage percentage
-- Critical issues requiring immediate attention
+| Pass | Detects |
+|------|---------|
+| A. Duplication | Near-duplicate requirements |
+| B. Ambiguity | Vague adjectives, unresolved placeholders |
+| C. Underspecification | Missing outcomes, undefined components |
+| D. Constitution | Conflicts with MUST principles |
+| E. Coverage | Requirements with zero tasks, orphan tasks |
+| F. Inconsistency | Terminology drift, conflicting requirements |
 
-### Step 4: Return JSON Output
+### Step 5: Assign Severity
 
-**On Success:**
-```json
-{
-  "agent": "analyze",
-  "status": "success",
-  "timestamp": "<ISO8601 timestamp>",
-  "execution_time_ms": <duration in milliseconds>,
-  "result": {
-    "analysis_report": "<path-to-analysis-report.md>",
-    "artifacts_analyzed": ["spec.md", "plan.md", "tasks.md"],
-    "total_findings": 8,
-    "findings_by_severity": {
-      "CRITICAL": 1,
-      "HIGH": 2,
-      "MEDIUM": 3,
-      "LOW": 2
-    },
-    "findings": [
-      {
-        "severity": "CRITICAL",
-        "type": "Constitution Violation",
-        "message": "TDD principle not enforced in Task T012",
-        "location": "tasks.md:45",
-        "recommendation": "Add test implementation step before code implementation"
-      },
-      {
-        "severity": "HIGH",
-        "type": "Coverage Gap",
-        "message": "Requirement REQ-5 has no corresponding tasks",
-        "location": "spec.md:67",
-        "recommendation": "Add tasks to implement REQ-5"
-      }
-    ],
-    "coverage_analysis": {
-      "total_requirements": 12,
-      "requirements_with_tasks": 11,
-      "coverage_percentage": 91.67,
-      "uncovered_requirements": ["REQ-5"]
-    },
-    "recommendation": "Address CRITICAL findings before proceeding to implementation",
-    "next_steps": ["Fix critical issues", "implement"]
-  }
-}
-```
+- **CRITICAL**: Constitution violation, missing core artifact, zero-coverage blocking requirement
+- **HIGH**: Duplicate/conflicting requirement, untestable criteria
+- **MEDIUM**: Terminology drift, missing non-functional coverage
+- **LOW**: Style/wording improvements
 
-**On Error:**
-```json
-{
-  "agent": "analyze",
-  "status": "error",
-  "timestamp": "<ISO8601 timestamp>",
-  "execution_time_ms": <duration in milliseconds>,
-  "error": {
-    "type": "PrerequisiteError",
-    "code": "MISSING_ARTIFACTS",
-    "message": "Required artifacts not found for analysis",
-    "details": {
-      "missing_files": ["plan.md", "tasks.md"]
-    },
-    "recoverable": true,
-    "recovery_strategy": "run_prerequisite_agent",
-    "suggested_action": {
-      "agent": "plan",
-      "reason": "Generate missing plan.md before analysis"
-    }
-  }
-}
-```
+### Step 6: Return Result
 
-## Implementation Notes
+Return JSON per `RESPONSE_FORMAT` with these result fields:
+- `artifacts_analyzed`: List of files analyzed
+- `total_findings`: Count of all findings
+- `findings_by_severity`: {CRITICAL, HIGH, MEDIUM, LOW} counts
+- `findings`: List of {id, severity, type, location, message, recommendation}
+- `coverage_analysis`: {total_requirements, requirements_with_tasks, coverage_percentage, uncovered_requirements}
+- `recommendation`: Summary action item
+- `next_steps`: ["Fix critical issues", "implement"]
 
-This agent is a **wrapper** around `.claude/commands/speckit.analyze.md`. It performs read-only analysis and reports findings without modifying files.
+## Rules
+
+- **READ-ONLY**: Never modify files
+- Constitution conflicts are always CRITICAL
+- Max 50 findings; summarize overflow
+- Offer remediation suggestions, don't apply automatically
