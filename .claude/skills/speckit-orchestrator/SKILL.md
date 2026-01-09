@@ -13,7 +13,7 @@ Analyzes complexity, recommends workflow, executes agents with checkpoints and f
 2. **Workflow Selection** → Score complexity, recommend, confirm
 3. **Planning Phase** → Run spec/plan agents
 4. **🛑 Checkpoint** → Require user approval before implementation
-5. **Implementation** → Run implement/test/review/e2e
+5. **Implementation** → Run implement/test/review
 6. **Summary** → Report results
 
 ---
@@ -32,8 +32,6 @@ Analyzes complexity, recommends workflow, executes agents with checkpoints and f
 | implement | speckit-implement | Execute tasks (TDD) |
 | test | speckit-test | Quality gate |
 | review | speckit-review | Cleanup (files, duplicates) |
-| e2e-test-builder | speckit-e2e-test-builder | Create E2E tests |
-| e2e-test-fixer | speckit-e2e-test-fixer | Fix E2E failures |
 | taskstoissues | speckit-taskstoissues | Convert to GitHub issues |
 
 ---
@@ -56,10 +54,9 @@ Analyzes complexity, recommends workflow, executes agents with checkpoints and f
 | Workflow | Sequence |
 |----------|----------|
 | Simple | specify → 🛑 → implement → test |
-| Standard | specify → clarify → plan → tasks → 🛑 → implement → test |
-| Standard+E2E | ...tasks → 🛑 → implement → test → review → e2e-builder → e2e-fixer |
-| Full | ...checklist → tasks → analyze → 🛑 → implement → test → review → e2e → taskstoissues |
-| Full+Research | specify → clarify → research → plan → ...Full |
+| Standard | specify → clarify → plan → tasks → 🛑 → implement → test → review |
+| Full | specify → clarify → plan → checklist → tasks → analyze → 🛑 → implement → test → review → taskstoissues |
+| Full+Research | specify → clarify → research → plan → checklist → tasks → analyze → 🛑 → implement → test → review → taskstoissues |
 
 ### Triggers
 
@@ -70,7 +67,6 @@ Analyzes complexity, recommends workflow, executes agents with checkpoints and f
 | `spec: [feature]` | specify → clarify only |
 | `plan: [feature]` | ...→ plan → checklist → tasks → analyze |
 | `implement` | 🛑 → implement → test → review |
-| `e2e: [feature]` | e2e-builder → e2e-fixer |
 | `issues` | taskstoissues only |
 
 ---
@@ -154,20 +150,6 @@ FEEDBACK_CONTEXT:
 
 ---
 
-## E2E Testing
-
-**Auto-added when**: Cross-service reqs, integration-heavy, or user requests `e2e:`
-
-**Flow**: implement → test → review → e2e-builder → e2e-fixer (max 3 iterations)
-
-**Fixer decisions**:
-- TEST_BUG → Fix test
-- SPEC_MISMATCH → Update spec + test
-- IMPLEMENTATION_BUG (simple ≤3) → Fix in fixer
-- IMPLEMENTATION_BUG (complex >3) → Return to implement
-
----
-
 ## State Persistence
 
 `.specify/workflow-state/<id>.json`:
@@ -194,5 +176,4 @@ simple: Add logging               # Force simple
 full: Payment processing          # Force full
 spec: WebSocket service           # Spec only
 implement                         # Tasks only
-e2e: Health monitoring            # E2E only
 ```
