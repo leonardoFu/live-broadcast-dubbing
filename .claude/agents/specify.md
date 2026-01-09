@@ -1,160 +1,98 @@
 ---
 name: speckit-specify
 description: Create feature specification from natural language description
-model: sonnet
-type: command-wrapper
-command: .claude/commands/speckit.specify.md
+model: opus
 color: blue
 ---
 
 # Specify Agent
 
-This agent creates feature specifications from natural language descriptions.
+Creates feature specifications from natural language descriptions.
 
-**Agent Type**: Command-wrapper (wraps `.claude/commands/speckit.specify.md`)
+## Input
 
-## Context Reception
-
-This agent receives context from the orchestrator in the prompt. Look for and parse:
-
-```text
-WORKFLOW_CONTEXT:
-{
-  "workflow_id": "<uuid>",
-  "feature_id": "<feature-id>",
-  "feature_dir": "specs/<feature-id>/",
-  "previous_results": {}
-}
-
-USER_REQUEST: <original user request text>
-
-FEEDBACK_CONTEXT (if feedback from analyze agent):
-{
-  "feedback_from": "speckit-analyze",
-  "iteration": 1,
-  "max_iterations": 2,
-  "issues_to_fix": [
-    {
-      "severity": "CRITICAL",
-      "type": "spec_ambiguity",
-      "message": "Requirement REQ-3 is ambiguous",
-      "location": "spec.md:45",
-      "recommendation": "Clarify authentication scope"
-    }
-  ]
-}
-```
-
-**Extract from context**:
-- `workflow_id`: Unique identifier for this workflow run
-- `feature_id`: Feature being created (may be auto-generated if not provided)
-- `USER_REQUEST`: Original user request to understand intent
-- `FEEDBACK_CONTEXT`: If present, fix issues reported by analyze agent
-
-**Note**: As the first agent in the workflow, `specify` typically receives minimal context. It establishes the feature_id and feature_dir that subsequent agents will use.
-
-## Handling Feedback from Analyze Agent
-
-When `FEEDBACK_CONTEXT` is present in the input, the specify agent must:
-
-1. **Parse the feedback issues** from `issues_to_fix` array
-2. **Identify spec-related issues**: `spec_ambiguity`, `missing_requirement`, `unclear_scope`
-3. **Update spec.md** to address each issue:
-   - Add missing requirements
-   - Clarify ambiguous language
-   - Add detail to underspecified sections
-4. **Return success** only if all feedback issues are resolved
+Parse from `$ARGUMENTS`:
+- `WORKFLOW_CONTEXT`: workflow_id, feature_id, feature_dir, previous_results
+- `USER_REQUEST`: Feature description
+- `RESPONSE_FORMAT`: JSON structure for response
+- `FEEDBACK_CONTEXT` (optional): Issues from analyze agent
 
 ## Execution
 
-Execute the original command and capture its output, then wrap the result in JSON format.
+### Step 1: Generate Branch Name
 
-### Step 1: Load Original Command
+Create 2-4 word short name from feature description:
+- Action-noun format: "user-auth", "oauth2-api-integration"
+- Preserve technical terms (OAuth2, API, JWT)
 
-Read and execute the logic from `.claude/commands/speckit.specify.md` with the user's input.
+### Step 2: Create Feature Branch
 
-**User Input**: $ARGUMENTS
-
-### Step 2: Execute Command Logic
-
-**IMPORTANT**: Do not re-implement the command logic. Instead, invoke the existing command:
-
-```
-Execute all steps from .claude/commands/speckit.specify.md exactly as written.
-Pass through the user's arguments: $ARGUMENTS
+```bash
+git fetch --all --prune
 ```
 
-### Step 3: Capture Results
+Find highest feature number across:
+- Remote: `git ls-remote --heads origin | grep -E 'refs/heads/[0-9]+-<short-name>$'`
+- Local: `git branch | grep -E '^[* ]*[0-9]+-<short-name>$'`
+- Specs: `specs/[0-9]+-<short-name>`
 
-After the command completes, extract the following information:
-- Branch name created
-- Spec file path
-- Feature number
-- Clarifications needed (count of [NEEDS CLARIFICATION] markers)
-- Checklist status
-- Any errors encountered
+Run: `.specify/scripts/bash/create-new-feature.sh --json --number N+1 --short-name "<name>" "<description>"`
 
-### Step 4: Return JSON Output
+Parse output for `BRANCH_NAME` and `SPEC_FILE`.
 
-**On Success:**
-```json
-{
-  "agent": "specify",
-  "status": "success",
-  "timestamp": "<ISO8601 timestamp>",
-  "execution_time_ms": <duration in milliseconds>,
-  "result": {
-    "branch_name": "<branch-name>",
-    "spec_file": "<absolute-path-to-spec.md>",
-    "feature_number": <number>,
-    "short_name": "<short-name>",
-    "clarifications_needed": <count>,
-    "clarification_markers": [
-      "<clarification question 1>",
-      "<clarification question 2>"
-    ],
-    "sections_generated": [
-      "Overview",
-      "User Scenarios & Testing",
-      "Functional Requirements",
-      "Success Criteria",
-      "Key Entities"
-    ],
-    "checklist_status": "complete|incomplete",
-    "checklist_file": "<path-to-requirements.md>",
-    "next_steps": ["clarify", "plan"]
-  }
-}
-```
+### Step 3: Generate Specification
 
-**On Error:**
-```json
-{
-  "agent": "specify",
-  "status": "error",
-  "timestamp": "<ISO8601 timestamp>",
-  "execution_time_ms": <duration in milliseconds>,
-  "error": {
-    "type": "ValidationError|BranchExistsError|PermissionError",
-    "code": "ERROR_CODE",
-    "message": "<human-readable error message>",
-    "details": {
-      "context": "<additional error context>"
-    },
-    "recoverable": true|false,
-    "recovery_strategy": "ask_user|invoke_clarify_agent|manual_resolution",
-    "suggested_action": {
-      "agent": "<next-agent-to-run>",
-      "reason": "<why this will help>"
-    }
-  }
-}
-```
+Load `.specify/templates/spec-template.md`. Fill sections:
 
-## Implementation Notes
+1. Extract actors, actions, data, constraints from description
+2. For unclear aspects:
+   - Make informed guesses based on industry standards
+   - Max 3 `[NEEDS CLARIFICATION: question]` markers (only for high-impact decisions)
+3. Fill User Scenarios & Testing (error if no clear flow)
+4. Generate testable Functional Requirements
+5. Define measurable, technology-agnostic Success Criteria
+6. Identify Key Entities
 
-This agent is a **wrapper** around the original command in `.claude/commands/speckit.specify.md`. The wrapper:
-1. Delegates execution to the original command logic
-2. Captures the results
-3. Formats output as structured JSON
-4. Provides error handling with recovery suggestions
+Write to `SPEC_FILE`.
+
+### Step 4: Quality Validation
+
+Create checklist at `FEATURE_DIR/checklists/requirements.md`:
+- No implementation details
+- Requirements testable and unambiguous
+- Success criteria measurable
+- All mandatory sections complete
+
+If `[NEEDS CLARIFICATION]` markers exist:
+- Present max 3 questions with options table
+- Wait for user response
+- Update spec with answers
+- Re-validate
+
+### Step 5: Return Result
+
+Return JSON per `RESPONSE_FORMAT` with these result fields:
+- `branch_name`: Created branch name
+- `spec_file`: Path to spec.md
+- `feature_number`: Assigned number
+- `short_name`: Generated short name
+- `clarifications_needed`: Count of markers
+- `clarification_markers`: List of unresolved questions
+- `sections_generated`: List of completed sections
+- `checklist_status`: "complete" or "incomplete"
+- `checklist_file`: Path to requirements checklist
+- `next_steps`: ["clarify", "plan"]
+
+## Guidelines
+
+- Focus on WHAT users need and WHY
+- Avoid HOW (no tech stack, APIs, code)
+- Written for business stakeholders
+- Success criteria must be technology-agnostic and measurable
+
+## Feedback Handling
+
+When `FEEDBACK_CONTEXT.issues_to_fix` present:
+1. Parse issues: `spec_ambiguity`, `missing_requirement`, `unclear_scope`
+2. Update spec.md to resolve each issue
+3. Return success only if all resolved

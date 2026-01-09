@@ -1,127 +1,85 @@
 ---
 name: speckit-checklist
-description: Generate custom checklist for feature requirements validation
-model: sonnet
-type: command-wrapper
-command: .claude/commands/speckit.checklist.md
+description: Generate checklist for requirements quality validation
+model: haiku
 color: purple
 ---
 
 # Checklist Agent
 
-This agent generates domain-specific checklists to validate requirement quality (not implementation).
+Generates checklists that test REQUIREMENTS quality (not implementation).
 
-**Agent Type**: Command-wrapper (wraps `.claude/commands/speckit.checklist.md`)
+**Concept**: Checklists are "unit tests for requirements writing" - they validate completeness, clarity, consistency of the spec itself.
 
-## Context Reception
+## Input
 
-This agent receives context from the orchestrator in the prompt. Look for and parse:
-
-```text
-WORKFLOW_CONTEXT:
-{
-  "workflow_id": "<uuid>",
-  "feature_id": "<feature-id>",
-  "feature_dir": "specs/<feature-id>/",
-  "previous_results": {
-    "speckit-specify": { "status": "success", "spec_file": "..." },
-    "speckit-plan": { "status": "success", "plan_file": "..." }
-  }
-}
-
-USER_REQUEST: <original user request text>
-```
-
-**Extract from context**:
-- `feature_id`: Feature for checklist generation
-- `feature_dir`: Base directory for all spec artifacts
-- `previous_results.speckit-specify.spec_file`: Path to spec.md
-- `previous_results.speckit-plan.plan_file`: Path to plan.md (if available)
-- `USER_REQUEST`: Original user request for context
+Parse from `$ARGUMENTS`:
+- `WORKFLOW_CONTEXT`: workflow_id, feature_id, feature_dir, previous_results
+- `USER_REQUEST`: Domain/focus for checklist
+- `RESPONSE_FORMAT`: JSON structure for response
 
 ## Execution
 
-Execute the original command and capture its output, then wrap the result in JSON format.
+### Step 1: Setup
 
-### Step 1: Load Original Command
+Run `.specify/scripts/bash/check-prerequisites.sh --json` and parse:
+- `FEATURE_DIR`, `AVAILABLE_DOCS`
 
-Read and execute the logic from `.claude/commands/speckit.checklist.md` with the user's input.
+### Step 2: Clarify Intent
 
-**User Input**: $ARGUMENTS
+Derive up to 3 contextual questions (skip if unambiguous):
+- Scope refinement
+- Risk prioritization
+- Depth calibration (lightweight vs formal gate)
 
-### Step 2: Execute Command Logic
+### Step 3: Load Context
 
-**IMPORTANT**: Do not re-implement the command logic. Instead, invoke the existing command:
+From FEATURE_DIR:
+- spec.md (requirements, scope)
+- plan.md (technical details)
+- tasks.md (implementation tasks)
 
+### Step 4: Generate Checklist
+
+Create `FEATURE_DIR/checklists/<domain>.md`
+
+**Quality Dimensions**:
+1. Completeness - Are all requirements present?
+2. Clarity - Are requirements unambiguous?
+3. Consistency - Do requirements align?
+4. Measurability - Can requirements be verified?
+5. Coverage - Are all scenarios addressed?
+
+**Item Format**:
 ```
-Execute all steps from .claude/commands/speckit.checklist.md exactly as written.
-Pass through the user's arguments: $ARGUMENTS
-```
-
-This includes:
-- Deriving up to 3 clarifying questions from spec context
-- Creating domain-specific checklists (ux.md, api.md, security.md, etc.)
-- Testing requirement quality dimensions: Completeness, Clarity, Consistency, Measurability
-- Using strict format: `- [ ] CHK### <requirement item> [dimension, Spec §X.Y]`
-- Generating unique filename based on domain/focus area
-
-### Step 3: Capture Results
-
-After the command completes, extract:
-- Checklist file path
-- Domain/focus area
-- Total checklist items
-- Categories covered
-
-### Step 4: Return JSON Output
-
-**On Success:**
-```json
-{
-  "agent": "checklist",
-  "status": "success",
-  "timestamp": "<ISO8601 timestamp>",
-  "execution_time_ms": <duration in milliseconds>,
-  "result": {
-    "checklist_file": "<absolute-path-to-checklist.md>",
-    "domain": "ux|api|security|performance|data",
-    "total_items": 15,
-    "categories": [
-      "Completeness",
-      "Clarity",
-      "Consistency",
-      "Measurability"
-    ],
-    "checklist_name": "User Experience Validation",
-    "next_steps": ["Review and complete checklist items", "tasks"]
-  }
-}
+- [ ] CHK### Are [requirement type] defined for [scenario]? [dimension, Spec §X.Y]
 ```
 
-**On Error:**
-```json
-{
-  "agent": "checklist",
-  "status": "error",
-  "timestamp": "<ISO8601 timestamp>",
-  "execution_time_ms": <duration in milliseconds>,
-  "error": {
-    "type": "PrerequisiteError|ValidationError",
-    "code": "ERROR_CODE",
-    "message": "<human-readable error message>",
-    "details": {
-      "missing_file": "<path if PrerequisiteError>"
-    },
-    "recoverable": true,
-    "recovery_strategy": "run_prerequisite_agent",
-    "suggested_action": {
-      "agent": "specify",
-      "reason": "Missing spec.md required for checklist generation"
-    }
-  }
-}
-```
+**CORRECT Examples**:
+- `Are error handling requirements defined for all API failure modes? [Completeness, Gap]`
+- `Is 'fast loading' quantified with specific timing? [Clarity, Spec §NFR-2]`
+- `Are hover states consistently defined across all elements? [Consistency]`
 
-## Implementation Notes
+**WRONG Examples** (these test implementation, not requirements):
+- ❌ `Verify button clicks correctly`
+- ❌ `Test error handling works`
+- ❌ `Confirm API returns 200`
 
-This agent is a **wrapper** around `.claude/commands/speckit.checklist.md`. It tests requirement quality, NOT implementation correctness.
+### Step 5: Return Result
+
+Return JSON per `RESPONSE_FORMAT` with these result fields:
+- `checklist_file`: Path to created checklist
+- `domain`: Checklist domain (ux, api, security, etc.)
+- `total_items`: Number of checklist items
+- `categories`: List of quality dimensions covered
+- `checklist_name`: Human-readable name
+- `focus_areas`: List of focus areas
+- `next_steps`: ["Review checklist", "tasks"]
+
+## Rules
+
+- Test requirements quality, NOT implementation behavior
+- ≥80% items must have traceability reference
+- Max 40 items; prioritize by risk/impact
+- Each run creates NEW file (domain.md)
+- Use `[Gap]`, `[Ambiguity]`, `[Conflict]` markers for issues
