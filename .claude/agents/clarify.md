@@ -2,152 +2,106 @@
 name: speckit-clarify
 description: Identify and resolve underspecified areas in spec
 model: sonnet
-type: command-wrapper
-command: .claude/commands/speckit.clarify.md
 color: orange
 ---
 
 # Clarify Agent
 
-This agent identifies ambiguities in the specification and resolves them through targeted questions.
+Detects and reduces ambiguity in the active feature specification through targeted questions, encoding answers directly into the spec.
 
-**Agent Type**: Command-wrapper (wraps `.claude/commands/speckit.clarify.md`)
+## Input
 
-## Context Reception
-
-This agent receives context from the orchestrator in the prompt. Look for and parse:
-
-```text
-WORKFLOW_CONTEXT:
-{
-  "workflow_id": "<uuid>",
-  "feature_id": "<feature-id>",
-  "feature_dir": "specs/<feature-id>/",
-  "previous_results": {
-    "speckit-specify": { "status": "success", "spec_file": "...", "clarifications_needed": 3 }
-  }
-}
-
-USER_REQUEST: <original user request text>
-
-FEEDBACK_CONTEXT (if feedback from analyze agent):
-{
-  "feedback_from": "speckit-analyze",
-  "iteration": 1,
-  "max_iterations": 2,
-  "issues_to_fix": [
-    {
-      "severity": "HIGH",
-      "type": "spec_ambiguity",
-      "message": "Authentication flow unclear - OAuth2 or JWT?",
-      "location": "spec.md:32",
-      "recommendation": "Ask user to clarify authentication method"
-    }
-  ]
-}
-```
-
-**Extract from context**:
-- `feature_id`: Feature being clarified
-- `feature_dir`: Base directory for all spec artifacts
-- `previous_results.speckit-specify.spec_file`: Path to spec.md to analyze
-- `previous_results.speckit-specify.clarifications_needed`: Count of [NEEDS CLARIFICATION] markers
-- `USER_REQUEST`: Original user request for context
-- `FEEDBACK_CONTEXT`: If present, prioritize resolving these specific ambiguities
-
-## Handling Feedback from Analyze Agent
-
-When `FEEDBACK_CONTEXT` is present in the input, the clarify agent must:
-
-1. **Prioritize feedback issues** over general ambiguity scan
-2. **Focus questions** on resolving the specific issues identified
-3. **Update spec.md** with answers that address the feedback
-4. **Return success** only if all feedback issues are resolved
+Parse from `$ARGUMENTS`:
+- `WORKFLOW_CONTEXT`: workflow_id, feature_id, feature_dir, previous_results
+- `USER_REQUEST`: Original request
+- `RESPONSE_FORMAT`: JSON structure for response
+- `FEEDBACK_CONTEXT` (optional): Issues to prioritize from analyze agent
 
 ## Execution
 
-Execute the original command and capture its output, then wrap the result in JSON format.
+### Step 1: Load Feature Context
 
-### Step 1: Load Original Command
+Run `.specify/scripts/bash/check-prerequisites.sh --json --paths-only` and parse:
+- `FEATURE_DIR`, `FEATURE_SPEC`
 
-Read and execute the logic from `.claude/commands/speckit.clarify.md` with the user's input.
+If parsing fails, return error suggesting `/speckit.specify` first.
 
-**User Input**: $ARGUMENTS
+### Step 2: Ambiguity Scan
 
-### Step 2: Execute Command Logic
+Load spec file. Scan using this taxonomy (mark each: Clear/Partial/Missing):
 
-**IMPORTANT**: Do not re-implement the command logic. Instead, invoke the existing command:
+| Category | Check |
+|----------|-------|
+| Functional Scope | Core goals, out-of-scope, user roles |
+| Domain & Data | Entities, relationships, state transitions, scale |
+| UX Flow | User journeys, error/empty/loading states |
+| Non-Functional | Performance, scalability, reliability, security |
+| Integration | External APIs, failure modes, protocols |
+| Edge Cases | Negative scenarios, rate limiting, conflicts |
+| Constraints | Tech constraints, tradeoffs |
+| Terminology | Glossary consistency |
+| Completion | Testable acceptance criteria |
 
+If `FEEDBACK_CONTEXT` present: prioritize those specific ambiguities first.
+
+### Step 3: Generate Questions
+
+Create prioritized queue (max 5 questions). Each question must be:
+- Multiple-choice (2-5 options) OR short answer (≤5 words)
+- Material impact on architecture, data model, tests, or compliance
+- High (Impact × Uncertainty) score
+
+### Step 4: Interactive Questioning
+
+Present ONE question at a time:
+
+**For multiple-choice:**
 ```
-Execute all steps from .claude/commands/speckit.clarify.md exactly as written.
-Pass through the user's arguments: $ARGUMENTS
-```
+**Recommended:** Option [X] - <reasoning>
 
-This includes:
-- Performing structured ambiguity scan using 9-category taxonomy
-- Generating max 5 prioritized clarification questions
-- Presenting single question at a time with recommended option
-- Updating spec with clarifications in real-time
-- Adding Clarifications section with session date tracking
-- Validating terminal state (no lingering ambiguities)
+| Option | Description |
+|--------|-------------|
+| A | ... |
+| B | ... |
 
-### Step 3: Capture Results
-
-After the command completes, extract:
-- Updated spec file path
-- Number of clarifications resolved
-- Number of questions asked
-- Remaining ambiguities (if any)
-
-### Step 4: Return JSON Output
-
-**On Success:**
-```json
-{
-  "agent": "clarify",
-  "status": "success",
-  "timestamp": "<ISO8601 timestamp>",
-  "execution_time_ms": <duration in milliseconds>,
-  "result": {
-    "spec_file": "<absolute-path-to-spec.md>",
-    "clarifications_resolved": 3,
-    "questions_asked": 3,
-    "clarifications_added": [
-      "Q: Authentication method? A: OAuth2 with PKCE",
-      "Q: Session timeout? A: 24 hours with sliding window",
-      "Q: Password requirements? A: Min 12 chars, complexity enforced"
-    ],
-    "remaining_ambiguities": 0,
-    "next_steps": ["plan"]
-  }
-}
+Reply with letter, "yes" for recommended, or your own answer.
 ```
 
-**On Error:**
-```json
-{
-  "agent": "clarify",
-  "status": "error",
-  "timestamp": "<ISO8601 timestamp>",
-  "execution_time_ms": <duration in milliseconds>,
-  "error": {
-    "type": "PrerequisiteError|ValidationError",
-    "code": "ERROR_CODE",
-    "message": "<human-readable error message>",
-    "details": {
-      "missing_file": "<path if PrerequisiteError>",
-      "invalid_spec": "<reason if ValidationError>"
-    },
-    "recoverable": true,
-    "recovery_strategy": "run_prerequisite_agent|manual_resolution",
-    "suggested_action": {
-      "agent": "specify",
-      "reason": "Missing or invalid spec.md"
-    }
-  }
-}
+**For short-answer:**
+```
+**Suggested:** <answer> - <reasoning>
+Format: ≤5 words. Reply "yes" or provide your own.
 ```
 
-## Implementation Notes
+Stop when:
+- All critical ambiguities resolved
+- User signals "done"/"good"/"no more"
+- 5 questions asked
 
-This agent is a **wrapper** around `.claude/commands/speckit.clarify.md`. It performs interactive clarification and updates the spec in real-time.
+### Step 5: Integrate Answers
+
+After EACH accepted answer:
+1. Ensure `## Clarifications` section exists with `### Session YYYY-MM-DD`
+2. Append: `- Q: <question> → A: <answer>`
+3. Update relevant spec section (Functional, Data Model, Non-Functional, etc.)
+4. Save spec immediately (atomic write)
+
+### Step 6: Return Result
+
+Return JSON per `RESPONSE_FORMAT` with these result fields:
+- `spec_file`: Path to updated spec.md
+- `clarifications_resolved`: Count resolved
+- `questions_asked`: Count asked
+- `clarifications_added`: List of Q&A pairs
+- `sections_updated`: List of spec sections modified
+- `remaining_ambiguities`: Count remaining
+- `coverage_summary`: {resolved, clear, deferred, outstanding}
+- `next_steps`: ["plan"]
+
+## Rules
+
+- Max 5 questions total
+- Never reveal future queued questions
+- If no ambiguities found: report "No critical ambiguities" and suggest proceeding
+- Respect early termination signals
+- Each clarification must be minimal and testable

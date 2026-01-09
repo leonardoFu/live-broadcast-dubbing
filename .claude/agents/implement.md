@@ -2,202 +2,97 @@
 name: speckit-implement
 description: Execute implementation plan by processing all tasks
 model: opus
-type: command-wrapper
-command: .claude/commands/speckit.implement.md
 color: red
 ---
 
-# Speckit Implement Agent
+# Implement Agent
 
-This agent executes the complete implementation plan by processing all tasks with TDD discipline.
+Executes all tasks from tasks.md with TDD discipline.
 
-**Agent Type**: Command-wrapper (wraps `.claude/commands/speckit.implement.md`)
+## Input
 
-## Context Reception
-
-This agent receives context from the orchestrator in the prompt. Look for and parse:
-
-```text
-WORKFLOW_CONTEXT:
-{
-  "workflow_id": "<uuid>",
-  "feature_id": "<feature-id>",
-  "feature_dir": "specs/<feature-id>/",
-  "previous_results": {
-    "speckit-specify": { "status": "success", "spec_file": "..." },
-    "speckit-plan": { "status": "success", "plan_file": "...", "data_model_file": "..." },
-    "speckit-tasks": { "status": "success", "tasks_file": "...", "task_count": 23 }
-  }
-}
-
-USER_REQUEST: <original user request text>
-
-RETRY_CONTEXT (if retrying after test failure):
-Previous implementation failed quality gates. Fix these issues:
-BLOCKING_ISSUES:
-- [CRITICAL] test_failure: ...
-- [HIGH] coverage: ...
-
-FEEDBACK_CONTEXT (if feedback from review agent):
-{
-  "feedback_from": "speckit-review",
-  "iteration": 1,
-  "max_iterations": 1,
-  "issues_to_fix": [
-    {
-      "severity": "CRITICAL",
-      "category": "directory_structure",
-      "message": "Files placed in wrong directory",
-      "file": "apps/media-service/worker.py",
-      "recommendation": "Move to apps/media-service/src/media_service/worker.py"
-    }
-  ]
-}
-```
-
-**Extract from context**:
-- `feature_id`: Feature being implemented
-- `feature_dir`: Base directory for all spec artifacts
-- `previous_results.speckit-tasks.tasks_file`: Path to tasks.md
-- `previous_results.speckit-plan.plan_file`: Path to plan.md
-- `USER_REQUEST`: Original user request for context
-- `RETRY_CONTEXT`: If present, focus on fixing the listed blocking issues
-- `FEEDBACK_CONTEXT`: If present, fix issues reported by review agent
+Parse from `$ARGUMENTS`:
+- `WORKFLOW_CONTEXT`: workflow_id, feature_id, feature_dir, previous_results
+- `USER_REQUEST`: Original request
+- `RESPONSE_FORMAT`: JSON structure for response
+- `RETRY_CONTEXT` (optional): Blocking issues to fix
+- `FEEDBACK_CONTEXT` (optional): Issues from review agent
 
 ## Execution
 
-Execute the original command and capture its output, then wrap the result in JSON format.
+### Step 1: Setup
 
-### Step 1: Load Original Command
+Run `.specify/scripts/bash/check-prerequisites.sh --json --require-tasks --include-tasks` and parse:
+- `FEATURE_DIR`, `AVAILABLE_DOCS`
 
-Read and execute the logic from `.claude/commands/speckit.implement.md` with the user's input.
+### Step 2: Check Checklists
 
-**User Input**: $ARGUMENTS (may contain WORKFLOW_CONTEXT, RETRY_CONTEXT, and/or FEEDBACK_CONTEXT)
+If `FEATURE_DIR/checklists/` exists:
+- Count completed vs incomplete items per checklist
+- If incomplete: STOP and ask user to proceed or wait
 
-### Step 2: Execute Command Logic
+### Step 3: Load Context
 
-**IMPORTANT**: Do not re-implement the command logic. Instead, invoke the existing command:
+- **REQUIRED**: tasks.md, plan.md
+- **IF EXISTS**: data-model.md, contracts/, research.md, quickstart.md
 
-```
-Execute all steps from .claude/commands/speckit.implement.md exactly as written.
-Pass through the user's arguments: $ARGUMENTS
-If RETRY_CONTEXT is present, prioritize fixing those specific issues.
-If FEEDBACK_CONTEXT is present, fix the issues reported by the review agent.
-```
+### Step 4: Setup Verification
 
-This includes:
-- Running prerequisite check: `.specify/scripts/bash/check-prerequisites.sh --json`
-- Checking checklist completion status
-- Loading tasks.md, plan.md, and all context documents
-- Verifying project setup (ignore files based on tech stack)
-- Executing tasks phase-by-phase with dependencies
-- Following TDD: tests before implementation for each task
-- Marking completed tasks with [X] in tasks.md
-- Validating final implementation against spec
+Create/verify ignore files based on tech stack:
+- `.gitignore` (if git repo)
+- `.dockerignore` (if Docker)
+- `.eslintignore` / `.prettierignore` (if JS/TS)
 
-### Step 3: Capture Results
+Technology-specific patterns from plan.md.
 
-After the command completes, extract:
-- Number of tasks completed
-- Number of tests passed
-- Code coverage percentage
-- Files created/modified
-- Any errors encountered
+### Step 5: Parse Tasks
 
-### Step 4: Return JSON Output
+Extract from tasks.md:
+- Task phases: Setup, Foundational, User Stories, Polish
+- Dependencies: Sequential vs parallel [P]
+- Task details: ID, description, file paths
 
-**On Success:**
-```json
-{
-  "agent": "speckit-implement",
-  "status": "success",
-  "timestamp": "<ISO8601 timestamp>",
-  "execution_time_ms": <duration in milliseconds>,
-  "result": {
-    "tasks_file": "<path-to-tasks.md>",
-    "tasks_completed": 23,
-    "tasks_total": 23,
-    "completion_percentage": 100,
-    "tests_passed": 127,
-    "tests_total": 127,
-    "test_success_rate": 100,
-    "coverage_percentage": 94.2,
-    "files_created": 45,
-    "files_modified": 12,
-    "implementation_phases": {
-      "setup": "completed",
-      "foundational": "completed",
-      "user_stories": "completed",
-      "polish": "completed"
-    },
-    "ignore_files_created": [".gitignore", ".dockerignore"],
-    "next_steps": ["speckit-test", "speckit-review"]
-  }
-}
-```
+### Step 6: Execute Implementation
 
-**On Error:**
-```json
-{
-  "agent": "speckit-implement",
-  "status": "error",
-  "timestamp": "<ISO8601 timestamp>",
-  "execution_time_ms": <duration in milliseconds>,
-  "error": {
-    "type": "PrerequisiteError|TestFailureError|DependencyError",
-    "code": "ERROR_CODE",
-    "message": "<human-readable error message>",
-    "details": {
-      "missing_file": "<path if PrerequisiteError>",
-      "failed_tests": [
-        {
-          "test": "test_login_with_valid_credentials",
-          "error": "AssertionError: Expected status 200, got 401",
-          "file": "tests/unit/test_user_auth.py",
-          "line": 45
-        }
-      ],
-      "tasks_completed": 15,
-      "tasks_remaining": 8
-    },
-    "recoverable": true,
-    "recovery_strategy": "auto_fix_retry|run_prerequisite_agent",
-    "suggested_action": {
-      "agent": "speckit-tasks",
-      "reason": "Regenerate tasks.md if missing"
-    }
-  }
-}
-```
+**Phase-by-phase**:
+1. Complete each phase before next
+2. Respect dependencies
+3. TDD: Tests before implementation (if specified)
+4. Sequential for same-file tasks, parallel for [P] tasks
 
-## Implementation Notes
+**Execution order**:
+1. Setup: Project structure, dependencies, config
+2. Tests (if TDD): Contracts, entities, scenarios
+3. Core: Models, services, endpoints
+4. Integration: Database, middleware, external services
+5. Polish: Validation, optimization, docs
 
-This agent is a **wrapper** around `.claude/commands/speckit.implement.md`. It enforces TDD discipline and executes all tasks systematically.
+### Step 7: Progress Tracking
 
-## Handling Feedback from Review Agent
+- Report after each task
+- Halt on non-parallel failures
+- Mark completed tasks as `[X]` in tasks.md
 
-When `FEEDBACK_CONTEXT` is present in the input, the implement agent must:
+### Step 8: Return Result
 
-1. **Parse the feedback issues** from `issues_to_fix` array
-2. **Prioritize fixes** by severity (CRITICAL → HIGH → MEDIUM)
-3. **Apply fixes** for each issue:
-   - `directory_structure`: Move files to correct locations
-   - `naming_violation`: Rename files/packages
-   - `constitution_violation`: Add missing tests, fix code patterns
-   - `duplicate_code`: Extract to shared utilities
-4. **Mark iteration** in response to track feedback loop count
-5. **Return success** only if all feedback issues are resolved
+Return JSON per `RESPONSE_FORMAT` with these result fields:
+- `tasks_file`: Path to tasks.md
+- `tasks_completed`, `tasks_total`: Task counts
+- `completion_percentage`: Percentage complete
+- `tests_passed`, `tests_total`: Test counts
+- `coverage_percentage`: Code coverage
+- `files_created`, `files_modified`: File counts
+- `implementation_phases`: {setup, foundational, user_stories, polish} statuses
+- `ignore_files_created`: List of ignore files created
+- `next_steps`: ["speckit-test", "speckit-review"]
 
-**Example handling:**
-```text
-If FEEDBACK_CONTEXT contains:
-{
-  "issues_to_fix": [
-    { "category": "directory_structure", "file": "apps/media-service/worker.py", "recommendation": "Move to src/media_service/" }
-  ]
-}
+## Feedback Handling
 
-Then execute:
-git mv apps/media-service/worker.py apps/media-service/src/media_service/worker.py
-Update any imports referencing the moved file
-```
+When `FEEDBACK_CONTEXT.issues_to_fix` present:
+1. Prioritize: CRITICAL → HIGH → MEDIUM
+2. Apply fixes by category:
+   - `directory_structure`: Move files
+   - `naming_violation`: Rename
+   - `constitution_violation`: Add tests, fix patterns
+   - `duplicate_code`: Extract to utilities
+3. Return success only if all resolved
