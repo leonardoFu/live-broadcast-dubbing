@@ -237,9 +237,9 @@ class SegmentBuffer:
         )
 
         # [DEBUG-SOLVER] Check for SPS/PPS/IDR in ENTIRE segment data
-        has_sps = b'\x00\x00\x00\x01\x67' in data or b'\x00\x00\x01\x67' in data
-        has_pps = b'\x00\x00\x00\x01\x68' in data or b'\x00\x00\x01\x68' in data
-        has_idr = b'\x00\x00\x00\x01\x65' in data or b'\x00\x00\x01\x65' in data
+        has_sps = b"\x00\x00\x00\x01\x67" in data or b"\x00\x00\x01\x67" in data
+        has_pps = b"\x00\x00\x00\x01\x68" in data or b"\x00\x00\x01\x68" in data
+        has_idr = b"\x00\x00\x00\x01\x65" in data or b"\x00\x00\x01\x65" in data
         # Show first 20 bytes as hex
         first_bytes = data[:20].hex() if len(data) >= 20 else data.hex()
 

@@ -9,10 +9,15 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import os
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
+
+# Language configuration from environment variables
+DEFAULT_SOURCE_LANGUAGE = os.environ.get("SOURCE_LANGUAGE", "zh")
+DEFAULT_TARGET_LANGUAGE = os.environ.get("TARGET_LANGUAGE", "en")
 
 if TYPE_CHECKING:
     from media_service.models.segments import AudioSegment
@@ -34,8 +39,8 @@ class StreamConfig:
         chunk_duration_ms: Segment duration in milliseconds.
     """
 
-    source_language: str = "en"
-    target_language: str = "zh"
+    source_language: str = field(default_factory=lambda: DEFAULT_SOURCE_LANGUAGE)
+    target_language: str = field(default_factory=lambda: DEFAULT_TARGET_LANGUAGE)
     voice_profile: str = "default"
     format: str = "m4a"
     sample_rate_hz: int = 48000

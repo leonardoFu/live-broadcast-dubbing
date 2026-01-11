@@ -6,6 +6,11 @@
 logLevel: info
 logDestinations: [stdout]
 
+# Timeout Configuration
+# Increased to handle initial dubbing latency (~45-60s before first output)
+readTimeout: 120s
+writeTimeout: 120s
+
 # Authentication Configuration
 # Allow anonymous access for local development
 authMethod: internal

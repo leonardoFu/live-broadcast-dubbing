@@ -32,7 +32,7 @@ class TestStreamConfig:
         config = StreamConfig()
 
         assert config.source_language == "en"
-        assert config.target_language == "es"
+        assert config.target_language == "zh"
         assert config.voice_profile == "default"
         assert config.format == "m4a"
         assert config.sample_rate_hz == 48000

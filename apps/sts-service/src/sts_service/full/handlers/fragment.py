@@ -97,6 +97,22 @@ async def handle_fragment_data(
             await sio.emit("error", error.model_dump(), to=sid)
             return
 
+        # Check for duplicate fragment
+        is_new_fragment = session.register_fragment(fragment_data.fragment_id)
+        if not is_new_fragment:
+            logger.warning(
+                f"⚠️ DUPLICATE FRAGMENT DETECTED: fragment_id={fragment_data.fragment_id}, "
+                f"seq={fragment_data.sequence_number}, stream_id={fragment_data.stream_id}, "
+                f"total_processed={session.processed_fragment_count}"
+            )
+            # Still process it (for debugging), but log warning
+        else:
+            logger.info(
+                f"📥 NEW FRAGMENT RECEIVED: fragment_id={fragment_data.fragment_id}, "
+                f"seq={fragment_data.sequence_number}, stream_id={fragment_data.stream_id}, "
+                f"total_processed={session.processed_fragment_count}"
+            )
+
         # Emit immediate fragment:ack
         ack = FragmentAck(
             fragment_id=fragment_data.fragment_id,

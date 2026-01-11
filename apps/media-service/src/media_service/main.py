@@ -5,7 +5,6 @@ This service receives MediaMTX hook events and manages stream worker lifecycle.
 """
 
 import logging
-import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -14,13 +13,11 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 from prometheus_client import REGISTRY, generate_latest
 
 from media_service.api import hooks
+from media_service.logging_config import configure_focused_logging
 from media_service.orchestrator.worker_manager import WorkerManager
 
-# Configure structured logging
-logging.basicConfig(
-    level=os.getenv("LOG_LEVEL", "INFO"),
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
+# Configure logging (supports LOG_FOCUS=1 for debugging VAD/AV-sync/output)
+configure_focused_logging()
 logger = logging.getLogger(__name__)
 
 

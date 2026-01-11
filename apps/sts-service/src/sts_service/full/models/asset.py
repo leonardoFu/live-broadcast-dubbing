@@ -158,7 +158,7 @@ class TranscriptAsset(BaseAsset):
                     {"text": "welcome", "start_ms": 600, "end_ms": 1100, "confidence": 0.92},
                 ],
                 "confidence": 0.93,
-                "language": "en",
+                "language": "zh",
                 "audio_duration_ms": 6000,
             }
         }
@@ -241,10 +241,10 @@ class TranslationAsset(BaseAsset):
                 "status": "success",
                 "parent_asset_ids": ["asr-550e8400-e29b-41d4-a716-446655440000"],
                 "latency_ms": 150,
-                "translated_text": "Hola, bienvenido al juego.",
-                "source_text": "Hello, welcome to the game.",
-                "source_language": "en",
-                "target_language": "es",
+                "translated_text": "Hello, welcome to the game.",
+                "source_text": "你好，欢迎观看比赛。",
+                "source_language": "zh",
+                "target_language": "en",
                 "model_id": "deepl",
                 "character_count": 27,
                 "word_expansion_ratio": 1.2,

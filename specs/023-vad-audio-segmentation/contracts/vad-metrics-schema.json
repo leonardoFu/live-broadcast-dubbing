@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "vad-metrics-schema.json",
+  "title": "VADMetrics",
+  "description": "Prometheus metrics for VAD audio segmentation",
+  "type": "object",
+  "properties": {
+    "metrics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Metric name"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["counter", "gauge", "histogram"],
+            "description": "Prometheus metric type"
+          },
+          "labels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Metric labels"
+          },
+          "description": {
+            "type": "string",
+            "description": "Metric description"
+          },
+          "buckets": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "description": "Histogram buckets (only for histogram type)"
+          }
+        },
+        "required": ["name", "type", "labels", "description"]
+      }
+    }
+  },
+  "required": ["metrics"],
+  "examples": [
+    {
+      "metrics": [
+        {
+          "name": "media_service_worker_vad_segments_total",
+          "type": "counter",
+          "labels": ["stream_id", "trigger"],
+          "description": "Total VAD segments emitted by trigger type"
+        },
+        {
+          "name": "media_service_worker_vad_segment_duration_seconds",
+          "type": "histogram",
+          "labels": ["stream_id"],
+          "description": "VAD segment duration distribution",
+          "buckets": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15]
+        },
+        {
+          "name": "media_service_worker_vad_silence_detections_total",
+          "type": "counter",
+          "labels": ["stream_id"],
+          "description": "Total silence boundary detections"
+        },
+        {
+          "name": "media_service_worker_vad_forced_emissions_total",
+          "type": "counter",
+          "labels": ["stream_id"],
+          "description": "Total forced emissions at max duration"
+        },
+        {
+          "name": "media_service_worker_vad_min_duration_violations_total",
+          "type": "counter",
+          "labels": ["stream_id"],
+          "description": "Total min duration violations (buffered short segments)"
+        },
+        {
+          "name": "media_service_worker_vad_memory_limit_emissions_total",
+          "type": "counter",
+          "labels": ["stream_id"],
+          "description": "Total emissions triggered by memory limit"
+        },
+        {
+          "name": "media_service_worker_vad_accumulator_duration_seconds",
+          "type": "gauge",
+          "labels": ["stream_id"],
+          "description": "Current accumulator duration in seconds"
+        },
+        {
+          "name": "media_service_worker_vad_accumulator_bytes",
+          "type": "gauge",
+          "labels": ["stream_id"],
+          "description": "Current accumulator size in bytes"
+        }
+      ]
+    }
+  ]
+}

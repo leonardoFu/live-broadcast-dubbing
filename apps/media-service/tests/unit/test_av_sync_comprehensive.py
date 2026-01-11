@@ -2,16 +2,27 @@
 Comprehensive unit tests for A/V synchronization manager.
 
 Tests AvSyncManager pairing and synchronization logic.
+
+Note: Updated for PTS-based matching (spec 024-pts-av-pairing).
+- push_audio now returns list[SyncPair] | None for one-to-many support
+- Audio stays in buffer for potential future one-to-many matches
+- Matching uses PTS range overlap, not batch_number
 """
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
 
 import pytest
 
 from media_service.models.segments import AudioSegment, VideoSegment
-from media_service.sync.av_sync import AvSyncManager, SyncPair
+from media_service.sync.av_sync import (
+    AudioBufferEntry,
+    AvSyncManager,
+    SyncPair,
+    VideoBufferEntry,
+)
 
 
 @pytest.fixture
@@ -112,7 +123,10 @@ class TestAvSyncManagerPushVideo:
         video_segment: VideoSegment,
         audio_segment: AudioSegment,
     ) -> None:
-        """Test video creates pair when matching audio is ready."""
+        """Test video creates pair when matching audio is ready.
+
+        Note: With PTS-based matching, audio stays in buffer for one-to-many support.
+        """
         video_data = b"\x00" * 1000
         audio_data = b"\x00" * 500
 
@@ -128,7 +142,8 @@ class TestAvSyncManagerPushVideo:
         assert result.video_segment == video_segment
         assert result.audio_segment == audio_segment
         assert av_sync_manager.video_buffer_size == 0
-        assert av_sync_manager.audio_buffer_size == 0
+        # Audio stays in buffer for one-to-many support (PTS-based matching)
+        assert av_sync_manager.audio_buffer_size == 1
 
     @pytest.mark.asyncio
     async def test_push_video_drops_oldest_when_buffer_full(
@@ -174,7 +189,10 @@ class TestAvSyncManagerPushAudio:
         video_segment: VideoSegment,
         audio_segment: AudioSegment,
     ) -> None:
-        """Test audio creates pair when matching video is ready."""
+        """Test audio creates pairs when matching video is ready.
+
+        Note: push_audio now returns list[SyncPair] | None for one-to-many support.
+        """
         video_data = b"\x00" * 1000
         audio_data = b"\x00" * 500
 
@@ -186,11 +204,13 @@ class TestAvSyncManagerPushAudio:
         result = await av_sync_manager.push_audio(audio_segment, audio_data)
 
         assert result is not None
-        assert isinstance(result, SyncPair)
-        assert result.video_segment == video_segment
-        assert result.audio_segment == audio_segment
+        assert isinstance(result, list)
+        assert len(result) == 1
+        assert result[0].video_segment == video_segment
+        assert result[0].audio_segment == audio_segment
         assert av_sync_manager.video_buffer_size == 0
-        assert av_sync_manager.audio_buffer_size == 0
+        # Audio is buffered for potential future one-to-many matches
+        assert av_sync_manager.audio_buffer_size == 1
 
     @pytest.mark.asyncio
     async def test_push_audio_drops_oldest_when_buffer_full(
@@ -268,12 +288,12 @@ class TestAvSyncManagerSyncPair:
         assert result.pts_ns is not None
 
 
-class TestAvSyncManagerBatchMatching:
-    """Tests for batch number matching."""
+class TestAvSyncManagerPtsMatching:
+    """Tests for PTS-based segment matching (replacing batch number matching)."""
 
     @pytest.mark.asyncio
-    async def test_matches_by_batch_number(self, av_sync_manager: AvSyncManager) -> None:
-        """Test video and audio are matched by batch number."""
+    async def test_matches_by_pts_overlap(self, av_sync_manager: AvSyncManager) -> None:
+        """Test video and audio are matched by PTS overlap, not batch number."""
         video0 = VideoSegment(
             fragment_id="video-0",
             stream_id="s1",
@@ -303,16 +323,19 @@ class TestAvSyncManagerBatchMatching:
         await av_sync_manager.push_video(video0, b"v0")
         await av_sync_manager.push_video(video1, b"v1")
 
-        # Push audio for batch 1 (should match video1)
+        # Push audio for 6-12s (should match video1 by PTS overlap)
         result = await av_sync_manager.push_audio(audio1, b"a1")
 
         assert result is not None
-        assert result.video_segment.batch_number == 1
-        assert result.audio_segment.batch_number == 1
+        assert len(result) == 1
+        assert result[0].video_segment.t0_ns == 6_000_000_000
+        assert result[0].audio_segment.t0_ns == 6_000_000_000
         assert av_sync_manager.video_buffer_size == 1  # video0 still buffered
 
     @pytest.mark.asyncio
-    async def test_unmatched_segments_stay_buffered(self, av_sync_manager: AvSyncManager) -> None:
+    async def test_unmatched_segments_stay_buffered(
+        self, av_sync_manager: AvSyncManager
+    ) -> None:
         """Test unmatched segments remain in buffers."""
         video0 = VideoSegment(
             fragment_id="video-0",
@@ -367,17 +390,20 @@ class TestAvSyncManagerGetReadyPairs:
                 file_path=Path(f"/tmp/a{i}.m4a"),
             )
             await av_sync_manager.push_video(video, f"v{i}".encode())
-            await av_sync_manager.push_audio(audio, f"a{i}".encode())
+            pairs = await av_sync_manager.push_audio(audio, f"a{i}".encode())
+            # Each push_audio should return a pair since video is ready
+            assert pairs is not None
+            assert len(pairs) == 1
 
-        # Now get all ready pairs
-        # Note: Each pair should have been created during push since both arrive sequentially
-        # Let's verify no pairs are left if they were already matched
-        _ = await av_sync_manager.get_ready_pairs()
+        # Now get all ready pairs - should be empty since all matched during push
+        remaining_pairs = await av_sync_manager.get_ready_pairs()
 
         # Since push_audio creates pairs immediately when video is ready,
-        # the buffers should be empty
+        # the video buffer should be empty
         assert av_sync_manager.video_buffer_size == 0
-        assert av_sync_manager.audio_buffer_size == 0
+        # Audio stays in buffer for potential one-to-many (PTS-based matching)
+        assert av_sync_manager.audio_buffer_size == 3
+        assert len(remaining_pairs) == 0
 
     @pytest.mark.asyncio
     async def test_get_ready_pairs_empty_when_no_matches(
@@ -459,10 +485,22 @@ class TestAvSyncManagerFlushWithFallback:
             file_path=Path("/tmp/a0.m4a"),
         )
 
-        # Push video and audio with same batch (but via separate paths)
-        # Note: deque.append is not async, so don't await it
-        av_sync_manager._video_buffer.append((video, b"video_data"))
-        av_sync_manager._audio_buffer[0] = (audio, b"real_audio")
+        # Use proper dataclasses for PTS-based matching
+        av_sync_manager._video_buffer.append(
+            VideoBufferEntry(
+                video_segment=video,
+                video_data=b"video_data",
+                insertion_time_ns=time.time_ns(),
+            )
+        )
+        av_sync_manager._audio_buffer.append(
+            AudioBufferEntry(
+                audio_segment=audio,
+                audio_data=b"real_audio",
+                paired_video_pts=set(),
+                insertion_time_ns=time.time_ns(),
+            )
+        )
 
         async def get_fallback(segment: AudioSegment) -> bytes:
             return b"fallback_audio"
