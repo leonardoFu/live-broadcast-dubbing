@@ -991,7 +991,12 @@ class TestOnVideoSample:
         assert result == 0
 
     def test_on_video_sample_handles_clock_time_none(self, mock_gst_module) -> None:
-        """Test that CLOCK_TIME_NONE values are converted to 0."""
+        """Test that CLOCK_TIME_NONE values are handled correctly.
+
+        When PTS is CLOCK_TIME_NONE, it should be converted to 0.
+        When duration is CLOCK_TIME_NONE (or 0), it should be estimated from caps
+        or default to 30fps (33333333ns).
+        """
         mock_gst, mock_pipeline, mock_element = mock_gst_module
 
         from media_service.pipeline import input as input_module
@@ -1028,8 +1033,9 @@ class TestOnVideoSample:
 
         pipeline._on_video_sample(mock_appsink)
 
-        # Verify 0 was passed instead of CLOCK_TIME_NONE
-        video_callback.assert_called_once_with(b"data", 0, 0)
+        # PTS should be 0 (converted from CLOCK_TIME_NONE)
+        # Duration should be estimated at 30fps = 33333333ns when missing
+        video_callback.assert_called_once_with(b"data", 0, 33333333)
 
     def test_on_video_sample_callback_exception_logged(self, mock_gst_module) -> None:
         """Test that callback exception is caught and logged."""

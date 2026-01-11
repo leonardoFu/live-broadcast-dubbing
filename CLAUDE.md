@@ -505,6 +505,10 @@ git worktree remove .worktrees/feature-branch-name
 - In-memory model cache + optional debug artifacts to local filesystem (when debug_artifacts=True) (008-tts-module)
 - Python 3.10 (per constitution and pyproject.toml requirement >=3.10,<3.11) + GStreamer 1.0 (PyGObject >= 3.44.0), rtmpsrc (gst-plugins-bad), flvdemux (gst-plugins-good) (020-rtmp-stream-pull)
 - N/A (in-memory pipeline state, segment buffers written to disk via existing SegmentBuffer) (020-rtmp-stream-pull)
+- Python 3.10.x (per constitution and pyproject.toml requirement `>=3.10,<3.11`) + GStreamer 1.0 (PyGObject >= 3.44.0), gst-plugins-good (level element), pydantic >= 2.0, prometheus_clien (023-vad-audio-segmentation)
+- N/A (in-memory accumulator, existing segment files) (023-vad-audio-segmentation)
+- Python 3.10.x (per constitution and pyproject.toml requirement `>=3.10,<3.11`) + asyncio (async buffer operations), bisect (sorted list), dataclasses (buffer entries) (024-pts-av-pairing)
+- In-memory buffers only (sorted list for audio, deque for video) (024-pts-av-pairing)
 
 ## Recent Changes
 - 001-python-monorepo-setup: Added Python 3.10.x (as specified in constitution and architecture spec) + setuptools>=68.0 (build system), ruff>=0.1.0 (linting), mypy>=1.0 (type checking), pytest>=7.0 (testing)

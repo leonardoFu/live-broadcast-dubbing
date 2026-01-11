@@ -3,7 +3,7 @@
 .PHONY: e2e-test e2e-test-p1 e2e-clean e2e-logs e2e-media-up e2e-media-down e2e-sts-up e2e-sts-down
 .PHONY: sts-docker sts-docker-stop sts-docker-logs sts-docker-status
 .PHONY: sts-elevenlabs sts-elevenlabs-stop sts-elevenlabs-logs
-.PHONY: dev-up dev-down dev-logs dev-ps dev-test
+.PHONY: dev-up dev-down dev-logs dev-ps dev-test dev-push dev-play dev-play-in
 .PHONY: dev-up-light dev-down-light
 
 PYTHON := python3.10
@@ -75,6 +75,9 @@ help:
 	@echo "  make dev-logs           - View logs from all services"
 	@echo "  make dev-ps             - List all running containers"
 	@echo "  make dev-test           - Publish test fixture and monitor"
+	@echo "  make dev-push           - Push speech.mp4 test stream (loops forever)"
+	@echo "  make dev-play           - Play dubbed output stream with ffplay"
+	@echo "  make dev-play-in        - Play input stream with ffplay (for comparison)"
 	@echo ""
 	@echo "Testing (E2E - Cross-Service):"
 	@echo "  make e2e-test           - Run E2E tests (auto-starts services via pytest)"
@@ -579,3 +582,61 @@ dev-test:
 		-i $(TEST_FIXTURE) \
 		-c copy \
 		-f flv rtmp://localhost:1935/live/test_stream/in
+
+# Stream name for dev-push/dev-play commands
+DEV_STREAM_NAME ?= test-stream
+DEV_SPEECH_FIXTURE := tests/fixtures/test-streams/speech_zh.mp4
+
+dev-push:
+	@echo "🎬 Pushing test stream to media-service..."
+	@if [ ! -f $(DEV_SPEECH_FIXTURE) ]; then \
+		echo "❌ Test fixture not found: $(DEV_SPEECH_FIXTURE)"; \
+		exit 1; \
+	fi
+	@echo ""
+	@echo "Checking services..."
+	@curl -sf http://localhost:8080/health >/dev/null || (echo "❌ Media service not running. Run 'make dev-up-light' first." && exit 1)
+	@curl -sf http://localhost:8000/health >/dev/null || (echo "❌ STS service not running. Run 'make dev-up-light' first." && exit 1)
+	@echo "✅ All services healthy"
+	@echo ""
+	@echo "Publishing $(DEV_SPEECH_FIXTURE) to rtmp://localhost:1935/live/$(DEV_STREAM_NAME)/in"
+	@echo "Output will be at: rtmp://localhost:1935/live/$(DEV_STREAM_NAME)/out"
+	@echo ""
+	@echo "To play output: make dev-play"
+	@echo "To play input:  make dev-play-in"
+	@echo ""
+	@echo "Press Ctrl+C to stop"
+	@echo ""
+	ffmpeg -re -stream_loop -1 \
+		-i $(DEV_SPEECH_FIXTURE) \
+		-c:v libx264 -preset veryfast -tune zerolatency \
+		-c:a aac -b:a 128k \
+		-f flv "rtmp://localhost:1935/live/$(DEV_STREAM_NAME)/in"
+
+dev-play:
+	@echo "🎧 Playing dubbed output stream..."
+	@echo "Stream: rtsp://localhost:8554/live/$(DEV_STREAM_NAME)/out"
+	@echo ""
+	@echo "Checking if stream is active..."
+	@curl -sf http://localhost:9997/v3/paths/list | grep -q "$(DEV_STREAM_NAME)/out" || \
+		(echo "⚠️  Output stream not found. Make sure 'make dev-push' is running and pipeline has processed some data." && exit 1)
+	@echo "✅ Stream found, starting playback..."
+	@echo ""
+	@echo "Press Q or Ctrl+C to stop"
+	@echo ""
+	ffplay -fflags nobuffer -flags low_delay -framedrop \
+		"rtsp://localhost:8554/live/$(DEV_STREAM_NAME)/out"
+
+dev-play-in:
+	@echo "🎧 Playing input stream (for comparison)..."
+	@echo "Stream: rtsp://localhost:8554/live/$(DEV_STREAM_NAME)/in"
+	@echo ""
+	@echo "Checking if stream is active..."
+	@curl -sf http://localhost:9997/v3/paths/list | grep -q "$(DEV_STREAM_NAME)/in" || \
+		(echo "⚠️  Input stream not found. Make sure 'make dev-push' is running." && exit 1)
+	@echo "✅ Stream found, starting playback..."
+	@echo ""
+	@echo "Press Q or Ctrl+C to stop"
+	@echo ""
+	ffplay -fflags nobuffer -flags low_delay -framedrop \
+		"rtsp://localhost:8554/live/$(DEV_STREAM_NAME)/in"

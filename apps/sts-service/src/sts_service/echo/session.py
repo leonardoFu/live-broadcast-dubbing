@@ -5,10 +5,15 @@ per-connection state.
 """
 
 import asyncio
+import os
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import TYPE_CHECKING, Literal, Optional
+
+# Language configuration from environment variables
+DEFAULT_SOURCE_LANGUAGE = os.environ.get("SOURCE_LANGUAGE", "zh")
+DEFAULT_TARGET_LANGUAGE = os.environ.get("TARGET_LANGUAGE", "en")
 
 if TYPE_CHECKING:
     from sts_service.echo.models.error import ErrorSimulationConfig
@@ -89,8 +94,8 @@ class StreamSession:
     created_at: datetime = field(default_factory=datetime.utcnow)
 
     # Configuration (from stream:init)
-    source_language: str = "en"
-    target_language: str = "zh"
+    source_language: str = field(default_factory=lambda: DEFAULT_SOURCE_LANGUAGE)
+    target_language: str = field(default_factory=lambda: DEFAULT_TARGET_LANGUAGE)
     voice_profile: str = "default"
     chunk_duration_ms: int = 1000
     sample_rate_hz: int = 48000

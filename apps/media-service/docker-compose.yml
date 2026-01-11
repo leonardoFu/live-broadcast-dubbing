@@ -12,6 +12,8 @@
 #   MEDIA_SERVICE_PORT - HTTP API port (default: 8080)
 #   STS_SERVICE_URL - STS service endpoint (required for production)
 #   LOG_LEVEL - Logging level (default: INFO)
+#   SOURCE_LANGUAGE - Source language code for dubbing (default: zh)
+#   TARGET_LANGUAGE - Target language code for dubbing (default: en)
 
 services:
   # MediaMTX Media Server (FR-002 through FR-010)
@@ -90,6 +92,7 @@ services:
     environment:
       - PORT=8080
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - LOG_FOCUS=${LOG_FOCUS:-0}  # Set to 1 to focus on VAD, AV-sync, and output logs only
       - GST_DEBUG=${GST_DEBUG:-0}  # GStreamer debug level (0=none, 3=FIXME, 5=DEBUG)
       - MEDIAMTX_RTSP_URL=${MEDIAMTX_RTSP_URL:-rtsp://mediamtx:8554}
       - MEDIAMTX_RTMP_URL=${MEDIAMTX_RTMP_URL:-rtmp://mediamtx:1935}
@@ -100,6 +103,11 @@ services:
       - MAX_CONCURRENT_STREAMS=${MAX_CONCURRENT_STREAMS:-10}
       - CIRCUIT_BREAKER_THRESHOLD=${CIRCUIT_BREAKER_THRESHOLD:-5}
       - CIRCUIT_BREAKER_TIMEOUT=${CIRCUIT_BREAKER_TIMEOUT:-60}
+      # Language configuration for dubbing
+      - SOURCE_LANGUAGE=${SOURCE_LANGUAGE:-zh}
+      - TARGET_LANGUAGE=${TARGET_LANGUAGE:-en}
+      # Output buffering for smooth playback (number of segments to buffer before output)
+      - OUTPUT_BUFFER_SIZE=${OUTPUT_BUFFER_SIZE:-2}
 
     # Volume Mounts
     volumes:

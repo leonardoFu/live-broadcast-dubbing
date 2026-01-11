@@ -46,6 +46,7 @@ RUN pip3 install --no-cache-dir --upgrade pip setuptools wheel && \
     "fastapi>=0.104.0" \
     "uvicorn[standard]>=0.24.0" \
     "pydantic>=2.5.0" \
+    "pydantic-settings>=2.0.0" \
     "python-multipart>=0.0.6" \
     "httpx>=0.25.0" \
     "python-socketio[asyncio]>=5.0" \
