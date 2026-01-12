@@ -11,7 +11,6 @@ import re
 from dataclasses import dataclass, field
 
 import httpx
-
 from config import MediaServiceConfig, TimeoutConfig
 
 logger = logging.getLogger(__name__)

@@ -9,7 +9,7 @@ Task ID: T072
 import asyncio
 
 import pytest
-
+from sts_service.full.fragment_queue import FragmentQueue
 from sts_service.full.models.fragment import (
     AudioData,
     DurationMetadata,
@@ -17,8 +17,6 @@ from sts_service.full.models.fragment import (
     ProcessingStatus,
     StageTiming,
 )
-from sts_service.full.fragment_queue import FragmentQueue
-
 
 # -----------------------------------------------------------------------------
 # Test Fixtures

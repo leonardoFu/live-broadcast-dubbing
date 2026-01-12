@@ -7,7 +7,6 @@ stream_id, fragment_id, and session_id throughout the processing lifecycle.
 
 import logging
 import sys
-from typing import Optional
 
 import structlog
 
@@ -57,8 +56,8 @@ def get_logger(name: str) -> structlog.BoundLogger:
 def bind_stream_context(
     logger: structlog.BoundLogger,
     stream_id: str,
-    fragment_id: Optional[str] = None,
-    session_id: Optional[str] = None,
+    fragment_id: str | None = None,
+    session_id: str | None = None,
 ) -> structlog.BoundLogger:
     """
     Bind stream processing context to logger.

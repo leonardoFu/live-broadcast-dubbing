@@ -3,7 +3,7 @@ Worker runner for stream dubbing pipeline orchestration.
 
 Coordinates all components:
 - Input pipeline (RTSP -> appsink)
-- Segment buffer (accumulate to 6s segments)
+- Segment buffer (accumulate to 30s segments per spec 021)
 - STS client (Socket.IO communication)
 - A/V sync (pair video with dubbed audio)
 - Output pipeline (appsrc -> RTMP)
@@ -27,8 +27,8 @@ from media_service.audio.segment_writer import AudioSegmentWriter
 from media_service.buffer.segment_buffer import SegmentBuffer
 from media_service.metrics.prometheus import WorkerMetrics
 from media_service.models.segments import AudioSegment, VideoSegment
+from media_service.pipeline.ffmpeg_output import FFmpegOutputPipeline
 from media_service.pipeline.input import InputPipeline
-from media_service.pipeline.output import OutputPipeline
 from media_service.sts.backpressure_handler import BackpressureHandler
 from media_service.sts.circuit_breaker import StsCircuitBreaker
 from media_service.sts.fragment_tracker import FragmentTracker
@@ -63,7 +63,7 @@ class WorkerConfig:
     source_language: str = "en"
     target_language: str = "zh"
     voice_profile: str = "default"
-    segment_duration_ns: int = 6_000_000_000  # 6 seconds
+    segment_duration_ns: int = 30_000_000_000  # 30 seconds per spec 021
 
 
 class WorkerRunner:
@@ -71,11 +71,11 @@ class WorkerRunner:
 
     Coordinates all components for end-to-end dubbing:
     1. Input pipeline pulls RTMP stream from MediaMTX (via rtmpsrc + flvdemux)
-    2. Segment buffer accumulates 6-second segments
+    2. Segment buffer accumulates 30-second segments (spec 021)
     3. Video segments written to disk
     4. Audio segments sent to STS for dubbing
-    5. A/V sync pairs video with dubbed audio
-    6. Output pipeline publishes dubbed stream to RTMP
+    5. A/V sync pairs video with dubbed audio (buffer-and-wait per spec 021)
+    6. Output pipeline publishes dubbed stream to RTMP (re-encoded with PTS=0)
 
     Per spec 020-rtmp-stream-pull:
     - Uses RTMP for input (not RTSP) for simpler pipeline
@@ -130,7 +130,7 @@ class WorkerRunner:
 
         # Pipelines (initialized later)
         self.input_pipeline: InputPipeline | None = None
-        self.output_pipeline: OutputPipeline | None = None
+        self.output_pipeline: FFmpegOutputPipeline | None = None
 
         # Pending segments for processing
         self._video_queue: asyncio.Queue[tuple[VideoSegment, bytes]] = asyncio.Queue()
@@ -198,7 +198,7 @@ class WorkerRunner:
         )
 
     def _build_pipelines(self) -> None:
-        """Build input and output GStreamer pipelines."""
+        """Build input and output pipelines."""
         # Input pipeline - uses RTMP to pull stream from MediaMTX
         self.input_pipeline = InputPipeline(
             rtmp_url=self.config.rtmp_input_url,
@@ -208,8 +208,8 @@ class WorkerRunner:
         self.input_pipeline.build()
         self.input_pipeline.start()
 
-        # Output pipeline - uses RTMP to publish dubbed stream
-        self.output_pipeline = OutputPipeline(
+        # Output pipeline - uses ffmpeg with -re flag for real-time RTMP publishing
+        self.output_pipeline = FFmpegOutputPipeline(
             rtmp_url=self.config.rtmp_url,
         )
         self.output_pipeline.build()
@@ -309,7 +309,9 @@ class WorkerRunner:
 
             # If STS is skipped, use fallback (passthrough) mode
             if self._skip_sts:
-                logger.info(f"Using passthrough for audio segment {segment.batch_number} (STS skipped)")
+                logger.info(
+                    f"Using passthrough for audio segment {segment.batch_number} (STS skipped)"
+                )
                 await self._use_fallback(segment)
                 return
 
@@ -406,14 +408,18 @@ class WorkerRunner:
         if (payload.is_success or payload.is_partial) and payload.dubbed_audio:
             # Write dubbed audio
             dubbed_data = payload.dubbed_audio.decode_audio()
-            logger.info(f"Dubbed audio decoded: batch={inflight.segment.batch_number}, size={len(dubbed_data)} bytes")
+            logger.info(
+                f"Dubbed audio decoded: batch={inflight.segment.batch_number}, size={len(dubbed_data)} bytes"
+            )
             segment = inflight.segment
             segment = await self.audio_writer.write_dubbed(segment, dubbed_data)
 
             # Push to A/V sync
             pair = await self.av_sync.push_audio(segment, dubbed_data)
             if pair:
-                logger.info(f"A/V pair ready: batch={pair.video_segment.batch_number}, outputting...")
+                logger.info(
+                    f"A/V pair ready: batch={pair.video_segment.batch_number}, outputting..."
+                )
                 await self._output_pair(pair)
             else:
                 logger.info(f"A/V sync waiting for video: audio batch={segment.batch_number}")
@@ -510,8 +516,7 @@ class WorkerRunner:
                 self.av_sync.audio_buffer_size,
             )
 
-            if self.av_sync.needs_correction:
-                self.metrics.record_av_sync_correction()
+            # FR-013 (spec 021): Drift correction removed, only log sync delta for monitoring
 
         except Exception as e:
             logger.error(f"Error outputting sync pair: {e}", exc_info=True)

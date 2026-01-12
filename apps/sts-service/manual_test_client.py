@@ -121,37 +121,37 @@ async def main():
 
     @sio.on("stream:ready")
     async def on_stream_ready(data):
-        print(f"\n🎬 Stream Ready!")
+        print("\n🎬 Stream Ready!")
         print(f"   Session ID: {data.get('session_id')}")
         print(f"   Capabilities: {data.get('capabilities', {})}")
 
     @sio.on("fragment:ack")
     async def on_fragment_ack(data):
-        print(f"\n✓ Fragment ACK received:")
+        print("\n✓ Fragment ACK received:")
         print(f"   Fragment ID: {data.get('fragment_id')}")
         print(f"   Timestamp: {data.get('timestamp')}")
 
     @sio.on("fragment:processed")
     async def on_fragment_processed(data):
-        print(f"\n📦 Fragment Processed:")
+        print("\n📦 Fragment Processed:")
         print(f"   Fragment ID: {data.get('fragment_id')}")
         print(f"   Status: {data.get('status')}")
         print(f"   Processing time: {data.get('processing_time_ms')}ms")
 
         if data.get("transcript"):
             transcript = data["transcript"]
-            print(f"\n   🎤 Transcript (EN):")
+            print("\n   🎤 Transcript (EN):")
             print(f"      {transcript}")
 
         if data.get("translated_text"):
             translation = data["translated_text"]
-            print(f"\n   🌍 Translation (ES):")
+            print("\n   🌍 Translation (ES):")
             print(f"      {translation}")
 
         if data.get("dubbed_audio"):
             audio_data = data["dubbed_audio"]
             audio_b64 = audio_data.get("data_base64", "")
-            print(f"\n   🔊 Dubbed Audio:")
+            print("\n   🔊 Dubbed Audio:")
             print(f"      Format: {audio_data.get('format')}")
             print(f"      Sample rate: {audio_data.get('sample_rate_hz')} Hz")
             print(f"      Duration: {audio_data.get('duration_ms')} ms")
@@ -167,7 +167,7 @@ async def main():
 
         if data.get("stage_timings"):
             timings = data["stage_timings"]
-            print(f"\n   ⏱️  Stage Timings:")
+            print("\n   ⏱️  Stage Timings:")
             print(f"      ASR: {timings.get('asr_ms')}ms")
             print(f"      Translation: {timings.get('translation_ms')}ms")
             print(f"      TTS: {timings.get('tts_ms')}ms")
@@ -182,7 +182,7 @@ async def main():
 
     @sio.on("error")
     async def on_error(data):
-        print(f"\n❌ Error received:")
+        print("\n❌ Error received:")
         print(f"   Code: {data.get('code')}")
         print(f"   Message: {data.get('message')}")
         print(f"   Severity: {data.get('severity')}")
@@ -268,7 +268,7 @@ async def main():
 
     if results:
         result = results[0]
-        print(f"\nResult Details:")
+        print("\nResult Details:")
         print(f"  Status: {result.get('status')}")
         print(f"  Processing time: {result.get('processing_time_ms')}ms")
         print(f"  Has transcript: {bool(result.get('transcript'))}")

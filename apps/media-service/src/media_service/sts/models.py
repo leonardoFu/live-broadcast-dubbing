@@ -40,7 +40,7 @@ class StreamConfig:
     format: str = "m4a"
     sample_rate_hz: int = 48000
     channels: int = 2
-    chunk_duration_ms: int = 6000
+    chunk_duration_ms: int = 30000  # 30s per spec 021
 
     def to_dict(self) -> dict:
         """Convert to dictionary for Socket.IO payload."""

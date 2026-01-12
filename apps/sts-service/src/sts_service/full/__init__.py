@@ -4,6 +4,8 @@ Provides the complete speech-to-speech pipeline:
 ASR -> Translation -> TTS with Socket.IO integration.
 """
 
+from .backpressure_tracker import BackpressureTracker
+from .fragment_queue import FragmentQueue
 from .models import (
     AudioData,
     BackpressurePayload,
@@ -27,8 +29,6 @@ from .models import (
 
 # Phase 2 imports
 from .pipeline import PipelineCoordinator
-from .fragment_queue import FragmentQueue
-from .backpressure_tracker import BackpressureTracker
 
 __all__ = [
     # Fragment models

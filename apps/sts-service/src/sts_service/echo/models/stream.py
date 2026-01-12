@@ -11,6 +11,9 @@ class StreamConfigPayload(BaseModel):
     """Stream configuration from worker.
 
     Part of stream:init payload, matches spec 016 section 5.1.
+
+    Updated for spec 021-fragment-length-30s:
+    - chunk_duration_ms max increased from 6000 to 30000 (FR-004)
     """
 
     source_language: str = Field(
@@ -26,9 +29,9 @@ class StreamConfigPayload(BaseModel):
         description="TTS voice identifier",
     )
     chunk_duration_ms: int = Field(
-        default=1000,
+        default=30000,  # spec 021: default changed from 1000 to 30000
         ge=100,
-        le=6000,  # Updated to accept 6000ms (6 second segments)
+        le=30000,  # spec 021: max increased from 6000 to 30000 (FR-004)
         description="Expected fragment duration in milliseconds",
     )
     sample_rate_hz: int = Field(
@@ -52,6 +55,10 @@ class StreamInitPayload(BaseModel):
 
     Matches spec 016 section 5.1 stream:init structure.
     Sent by worker to initialize a streaming session.
+
+    Updated for spec 021-fragment-length-30s:
+    - timeout_ms default increased from 8000 to 60000 (FR-006)
+    - timeout_ms max increased from 30000 to 120000 (FR-006)
     """
 
     stream_id: str = Field(
@@ -68,9 +75,9 @@ class StreamInitPayload(BaseModel):
         description="Max concurrent fragments in flight",
     )
     timeout_ms: int = Field(
-        default=8000,
+        default=60000,  # spec 021: increased from 8000 to 60000 (FR-006)
         ge=1000,
-        le=30000,
+        le=120000,  # spec 021: increased from 30000 to 120000 (FR-006)
         description="Per-fragment timeout in milliseconds",
     )
 

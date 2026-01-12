@@ -2,6 +2,11 @@
 Unit tests for VideoSegment and AudioSegment data models.
 
 Tests T012 and T013 from tasks.md - validating segment data models.
+
+Updated for spec 021-fragment-length-30s:
+- Segment duration changed from 6s to 30s
+- FR-001: VideoSegment.DEFAULT_SEGMENT_DURATION_NS == 30_000_000_000
+- FR-002: AudioSegment.DEFAULT_SEGMENT_DURATION_NS == 30_000_000_000
 """
 
 from __future__ import annotations
@@ -110,49 +115,53 @@ class TestVideoSegment:
         assert segment.exists is True
 
     def test_is_valid_duration_full_segment(self) -> None:
-        """Test is_valid_duration for full 6-second segment."""
+        """Test is_valid_duration for full 30-second segment (spec 021)."""
         segment = VideoSegment(
             fragment_id="test-id",
             stream_id="test",
             batch_number=0,
             t0_ns=0,
-            duration_ns=6_000_000_000,  # Exactly 6s
+            duration_ns=30_000_000_000,  # Exactly 30s (spec 021)
             file_path=Path("/tmp/test.mp4"),
         )
 
         assert segment.is_valid_duration() is True
 
     def test_is_valid_duration_with_tolerance(self) -> None:
-        """Test is_valid_duration within 100ms tolerance."""
-        # 6s - 50ms = 5.95s (within tolerance)
+        """Test is_valid_duration within 100ms tolerance (spec 021)."""
+        # 30s - 50ms = 29.95s (within tolerance)
         segment = VideoSegment(
             fragment_id="test-id",
             stream_id="test",
             batch_number=0,
             t0_ns=0,
-            duration_ns=5_950_000_000,
+            duration_ns=29_950_000_000,
             file_path=Path("/tmp/test.mp4"),
         )
 
         assert segment.is_valid_duration() is True
 
-        # 6s + 50ms = 6.05s (within tolerance)
-        segment.duration_ns = 6_050_000_000
+        # 30s + 50ms = 30.05s (within tolerance)
+        segment.duration_ns = 30_050_000_000
         assert segment.is_valid_duration() is True
 
     def test_is_valid_duration_outside_tolerance(self) -> None:
-        """Test is_valid_duration outside tolerance."""
-        # 5s (too short for full segment)
+        """Test is_valid_duration outside tolerance (spec 021)."""
+        # 29s (too short for full 30s segment)
         segment = VideoSegment(
             fragment_id="test-id",
             stream_id="test",
             batch_number=0,
             t0_ns=0,
-            duration_ns=5_000_000_000,
+            duration_ns=29_000_000_000,
             file_path=Path("/tmp/test.mp4"),
         )
 
         assert segment.is_valid_duration() is False
+
+    def test_video_segment_duration_30s(self) -> None:
+        """FR-001: VideoSegment.DEFAULT_SEGMENT_DURATION_NS is 30_000_000_000."""
+        assert VideoSegment.DEFAULT_SEGMENT_DURATION_NS == 30_000_000_000
 
     def test_is_valid_duration_partial_segment(self) -> None:
         """Test is_valid_duration for partial segments (EOS)."""
@@ -377,13 +386,13 @@ class TestAudioSegment:
         assert segment.output_file_path == dubbed_path
 
     def test_is_valid_duration_full_segment(self) -> None:
-        """Test is_valid_duration for full 6-second segment."""
+        """Test is_valid_duration for full 30-second segment (spec 021)."""
         segment = AudioSegment(
             fragment_id="test-id",
             stream_id="test",
             batch_number=0,
             t0_ns=0,
-            duration_ns=6_000_000_000,
+            duration_ns=30_000_000_000,  # 30 seconds (spec 021)
             file_path=Path("/tmp/test.m4a"),
         )
 
@@ -402,6 +411,10 @@ class TestAudioSegment:
 
         assert segment.is_valid_duration(allow_partial=False) is False
         assert segment.is_valid_duration(allow_partial=True) is True
+
+    def test_audio_segment_duration_30s(self) -> None:
+        """FR-002: AudioSegment.DEFAULT_SEGMENT_DURATION_NS is 30_000_000_000."""
+        assert AudioSegment.DEFAULT_SEGMENT_DURATION_NS == 30_000_000_000
 
     def test_preserves_t0_ns(self) -> None:
         """Test that t0_ns (PTS) is preserved correctly."""

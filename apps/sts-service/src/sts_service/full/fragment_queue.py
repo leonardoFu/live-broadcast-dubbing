@@ -8,7 +8,6 @@ Task ID: T084
 
 import asyncio
 import heapq
-from typing import Optional
 
 from .models.fragment import FragmentResult
 
@@ -119,7 +118,7 @@ class FragmentQueue:
             self._new_result_event.clear()
             await self._new_result_event.wait()
 
-    def try_get_next(self) -> Optional[FragmentResult]:
+    def try_get_next(self) -> FragmentResult | None:
         """Try to get the next fragment in sequence order.
 
         Non-blocking version that returns None if the expected
@@ -150,7 +149,7 @@ class FragmentQueue:
         self._next_expected_sequence = 0
         self._new_result_event.clear()
 
-    def peek_next_available(self) -> Optional[int]:
+    def peek_next_available(self) -> int | None:
         """Peek at the next available sequence number.
 
         Returns:

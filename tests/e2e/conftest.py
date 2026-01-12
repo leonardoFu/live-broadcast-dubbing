@@ -16,7 +16,6 @@ from collections.abc import Generator
 from pathlib import Path
 
 import pytest
-
 from helpers.docker_compose_manager import (
     DockerComposeManager,
     DualComposeManager,

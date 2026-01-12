@@ -16,57 +16,51 @@ from media_service.sync.av_sync import AvSyncManager, SyncPair
 
 @pytest.fixture
 def video_segment() -> VideoSegment:
-    """Create a test video segment."""
+    """Create a test video segment (30s per spec 021)."""
     return VideoSegment(
         fragment_id="video-001",
         stream_id="test-stream",
         batch_number=0,
         t0_ns=0,
-        duration_ns=6_000_000_000,
+        duration_ns=30_000_000_000,  # 30s per spec 021
         file_path=Path("/tmp/test_video.mp4"),
     )
 
 
 @pytest.fixture
 def audio_segment() -> AudioSegment:
-    """Create a test audio segment."""
+    """Create a test audio segment (30s per spec 021)."""
     return AudioSegment(
         fragment_id="audio-001",
         stream_id="test-stream",
         batch_number=0,
         t0_ns=0,
-        duration_ns=6_000_000_000,
+        duration_ns=30_000_000_000,  # 30s per spec 021
         file_path=Path("/tmp/test_audio.m4a"),
     )
 
 
 @pytest.fixture
 def av_sync_manager() -> AvSyncManager:
-    """Create an AvSyncManager with default settings."""
+    """Create an AvSyncManager with default settings (spec 021 buffer-and-wait)."""
     return AvSyncManager(
-        av_offset_ns=6_000_000_000,
-        drift_threshold_ns=120_000_000,
+        drift_threshold_ns=100_000_000,  # 100ms for logging only per spec 021
         max_buffer_size=10,
     )
 
 
 class TestAvSyncManagerInit:
-    """Tests for AvSyncManager initialization."""
-
-    def test_init_default_offset(self) -> None:
-        """Test default A/V offset is 6 seconds."""
-        manager = AvSyncManager()
-        assert manager.state.av_offset_ns == 6_000_000_000
-
-    def test_init_custom_offset(self) -> None:
-        """Test custom A/V offset."""
-        manager = AvSyncManager(av_offset_ns=10_000_000_000)
-        assert manager.state.av_offset_ns == 10_000_000_000
+    """Tests for AvSyncManager initialization (spec 021 buffer-and-wait)."""
 
     def test_init_default_drift_threshold(self) -> None:
-        """Test default drift threshold is 120ms."""
+        """Test default drift threshold is 100ms (spec 021)."""
         manager = AvSyncManager()
-        assert manager.state.drift_threshold_ns == 120_000_000
+        assert manager.state.drift_threshold_ns == 100_000_000
+
+    def test_init_custom_drift_threshold(self) -> None:
+        """Test custom drift threshold."""
+        manager = AvSyncManager(drift_threshold_ns=50_000_000)
+        assert manager.state.drift_threshold_ns == 50_000_000
 
     def test_init_default_max_buffer(self) -> None:
         """Test default max buffer size."""
@@ -534,11 +528,5 @@ class TestAvSyncManagerProperties:
         """Test sync_delta_ms property."""
         assert av_sync_manager.sync_delta_ms == 0.0
 
-    def test_av_offset_ms(self, av_sync_manager: AvSyncManager) -> None:
-        """Test av_offset_ms property."""
-        # 6 seconds = 6000ms
-        assert av_sync_manager.av_offset_ms == 6000.0
-
-    def test_needs_correction_initially_false(self, av_sync_manager: AvSyncManager) -> None:
-        """Test needs_correction is False initially."""
-        assert av_sync_manager.needs_correction is False
+    # NOTE: av_offset_ms and needs_correction tests removed per spec 021
+    # (buffer-and-wait approach, no av_offset_ns, no drift correction)

@@ -89,16 +89,19 @@ class StreamSession:
     created_at: datetime = field(default_factory=datetime.utcnow)
 
     # Configuration (from stream:init)
+    # Updated for spec 021-fragment-length-30s:
+    # - chunk_duration_ms default increased from 6000 to 30000
+    # - timeout_ms default increased from 8000 to 60000
     source_language: str = "en"
     target_language: str = "zh"
     voice_profile: str = "default"
-    chunk_duration_ms: int = 6000
+    chunk_duration_ms: int = 30000  # spec 021: increased from 6000 to 30000
     sample_rate_hz: int = 48000
     channels: int = 1
     format: str = "m4a"
     max_inflight: int = 3
-    timeout_ms: int = 8000
-    domain_hints: Optional[list[str]] = None
+    timeout_ms: int = 60000  # spec 021: increased from 8000 to 60000
+    domain_hints: list[str] | None = None
 
     # Pipeline coordinator (initialized on stream:init)
     pipeline_coordinator: Optional["PipelineCoordinator"] = None

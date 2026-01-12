@@ -51,9 +51,9 @@ class TestWorkerConfigInit:
         )
 
         assert config.source_language == "en"
-        assert config.target_language == "es"
+        assert config.target_language == "zh"  # Updated default
         assert config.voice_profile == "default"
-        assert config.segment_duration_ns == 6_000_000_000
+        assert config.segment_duration_ns == 30_000_000_000  # 30s per spec 021
 
     def test_config_custom_values(self, tmp_segment_dir: Path) -> None:
         """Test custom values are applied."""
@@ -198,10 +198,13 @@ class TestWorkerRunnerProcessVideoSegment:
     """Tests for _process_video_segment method."""
 
     @pytest.mark.asyncio
-    async def test_process_video_segment_writes_and_syncs(
+    async def test_process_video_segment_syncs_in_memory(
         self, worker_config: WorkerConfig, tmp_segment_dir: Path
     ) -> None:
-        """Test video segment processing."""
+        """Test video segment processing uses in-memory data (T033).
+
+        Per T033: Video data is pushed directly to A/V sync without disk I/O.
+        """
         worker = WorkerRunner(worker_config)
 
         segment = VideoSegment(
@@ -215,14 +218,15 @@ class TestWorkerRunnerProcessVideoSegment:
 
         data = b"video_data_content"
 
-        # Mock writer
-        worker.video_writer.write = AsyncMock(return_value=segment)
+        # Mock av_sync - T033 uses in-memory data, not file writes
         worker.av_sync.push_video = AsyncMock(return_value=None)
 
         await worker._process_video_segment(segment, data)
 
-        worker.video_writer.write.assert_called_once_with(segment, data)
-        worker.av_sync.push_video.assert_called_once()
+        # Verify push_video was called with segment and data
+        worker.av_sync.push_video.assert_called_once_with(segment, data)
+        # Verify file_size is set for metrics
+        assert segment.file_size == len(data)
 
     @pytest.mark.asyncio
     async def test_process_video_segment_handles_error(
@@ -240,8 +244,8 @@ class TestWorkerRunnerProcessVideoSegment:
             file_path=tmp_segment_dir / "test-stream" / "000000_video.mp4",
         )
 
-        # Mock writer that raises
-        worker.video_writer.write = AsyncMock(side_effect=OSError("Write failed"))
+        # Mock av_sync.push_video that raises
+        worker.av_sync.push_video = AsyncMock(side_effect=OSError("Sync failed"))
 
         # Should not raise
         await worker._process_video_segment(segment, b"data")
@@ -551,10 +555,12 @@ class TestRTMPURLConstruction:
 
         worker = WorkerRunner(config)
 
-        # Mock both InputPipeline and OutputPipeline to prevent GStreamer calls
+        # Mock both InputPipeline and FFmpegOutputPipeline to prevent GStreamer/ffmpeg calls
         with (
             patch("media_service.worker.worker_runner.InputPipeline") as mock_input_pipeline,
-            patch("media_service.worker.worker_runner.OutputPipeline") as mock_output_pipeline,
+            patch(
+                "media_service.worker.worker_runner.FFmpegOutputPipeline"
+            ) as mock_output_pipeline,
         ):
             mock_input_instance = MagicMock()
             mock_output_instance = MagicMock()

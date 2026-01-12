@@ -469,7 +469,9 @@ class TestElevenLabsErrorClassification:
             with patch("sts_service.tts.elevenlabs_provider.ElevenLabs") as mock_client_class:
                 mock_client = MagicMock()
                 mock_client_class.return_value = mock_client
-                mock_client.text_to_speech.convert.side_effect = Exception("Unauthorized: Invalid API key")
+                mock_client.text_to_speech.convert.side_effect = Exception(
+                    "Unauthorized: Invalid API key"
+                )
 
                 with patch.dict(os.environ, {"ELEVENLABS_API_KEY": "invalid-key-here"}):
                     component = ElevenLabsTTSComponent(config=default_tts_config)
@@ -515,7 +517,9 @@ class TestElevenLabsErrorClassification:
             with patch("sts_service.tts.elevenlabs_provider.ElevenLabs") as mock_client_class:
                 mock_client = MagicMock()
                 mock_client_class.return_value = mock_client
-                mock_client.text_to_speech.convert.side_effect = Exception("Bad Request: Invalid voice_id")
+                mock_client.text_to_speech.convert.side_effect = Exception(
+                    "Bad Request: Invalid voice_id"
+                )
 
                 with patch.dict(os.environ, {"ELEVENLABS_API_KEY": "test-key-valid"}):
                     component = ElevenLabsTTSComponent(config=default_tts_config)
@@ -561,7 +565,9 @@ class TestElevenLabsErrorClassification:
             with patch("sts_service.tts.elevenlabs_provider.ElevenLabs") as mock_client_class:
                 mock_client = MagicMock()
                 mock_client_class.return_value = mock_client
-                mock_client.text_to_speech.convert.side_effect = TimeoutError("Connection timed out")
+                mock_client.text_to_speech.convert.side_effect = TimeoutError(
+                    "Connection timed out"
+                )
 
                 with patch.dict(os.environ, {"ELEVENLABS_API_KEY": "test-key-valid"}):
                     component = ElevenLabsTTSComponent(config=default_tts_config)

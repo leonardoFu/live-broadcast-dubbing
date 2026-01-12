@@ -21,17 +21,16 @@ Requirements:
 """
 
 import base64
-import os
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
-
 from sts_service.asr import ASRConfig, ASRModelConfig, FasterWhisperASR, VADConfig
 from sts_service.full.models.asset import AssetStatus, DurationMatchMetadata
-from sts_service.full.models.fragment import FragmentData, ProcessingStatus
-from sts_service.full.models.stream import StreamConfig, StreamSession, StreamState
+from sts_service.full.models.fragment import ProcessingStatus
+from sts_service.full.models.stream import StreamSession
 from sts_service.full.pipeline import PipelineCoordinator
 from sts_service.translation import create_translation_component
 from sts_service.tts import create_tts_component
@@ -39,7 +38,6 @@ from sts_service.tts import create_tts_component
 from .conftest import (
     check_coqui_available,
     check_deepl_key_available,
-    check_faster_whisper_available,
     requires_coqui,
     requires_deepl_key,
     requires_faster_whisper,

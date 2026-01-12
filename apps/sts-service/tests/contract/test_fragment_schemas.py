@@ -8,8 +8,8 @@ import json
 from pathlib import Path
 
 import jsonschema
-from jsonschema import Draft7Validator, RefResolver
 import pytest
+from jsonschema import Draft7Validator, RefResolver
 
 # Schema file paths (relative to repo root - worktree is at sts-service-main)
 # Path: apps/sts-service/tests/contract/test_fragment_schemas.py

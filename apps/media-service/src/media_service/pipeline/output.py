@@ -124,10 +124,21 @@ class OutputPipeline:
         # Configure output h264parse for AVC output to flvmux
         h264parse_out.set_property("config-interval", -1)
 
-        # Create audio path elements
+        # Create audio path elements with DECODE → ENCODE pipeline
+        # This re-encodes audio to ensure proper PTS alignment with re-encoded video
         self._audio_appsrc = Gst.ElementFactory.make("appsrc", "audio_src")
-        aacparse = Gst.ElementFactory.make("aacparse", "aacparse")
+        aacparse_in = Gst.ElementFactory.make("aacparse", "aacparse_in")
+        avdec_aac = Gst.ElementFactory.make("avdec_aac", "avdec_aac")
+        audioconvert = Gst.ElementFactory.make("audioconvert", "audioconvert")
+        audioresample = Gst.ElementFactory.make("audioresample", "audioresample")
+        # Use avenc_aac from gst-libav for AAC re-encoding (more reliable than voaacenc)
+        avenc_aac = Gst.ElementFactory.make("avenc_aac", "avenc_aac")
+        aacparse_out = Gst.ElementFactory.make("aacparse", "aacparse_out")
         audio_queue = Gst.ElementFactory.make("queue", "audio_queue")
+
+        # Configure avenc_aac for good quality streaming
+        if avenc_aac:
+            avenc_aac.set_property("bitrate", 128000)  # 128 kbps AAC
 
         # Create muxer and sink
         flvmux = Gst.ElementFactory.make("flvmux", "flvmux")
@@ -143,7 +154,12 @@ class OutputPipeline:
             ("h264parse_out", h264parse_out),
             ("video_queue", video_queue),
             ("audio_src", self._audio_appsrc),
-            ("aacparse", aacparse),
+            ("aacparse_in", aacparse_in),
+            ("avdec_aac", avdec_aac),
+            ("audioconvert", audioconvert),
+            ("audioresample", audioresample),
+            ("avenc_aac", avenc_aac),
+            ("aacparse_out", aacparse_out),
             ("audio_queue", audio_queue),
             ("flvmux", flvmux),
             ("rtmpsink", rtmpsink),
@@ -157,9 +173,7 @@ class OutputPipeline:
         # Note: We use byte-stream format and let h264parse convert to AVC for flvmux.
         # The h264parse will extract SPS/PPS from the byte-stream data and set codec_data.
         # config-interval=-1 ensures SPS/PPS is re-inserted before each IDR frame.
-        video_caps = Gst.Caps.from_string(
-            "video/x-h264,stream-format=byte-stream,alignment=au"
-        )
+        video_caps = Gst.Caps.from_string("video/x-h264,stream-format=byte-stream,alignment=au")
         self._video_appsrc.set_property("caps", video_caps)
         self._video_appsrc.set_property("is-live", True)
         self._video_appsrc.set_property("format", 3)  # GST_FORMAT_TIME
@@ -198,11 +212,21 @@ class OutputPipeline:
         if not h264parse_out.link(video_queue):
             raise RuntimeError("Failed to link h264parse_out -> video_queue")
 
-        # Link audio path
-        if not self._audio_appsrc.link(aacparse):
-            raise RuntimeError("Failed to link audio_src -> aacparse")
-        if not aacparse.link(audio_queue):
-            raise RuntimeError("Failed to link aacparse -> audio_queue")
+        # Link audio path: appsrc → aacparse_in → avdec_aac → audioconvert → audioresample → voaacenc → aacparse_out → queue
+        if not self._audio_appsrc.link(aacparse_in):
+            raise RuntimeError("Failed to link audio_src -> aacparse_in")
+        if not aacparse_in.link(avdec_aac):
+            raise RuntimeError("Failed to link aacparse_in -> avdec_aac")
+        if not avdec_aac.link(audioconvert):
+            raise RuntimeError("Failed to link avdec_aac -> audioconvert")
+        if not audioconvert.link(audioresample):
+            raise RuntimeError("Failed to link audioconvert -> audioresample")
+        if not audioresample.link(avenc_aac):
+            raise RuntimeError("Failed to link audioresample -> avenc_aac")
+        if not avenc_aac.link(aacparse_out):
+            raise RuntimeError("Failed to link avenc_aac -> aacparse_out")
+        if not aacparse_out.link(audio_queue):
+            raise RuntimeError("Failed to link aacparse_out -> audio_queue")
 
         # Link queues to flvmux using request pads
         video_mux_pad = flvmux.get_request_pad("video")
@@ -226,8 +250,10 @@ class OutputPipeline:
 
         self._state = "READY"
         logger.info(
-            f"🎬 Output pipeline built with VIDEO RE-ENCODING for {self._rtmp_url}\n"
-            f"   Pipeline: appsrc → h264parse → avdec_h264 → videoconvert → x264enc → h264parse → flvmux → rtmpsink"
+            f"🎬 Output pipeline built with VIDEO + AUDIO RE-ENCODING for {self._rtmp_url}\n"
+            f"   Video: appsrc → h264parse → avdec_h264 → videoconvert → x264enc (2000kbps) → h264parse → flvmux\n"
+            f"   Audio: appsrc → aacparse → avdec_aac → audioconvert → audioresample → avenc_aac (128kbps) → aacparse → flvmux\n"
+            f"   Output: flvmux → rtmpsink"
         )
 
     def _on_bus_message(self, bus: Gst.Bus, message: Gst.Message) -> bool:
@@ -435,8 +461,8 @@ class OutputPipeline:
         if not GST_AVAILABLE or Gst is None:
             raise RuntimeError("GStreamer not available")
 
-        import tempfile
         import os
+        import tempfile
 
         # Write M4A to temp file (GStreamer qtdemux requires seekable source)
         with tempfile.NamedTemporaryFile(suffix=".m4a", delete=False) as tmp:
@@ -616,9 +642,9 @@ class OutputPipeline:
             logger.info(f"✅ Read {len(audio_data)} bytes of AAC audio data")
 
             # Push to pipeline
-            logger.info(f"⬆️ Pushing video data to output pipeline...")
+            logger.info("⬆️ Pushing video data to output pipeline...")
             video_ok = self.push_video(video_data, pts_ns, video_duration_ns)
-            logger.info(f"⬆️ Pushing audio data to output pipeline...")
+            logger.info("⬆️ Pushing audio data to output pipeline...")
             audio_ok = self.push_audio(audio_data, pts_ns, audio_duration_ns)
 
             result = video_ok and audio_ok
@@ -649,12 +675,12 @@ class OutputPipeline:
         i = 0
         while i < len(data) - 4:
             # Look for 4-byte start code (0x00000001)
-            if data[i:i+4] == b'\x00\x00\x00\x01':
-                nal_type = data[i+4] & 0x1F
+            if data[i : i + 4] == b"\x00\x00\x00\x01":
+                nal_type = data[i + 4] & 0x1F
                 # Find the end of this NAL unit (next start code or end of data)
                 next_start = len(data)
                 for j in range(i + 4, min(len(data) - 3, i + 10000)):
-                    if data[j:j+4] == b'\x00\x00\x00\x01' or data[j:j+3] == b'\x00\x00\x01':
+                    if data[j : j + 4] == b"\x00\x00\x00\x01" or data[j : j + 3] == b"\x00\x00\x01":
                         next_start = j
                         break
 
@@ -670,21 +696,21 @@ class OutputPipeline:
 
                 i = next_start
             # Look for 3-byte start code (0x000001)
-            elif data[i:i+3] == b'\x00\x00\x01':
-                nal_type = data[i+3] & 0x1F
+            elif data[i : i + 3] == b"\x00\x00\x01":
+                nal_type = data[i + 3] & 0x1F
                 # Find the end of this NAL unit
                 next_start = len(data)
                 for j in range(i + 3, min(len(data) - 3, i + 10000)):
-                    if data[j:j+4] == b'\x00\x00\x00\x01' or data[j:j+3] == b'\x00\x00\x01':
+                    if data[j : j + 4] == b"\x00\x00\x00\x01" or data[j : j + 3] == b"\x00\x00\x01":
                         next_start = j
                         break
 
                 if nal_type == 7 and sps_data is None:  # SPS
                     # Convert to 4-byte start code for consistency
-                    sps_data = b'\x00\x00\x00\x01' + data[i+3:next_start]
+                    sps_data = b"\x00\x00\x00\x01" + data[i + 3 : next_start]
                     logger.debug(f"Found SPS (3-byte) at offset {i}, size={len(sps_data)}")
                 elif nal_type == 8 and pps_data is None:  # PPS
-                    pps_data = b'\x00\x00\x00\x01' + data[i+3:next_start]
+                    pps_data = b"\x00\x00\x00\x01" + data[i + 3 : next_start]
                     logger.debug(f"Found PPS (3-byte) at offset {i}, size={len(pps_data)}")
 
                 if sps_data and pps_data:
@@ -716,11 +742,15 @@ class OutputPipeline:
             raise RuntimeError("Pipeline not built - call build() first")
 
         # Check for SPS/PPS in entire data (h264parse inserts them before each IDR)
-        has_sps = b'\x00\x00\x00\x01\x67' in data or b'\x00\x00\x01\x67' in data
-        has_pps = b'\x00\x00\x00\x01\x68' in data or b'\x00\x00\x01\x68' in data
+        has_sps = b"\x00\x00\x00\x01\x67" in data or b"\x00\x00\x01\x67" in data
+        has_pps = b"\x00\x00\x00\x01\x68" in data or b"\x00\x00\x01\x68" in data
         # Check if SPS/PPS is at the START (first 100 bytes) for proper initialization
-        has_sps_at_start = b'\x00\x00\x00\x01\x67' in data[:100] or b'\x00\x00\x01\x67' in data[:100]
-        has_pps_at_start = b'\x00\x00\x00\x01\x68' in data[:200] or b'\x00\x00\x01\x68' in data[:200]
+        has_sps_at_start = (
+            b"\x00\x00\x00\x01\x67" in data[:100] or b"\x00\x00\x01\x67" in data[:100]
+        )
+        has_pps_at_start = (
+            b"\x00\x00\x00\x01\x68" in data[:200] or b"\x00\x00\x01\x68" in data[:200]
+        )
 
         # Extract and store SPS/PPS from first segment that has them
         if self._sps_pps_data is None and has_sps and has_pps:

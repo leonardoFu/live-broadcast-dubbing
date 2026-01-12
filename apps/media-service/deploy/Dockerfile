@@ -11,14 +11,14 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 WORKDIR /app
 
-# Install Python 3.10, GStreamer, and PyGObject via apt
+# Install Python 3.10, GStreamer, FFmpeg, and PyGObject via apt
 # Ubuntu 22.04 uses Python 3.10 as default, so python3-gi is compatible
 RUN apt-get update && apt-get install -y --no-install-recommends \
     # Python 3.10 and pip
     python3 \
     python3-pip \
     python3-venv \
-    # GStreamer runtime and plugins
+    # GStreamer runtime and plugins (for input pipeline)
     gstreamer1.0-tools \
     gstreamer1.0-plugins-base \
     gstreamer1.0-plugins-good \
@@ -30,6 +30,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-gi-cairo \
     gir1.2-gstreamer-1.0 \
     gir1.2-gst-plugins-base-1.0 \
+    # FFmpeg for output pipeline (RTMP publishing with -re flag)
+    ffmpeg \
     # Utilities
     wget \
     ca-certificates \

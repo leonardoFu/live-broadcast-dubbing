@@ -12,7 +12,6 @@ Tasks: T119-T122, T126-T127
 """
 
 import logging
-from typing import Dict
 
 from prometheus_client import Counter, Gauge, Histogram
 
@@ -94,7 +93,7 @@ sts_gpu_memory_used_bytes = Gauge(
 def record_fragment_success(
     stream_id: str,
     processing_time_ms: int,
-    stage_timings: Dict[str, int],
+    stage_timings: dict[str, int],
 ) -> None:
     """Record successful fragment processing metrics.
 

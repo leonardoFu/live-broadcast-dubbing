@@ -171,67 +171,38 @@ class CircuitBreaker:
 
 @dataclass
 class AvSyncState:
-    """A/V synchronization state.
+    """A/V synchronization state (buffer-and-wait approach per spec 021).
 
-    Manages PTS offsets for video and audio to maintain synchronization
-    despite asynchronous STS processing latency.
-
-    The av_offset_ns creates a buffering window that allows STS processing
-    to complete before the corresponding video frame needs to be output.
-    Default is 6 seconds for lower latency while accommodating STS processing.
+    Updated for spec 021-fragment-length-30s:
+    - REMOVED av_offset_ns (buffer-and-wait instead of offset)
+    - REMOVED adjust_video_pts/adjust_audio_pts (PTS reset to 0)
+    - REMOVED needs_correction/apply_slew_correction (no drift correction)
+    - Video segments are buffered until dubbed audio arrives
+    - Output is re-encoded with PTS starting from 0
 
     Attributes:
-        av_offset_ns: Base offset applied to both video and audio output PTS.
-        video_pts_last: Last video PTS pushed to output (for drift detection).
-        audio_pts_last: Last audio PTS pushed to output (for drift detection).
+        video_pts_last: Last video PTS pushed to output (for sync delta logging).
+        audio_pts_last: Last audio PTS pushed to output (for sync delta logging).
         sync_delta_ns: Current measured delta between video and audio.
-        drift_threshold_ns: Threshold for triggering drift correction.
-        slew_rate_ns: Maximum adjustment per slew correction step.
+        drift_threshold_ns: Threshold for logging warnings (100ms per spec 021).
     """
 
-    av_offset_ns: int = 6_000_000_000  # 6 seconds default
+    # Buffer-and-wait: no av_offset_ns, PTS reset to 0
+    av_offset_ns: int = 0  # DEPRECATED: kept for backward compat, always 0
     video_pts_last: int = 0
     audio_pts_last: int = 0
     sync_delta_ns: int = 0
-    drift_threshold_ns: int = 120_000_000  # 120ms
-    slew_rate_ns: int = 10_000_000  # 10ms per correction step
+    drift_threshold_ns: int = 100_000_000  # 100ms (for logging only, per spec 021)
 
     @property
     def sync_delta_ms(self) -> float:
         """Current sync delta in milliseconds."""
         return self.sync_delta_ns / 1_000_000
 
-    @property
-    def av_offset_ms(self) -> float:
-        """A/V offset in milliseconds."""
-        return self.av_offset_ns / 1_000_000
-
-    def adjust_video_pts(self, original_pts: int) -> int:
-        """Adjust video PTS for output, applying offset.
-
-        Args:
-            original_pts: Original video PTS from input.
-
-        Returns:
-            Adjusted PTS for output pipeline.
-        """
-        return original_pts + self.av_offset_ns
-
-    def adjust_audio_pts(self, original_pts: int) -> int:
-        """Adjust audio PTS for output, applying offset.
-
-        Args:
-            original_pts: Original audio PTS (t0_ns from AudioSegment).
-
-        Returns:
-            Adjusted PTS for output pipeline.
-        """
-        return original_pts + self.av_offset_ns
-
     def update_sync_state(self, video_pts: int, audio_pts: int) -> None:
         """Update sync state after pushing frames.
 
-        Calculates the current sync delta between video and audio.
+        Calculates the current sync delta between video and audio for logging.
 
         Args:
             video_pts: Last video PTS pushed to output.
@@ -240,45 +211,6 @@ class AvSyncState:
         self.video_pts_last = video_pts
         self.audio_pts_last = audio_pts
         self.sync_delta_ns = abs(video_pts - audio_pts)
-
-    def needs_correction(self) -> bool:
-        """Check if drift correction is needed.
-
-        Returns:
-            True if sync delta exceeds drift threshold.
-        """
-        return self.sync_delta_ns > self.drift_threshold_ns
-
-    def apply_slew_correction(self, amount_ns: int | None = None) -> int:
-        """Apply gradual slew correction to the offset.
-
-        Adjusts av_offset_ns gradually to correct drift without hard jumps.
-        Per spec: use gradual slew, not hard jumps.
-
-        Args:
-            amount_ns: Amount to adjust (positive = increase offset).
-                      If None, uses slew_rate_ns.
-
-        Returns:
-            The amount actually adjusted.
-        """
-        if amount_ns is None:
-            # Determine direction based on whether video or audio is ahead
-            if self.video_pts_last > self.audio_pts_last:
-                # Video ahead, increase offset to delay video
-                adjustment = self.slew_rate_ns
-            else:
-                # Audio ahead, decrease offset to delay audio
-                adjustment = -self.slew_rate_ns
-        else:
-            # Clamp to max slew rate
-            if abs(amount_ns) > self.slew_rate_ns:
-                adjustment = self.slew_rate_ns if amount_ns > 0 else -self.slew_rate_ns
-            else:
-                adjustment = amount_ns
-
-        self.av_offset_ns += adjustment
-        return adjustment
 
     def reset(self) -> None:
         """Reset sync state to initial values."""

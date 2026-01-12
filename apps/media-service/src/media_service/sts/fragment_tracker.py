@@ -41,7 +41,7 @@ class FragmentTracker:
         _sequence_counter: Current sequence number
     """
 
-    DEFAULT_TIMEOUT_MS = 8000  # 8 seconds default timeout
+    DEFAULT_TIMEOUT_MS = 60000  # 60 seconds for 30-second fragments
 
     def __init__(
         self,

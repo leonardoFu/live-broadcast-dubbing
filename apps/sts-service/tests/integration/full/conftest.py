@@ -13,11 +13,9 @@ from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
-
 from sts_service.full.models.asset import AssetStatus, DurationMatchMetadata
 from sts_service.full.models.fragment import AudioData, FragmentData, FragmentMetadata
 from sts_service.full.models.stream import StreamConfig, StreamSession, StreamState
-
 
 # Path to test fixtures directory (shared with e2e tests)
 FIXTURES_DIR = (

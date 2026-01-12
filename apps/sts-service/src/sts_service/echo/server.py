@@ -152,7 +152,7 @@ def create_app(config: EchoConfig | None = None):
     """
     from starlette.applications import Starlette
     from starlette.responses import JSONResponse
-    from starlette.routing import Route, Mount
+    from starlette.routing import Mount, Route
 
     server = EchoServer(config)
 

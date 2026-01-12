@@ -292,7 +292,7 @@ class InputPipeline:
                     logger.error(f"Failed to link audio pad: {result}")
             else:
                 if sink_pad:
-                    logger.error(f"Audio sink pad already linked - this should not happen!")
+                    logger.error("Audio sink pad already linked - this should not happen!")
 
     def _validate_audio_track(self, timeout_ms: int = 2000) -> None:
         """Validate audio track presence in the stream.

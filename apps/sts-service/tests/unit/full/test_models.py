@@ -5,16 +5,13 @@ Tests T015-T021: Validate Pydantic models match JSON schemas.
 
 import pytest
 from pydantic import ValidationError
-
 from sts_service.full.models import (
     AckStatus,
     AudioData,
     BackpressureAction,
     BackpressurePayload,
     BackpressureSeverity,
-    DurationMetadata,
     ErrorResponse,
-    ErrorStage,
     FragmentAckPayload,
     FragmentDataPayload,
     FragmentMetadata,

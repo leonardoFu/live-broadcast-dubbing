@@ -37,7 +37,7 @@ class TestFragmentTrackerInit:
         tracker = FragmentTracker()
 
         assert tracker.max_inflight == 3
-        assert tracker.timeout_ms == 8000
+        assert tracker.timeout_ms == 60000  # 60 seconds for 30-second fragments
         assert tracker.inflight_count == 0
         assert tracker.sequence_number == 0
 

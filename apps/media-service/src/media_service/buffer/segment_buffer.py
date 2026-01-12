@@ -2,10 +2,10 @@
 Segment buffer for accumulating video and audio data.
 
 Accumulates incoming buffers until reaching the configured segment duration
-(default 6 seconds), then emits complete segments for disk storage.
+(default 30 seconds per spec 021), then emits complete segments for disk storage.
 
-Per spec 003:
-- 6-second segments for both video and audio
+Per spec 003 (updated by spec 021-fragment-length-30s):
+- 30-second segments for both video and audio (increased from 6s)
 - Partial segments on EOS (minimum 1 second)
 - Auto-generated fragment_id (UUID)
 - Sequential batch_number increments
@@ -51,7 +51,7 @@ class BufferAccumulator:
 
 
 class SegmentBuffer:
-    """Accumulates video and audio buffers into 6-second segments.
+    """Accumulates video and audio buffers into 30-second segments (spec 021).
 
     Manages separate accumulators for video and audio streams,
     emitting segments when duration threshold is reached.
@@ -64,8 +64,8 @@ class SegmentBuffer:
         _audio_batch_number: Current audio batch number
     """
 
-    # Default 6 seconds in nanoseconds
-    DEFAULT_SEGMENT_DURATION_NS = 6_000_000_000
+    # Default 30 seconds in nanoseconds (spec 021: increased from 6s)
+    DEFAULT_SEGMENT_DURATION_NS = 30_000_000_000
     # Minimum 1 second for partial segments
     MIN_PARTIAL_DURATION_NS = 1_000_000_000
 
@@ -80,7 +80,7 @@ class SegmentBuffer:
         Args:
             stream_id: Stream identifier for segment naming
             segment_dir: Base directory for segment storage
-            segment_duration_ns: Target segment duration (default 6 seconds)
+            segment_duration_ns: Target segment duration (default 30 seconds per spec 021)
         """
         self.stream_id = stream_id
         self.segment_dir = segment_dir
@@ -237,9 +237,9 @@ class SegmentBuffer:
         )
 
         # [DEBUG-SOLVER] Check for SPS/PPS/IDR in ENTIRE segment data
-        has_sps = b'\x00\x00\x00\x01\x67' in data or b'\x00\x00\x01\x67' in data
-        has_pps = b'\x00\x00\x00\x01\x68' in data or b'\x00\x00\x01\x68' in data
-        has_idr = b'\x00\x00\x00\x01\x65' in data or b'\x00\x00\x01\x65' in data
+        has_sps = b"\x00\x00\x00\x01\x67" in data or b"\x00\x00\x01\x67" in data
+        has_pps = b"\x00\x00\x00\x01\x68" in data or b"\x00\x00\x01\x68" in data
+        has_idr = b"\x00\x00\x00\x01\x65" in data or b"\x00\x00\x01\x65" in data
         # Show first 20 bytes as hex
         first_bytes = data[:20].hex() if len(data) >= 20 else data.hex()
 

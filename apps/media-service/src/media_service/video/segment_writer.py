@@ -137,7 +137,6 @@ class VideoSegmentWriter:
             FileNotFoundError: If ffmpeg not available
         """
         import asyncio
-        import tempfile
 
         logger.debug(
             f"🎬 Starting ffmpeg MP4 mux for {segment.file_path}, data size={len(video_data)} bytes"
@@ -197,7 +196,7 @@ class VideoSegmentWriter:
             segment.file_size = segment.file_path.stat().st_size
 
             if segment.file_size == 0:
-                logger.error(f"❌ MP4 file is 0 bytes!")
+                logger.error("❌ MP4 file is 0 bytes!")
                 raise RuntimeError("MP4 file is empty (0 bytes)")
 
             logger.info(
@@ -207,7 +206,7 @@ class VideoSegmentWriter:
 
             return segment
 
-        except Exception as e:
+        except Exception:
             # Clean up temp file on error
             if temp_h264.exists():
                 temp_h264.unlink()
@@ -350,7 +349,7 @@ class VideoSegmentWriter:
             raise RuntimeError(f"MP4 file was not created: {segment.file_path}")
 
         if segment.file_size == 0:
-            logger.error(f"❌ MP4 file is 0 bytes!")
+            logger.error("❌ MP4 file is 0 bytes!")
             raise RuntimeError("MP4 file is empty (0 bytes)")
 
         logger.info(

@@ -34,8 +34,8 @@ def test_metrics_recorded_on_success():
     """
     from sts_service.full.observability.metrics import (
         record_fragment_success,
-        sts_fragment_processing_seconds,
         sts_asr_duration_seconds,
+        sts_fragment_processing_seconds,
         sts_translation_duration_seconds,
         sts_tts_duration_seconds,
     )
@@ -121,9 +121,9 @@ def test_gpu_utilization_tracked(
     And: sts_gpu_memory_used_bytes gauge updated
     """
     from sts_service.full.observability.metrics import (
-        update_gpu_metrics,
-        sts_gpu_utilization_percent,
         sts_gpu_memory_used_bytes,
+        sts_gpu_utilization_percent,
+        update_gpu_metrics,
     )
 
     # Mock GPU metrics
@@ -174,8 +174,8 @@ def test_inflight_gauge_updated():
     Then: sts_fragments_in_flight gauge updated correctly
     """
     from sts_service.full.observability.metrics import (
-        increment_inflight,
         decrement_inflight,
+        increment_inflight,
         sts_fragments_in_flight,
     )
 
@@ -283,8 +283,8 @@ def test_active_sessions_gauge():
     Then: Gauge reflects current session count
     """
     from sts_service.full.observability.metrics import (
-        increment_active_sessions,
         decrement_active_sessions,
+        increment_active_sessions,
         sts_sessions_active,
     )
 

@@ -12,7 +12,6 @@ import json
 import logging
 from datetime import datetime
 from io import StringIO
-from unittest.mock import patch
 
 import pytest
 
@@ -174,8 +173,8 @@ def test_log_levels(caplog):
     Then: INFO and above logged, DEBUG filtered out
     """
     from sts_service.full.observability.logging_config import (
-        log_fragment_received,
         log_error,
+        log_fragment_received,
     )
 
     with caplog.at_level(logging.INFO):
@@ -293,8 +292,8 @@ def test_stream_lifecycle_logging(caplog):
     Then: Log entries include stream_id and event type
     """
     from sts_service.full.observability.logging_config import (
-        log_stream_init,
         log_stream_end,
+        log_stream_init,
     )
 
     with caplog.at_level(logging.INFO):
@@ -337,8 +336,8 @@ def test_log_context_manager(caplog):
     Then: Subsequent logs automatically include context fields
     """
     from sts_service.full.observability.logging_config import (
-        set_log_context,
         get_logger,
+        set_log_context,
     )
 
     logger = get_logger(__name__)

@@ -2,6 +2,10 @@
 Unit tests for SegmentBuffer class.
 
 Tests T031-T039 from tasks.md - validating segment buffering.
+
+Updated for spec 021-fragment-length-30s:
+- Default segment duration changed from 6s to 30s
+- FR-003: SegmentBuffer.DEFAULT_SEGMENT_DURATION_NS == 30_000_000_000
 """
 
 from __future__ import annotations
@@ -70,13 +74,22 @@ class TestSegmentBufferInit:
         assert (segment_dir / "test-stream").exists()
 
     def test_default_segment_duration(self, tmp_path: Path) -> None:
-        """Test default segment duration is 6 seconds."""
+        """Test default segment duration is 30 seconds (spec 021)."""
         buffer = SegmentBuffer(
             stream_id="test",
             segment_dir=tmp_path,
         )
 
-        assert buffer.segment_duration_ns == 6_000_000_000
+        assert buffer.segment_duration_ns == 30_000_000_000
+
+    def test_segment_buffer_accumulates_30s(self, tmp_path: Path) -> None:
+        """FR-003: SegmentBuffer emits at 30s threshold (spec 021)."""
+        buffer = SegmentBuffer(
+            stream_id="test",
+            segment_dir=tmp_path,
+        )
+        assert buffer.segment_duration_ns == 30_000_000_000
+        assert SegmentBuffer.DEFAULT_SEGMENT_DURATION_NS == 30_000_000_000
 
     def test_custom_segment_duration(self, tmp_path: Path) -> None:
         """Test custom segment duration is respected."""

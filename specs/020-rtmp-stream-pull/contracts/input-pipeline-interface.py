@@ -8,7 +8,8 @@ Key changes from RTSP version:
 - Simplified pad handling (no dynamic RTP depayloader creation)
 """
 
-from typing import Protocol, Callable
+from collections.abc import Callable
+from typing import Protocol
 
 # Type alias for buffer callbacks
 BufferCallback = Callable[[bytes, int, int], None]  # (data, pts_ns, duration_ns)

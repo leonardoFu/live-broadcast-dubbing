@@ -7,11 +7,11 @@ Task IDs: T085-T086
 """
 
 from .models.backpressure import (
+    RECOMMENDED_DELAYS_MS,
     BackpressureAction,
     BackpressureSeverity,
     BackpressureState,
     BackpressureThresholds,
-    RECOMMENDED_DELAYS_MS,
 )
 
 

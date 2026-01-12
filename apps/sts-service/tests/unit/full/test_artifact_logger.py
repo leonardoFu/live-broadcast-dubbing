@@ -14,10 +14,9 @@ import os
 import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import pytest
-
 from sts_service.full.models.asset import AssetStatus, AudioAsset, TranscriptAsset, TranslationAsset
 
 
@@ -109,7 +108,7 @@ def sample_audio_asset() -> AudioAsset:
 
 
 @pytest.fixture
-def sample_fragment_data() -> Dict[str, Any]:
+def sample_fragment_data() -> dict[str, Any]:
     """Create sample fragment data for testing."""
     # 1 second of silence PCM audio (48kHz, mono)
     sample_rate = 48000
@@ -302,7 +301,7 @@ def test_artifact_logger_writes_metadata(
     assert expected_path.exists()
 
     # Verify content
-    with open(expected_path, "r") as f:
+    with open(expected_path) as f:
         metadata = json.load(f)
 
     assert metadata["fragment_id"] == "frag-001"

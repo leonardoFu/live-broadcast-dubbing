@@ -141,6 +141,7 @@ class FasterWhisperASR(BaseASRComponent):
 
             # DEBUG
             import logging
+
             import numpy as np
 
             logger = logging.getLogger(__name__)
@@ -179,7 +180,6 @@ class FasterWhisperASR(BaseASRComponent):
             logger.info(f"DEBUG transcriber: vad_filter={vad_filter}, vad_params={vad_parameters}")
 
             # DEBUG: Save audio to file for comparison
-            import tempfile
             from pathlib import Path
 
             debug_audio_file = Path("/tmp/debug_audio_from_transcriber.npy")

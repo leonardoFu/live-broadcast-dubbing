@@ -10,7 +10,6 @@ from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
-from sts_service.full.backpressure_tracker import BackpressureTracker
 from sts_service.full.handlers.fragment import register_fragment_handlers
 from sts_service.full.handlers.lifecycle import register_lifecycle_handlers
 from sts_service.full.handlers.stream import register_stream_handlers

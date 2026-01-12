@@ -6,7 +6,6 @@ Missing required variables will cause startup to fail fast.
 
 import os
 from dataclasses import dataclass, field
-from typing import Optional
 
 
 @dataclass(frozen=True)
@@ -64,7 +63,7 @@ class PipelineConfig:
     """Pipeline configuration for ASR, Translation, and TTS."""
 
     # DeepL API (required for translation)
-    deepl_auth_key: Optional[str] = field(default_factory=lambda: os.getenv("DEEPL_AUTH_KEY"))
+    deepl_auth_key: str | None = field(default_factory=lambda: os.getenv("DEEPL_AUTH_KEY"))
 
     # ASR Configuration
     asr_model_size: str = field(default_factory=lambda: os.getenv("ASR_MODEL_SIZE", "medium"))
@@ -107,8 +106,8 @@ class PipelineConfig:
     )
 
     # Model paths (optional - defaults to cache)
-    asr_model_path: Optional[str] = field(default_factory=lambda: os.getenv("ASR_MODEL_PATH"))
-    tts_model_path: Optional[str] = field(default_factory=lambda: os.getenv("TTS_MODEL_PATH"))
+    asr_model_path: str | None = field(default_factory=lambda: os.getenv("ASR_MODEL_PATH"))
+    tts_model_path: str | None = field(default_factory=lambda: os.getenv("TTS_MODEL_PATH"))
     voice_profiles_path: str = field(
         default_factory=lambda: os.getenv("VOICE_PROFILES_PATH", "/config/voices.json")
     )
@@ -189,7 +188,7 @@ class FullSTSConfig:
 
 
 # Global singleton configuration
-_config: Optional[FullSTSConfig] = None
+_config: FullSTSConfig | None = None
 
 
 def get_config() -> FullSTSConfig:

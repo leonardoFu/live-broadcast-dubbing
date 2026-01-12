@@ -12,7 +12,6 @@ from typing import Any
 from pydantic import ValidationError
 
 from sts_service.full.backpressure_tracker import BackpressureTracker
-from sts_service.full.models.asset import AssetStatus
 from sts_service.full.models.error import ErrorResponse
 from sts_service.full.models.fragment import (
     AckStatus,
@@ -75,18 +74,12 @@ async def handle_fragment_data(
             return
 
         # Check backpressure - reject if critical
-        if backpressure_tracker and backpressure_tracker.should_reject_fragment(session.stream_id):
-            error = ErrorResponse(
-                code="BACKPRESSURE_EXCEEDED",
-                message=f"Too many in-flight fragments ({session.inflight_count}), rejecting new request",
-                severity="error",
-                retryable=True,
-                stream_id=fragment_data.stream_id,
-            )
-            await sio.emit("error", error.model_dump(), to=sid)
-            return
-        # Simple backpressure check using session count when tracker not available
-        elif not backpressure_tracker and session.inflight_count > 10:
+        if (
+            backpressure_tracker
+            and backpressure_tracker.should_reject_fragment(session.stream_id)
+            or not backpressure_tracker
+            and session.inflight_count > 10
+        ):
             error = ErrorResponse(
                 code="BACKPRESSURE_EXCEEDED",
                 message=f"Too many in-flight fragments ({session.inflight_count}), rejecting new request",

@@ -275,47 +275,47 @@ class TestCircuitBreakerRequestDecisions:
         assert breaker.get_state_value() == 1
 
 
-class TestAvSyncStatePtsAdjustments:
-    """Tests for AvSyncState PTS adjustments (T019)."""
+class TestAvSyncStateBufferAndWait:
+    """Tests for AvSyncState buffer-and-wait approach (spec 021).
 
-    def test_default_offset_is_6_seconds(self) -> None:
-        """Test default av_offset_ns is 6 seconds."""
+    Per spec 021-fragment-length-30s:
+    - av_offset_ns has been REMOVED (buffer-and-wait instead)
+    - Video segments are buffered until dubbed audio arrives
+    - Output PTS starts from 0 (re-encoded, not original stream PTS)
+    """
+
+    def test_av_sync_state_no_offset(self) -> None:
+        """FR-013: AvSyncState should not have av_offset_ns (removed)."""
         sync = AvSyncState()
+        # av_offset_ns should not exist or be 0 in buffer-and-wait approach
+        assert not hasattr(sync, "av_offset_ns") or sync.av_offset_ns == 0
 
-        assert sync.av_offset_ns == 6_000_000_000  # 6 seconds in nanoseconds
-        assert sync.av_offset_ms == 6000.0
+    def test_av_sync_state_tracks_pts(self) -> None:
+        """Validate AvSyncState tracks video_pts_last and audio_pts_last."""
+        sync = AvSyncState()
+        sync.update_sync_state(video_pts=5_000_000_000, audio_pts=5_100_000_000)
 
-    def test_adjust_video_pts(self) -> None:
-        """Test video PTS is increased by offset."""
-        sync = AvSyncState(av_offset_ns=6_000_000_000)
+        assert sync.video_pts_last == 5_000_000_000
+        assert sync.audio_pts_last == 5_100_000_000
 
-        original_pts = 1_000_000_000  # 1 second
-        adjusted = sync.adjust_video_pts(original_pts)
+    def test_av_sync_state_calculates_delta(self) -> None:
+        """Validate AvSyncState calculates sync_delta_ns correctly."""
+        sync = AvSyncState()
+        sync.update_sync_state(video_pts=5_000_000_000, audio_pts=5_100_000_000)
 
-        assert adjusted == 7_000_000_000  # 1s + 6s offset
+        assert sync.sync_delta_ns == 100_000_000  # 100ms delta
+        assert sync.sync_delta_ms == 100.0
 
-    def test_adjust_audio_pts(self) -> None:
-        """Test audio PTS is increased by offset."""
-        sync = AvSyncState(av_offset_ns=6_000_000_000)
-
-        original_pts = 2_000_000_000  # 2 seconds
-        adjusted = sync.adjust_audio_pts(original_pts)
-
-        assert adjusted == 8_000_000_000  # 2s + 6s offset
-
-    def test_configurable_offset(self) -> None:
-        """Test custom offset is respected."""
-        sync = AvSyncState(av_offset_ns=3_000_000_000)  # 3 seconds
-
-        video_pts = sync.adjust_video_pts(1_000_000_000)
-        audio_pts = sync.adjust_audio_pts(1_000_000_000)
-
-        assert video_pts == 4_000_000_000  # 1s + 3s
-        assert audio_pts == 4_000_000_000  # 1s + 3s
+    def test_av_sync_state_no_adjust_methods(self) -> None:
+        """Verify adjust_video_pts and adjust_audio_pts are removed."""
+        sync = AvSyncState()
+        # In buffer-and-wait, PTS adjustment methods should not exist
+        assert not hasattr(sync, "adjust_video_pts")
+        assert not hasattr(sync, "adjust_audio_pts")
 
 
-class TestAvSyncStateDriftDetection:
-    """Tests for AvSyncState drift detection (T019)."""
+class TestAvSyncStateSyncDelta:
+    """Tests for AvSyncState sync delta tracking (spec 021 buffer-and-wait)."""
 
     def test_update_sync_state(self) -> None:
         """Test sync state is updated correctly."""
@@ -342,93 +342,15 @@ class TestAvSyncStateDriftDetection:
         assert sync.sync_delta_ns == 150_000_000
         assert sync.sync_delta_ms == 150.0
 
-    def test_needs_correction_above_threshold(self) -> None:
-        """Test needs_correction returns True when delta > threshold."""
-        sync = AvSyncState(drift_threshold_ns=120_000_000)  # 120ms threshold
-
-        sync.update_sync_state(
-            video_pts=5_000_000_000,
-            audio_pts=5_200_000_000,  # 200ms delta (above 120ms)
-        )
-
-        assert sync.needs_correction() is True
-
-    def test_needs_correction_below_threshold(self) -> None:
-        """Test needs_correction returns False when delta < threshold."""
-        sync = AvSyncState(drift_threshold_ns=120_000_000)
-
-        sync.update_sync_state(
-            video_pts=5_000_000_000,
-            audio_pts=5_050_000_000,  # 50ms delta (below 120ms)
-        )
-
-        assert sync.needs_correction() is False
-
-    def test_needs_correction_at_threshold(self) -> None:
-        """Test needs_correction at exactly threshold."""
-        sync = AvSyncState(drift_threshold_ns=120_000_000)
-
-        sync.update_sync_state(
-            video_pts=5_000_000_000,
-            audio_pts=5_120_000_000,  # Exactly 120ms
-        )
-
-        # At threshold, no correction needed (must exceed)
-        assert sync.needs_correction() is False
-
-
-class TestAvSyncStateSlewCorrection:
-    """Tests for AvSyncState slew correction."""
-
-    def test_apply_slew_correction_positive(self) -> None:
-        """Test slew correction increases offset when video ahead."""
-        sync = AvSyncState(av_offset_ns=6_000_000_000, slew_rate_ns=10_000_000)
-
-        # Video ahead of audio
-        sync.video_pts_last = 5_100_000_000
-        sync.audio_pts_last = 5_000_000_000
-
-        adjustment = sync.apply_slew_correction()
-
-        assert adjustment == 10_000_000  # Positive adjustment
-        assert sync.av_offset_ns == 6_010_000_000
-
-    def test_apply_slew_correction_negative(self) -> None:
-        """Test slew correction decreases offset when audio ahead."""
-        sync = AvSyncState(av_offset_ns=6_000_000_000, slew_rate_ns=10_000_000)
-
-        # Audio ahead of video
-        sync.video_pts_last = 5_000_000_000
-        sync.audio_pts_last = 5_100_000_000
-
-        adjustment = sync.apply_slew_correction()
-
-        assert adjustment == -10_000_000  # Negative adjustment
-        assert sync.av_offset_ns == 5_990_000_000
-
-    def test_apply_slew_correction_clamped_to_rate(self) -> None:
-        """Test slew correction is clamped to max slew rate."""
-        sync = AvSyncState(av_offset_ns=6_000_000_000, slew_rate_ns=10_000_000)
-
-        # Try to apply larger adjustment
-        adjustment = sync.apply_slew_correction(amount_ns=100_000_000)
-
-        # Should be clamped to slew_rate_ns
-        assert adjustment == 10_000_000
-        assert sync.av_offset_ns == 6_010_000_000
-
-    def test_apply_slew_correction_with_specific_amount(self) -> None:
-        """Test slew correction with specific amount within rate."""
-        sync = AvSyncState(av_offset_ns=6_000_000_000, slew_rate_ns=10_000_000)
-
-        adjustment = sync.apply_slew_correction(amount_ns=5_000_000)
-
-        assert adjustment == 5_000_000
-        assert sync.av_offset_ns == 6_005_000_000
+    def test_drift_threshold_for_logging(self) -> None:
+        """Test drift_threshold_ns is 100ms (for logging only in buffer-and-wait)."""
+        sync = AvSyncState()
+        # In buffer-and-wait, drift_threshold_ns is for logging only (100ms)
+        assert sync.drift_threshold_ns == 100_000_000  # 100ms
 
     def test_reset(self) -> None:
         """Test reset clears sync state."""
-        sync = AvSyncState(av_offset_ns=6_000_000_000)
+        sync = AvSyncState()
 
         sync.update_sync_state(5_000_000_000, 5_100_000_000)
         assert sync.video_pts_last != 0
@@ -438,5 +360,11 @@ class TestAvSyncStateSlewCorrection:
         assert sync.video_pts_last == 0
         assert sync.audio_pts_last == 0
         assert sync.sync_delta_ns == 0
-        # Offset should not be reset
-        assert sync.av_offset_ns == 6_000_000_000
+
+    def test_no_drift_correction_methods(self) -> None:
+        """Verify needs_correction and apply_slew_correction are removed (spec 021)."""
+        sync = AvSyncState()
+        # In buffer-and-wait, drift correction methods should not exist
+        assert not hasattr(sync, "needs_correction")
+        assert not hasattr(sync, "apply_slew_correction")
+        assert not hasattr(sync, "slew_rate_ns")

@@ -92,12 +92,15 @@ def improve_sentence_boundaries(
 
 def split_long_segments(
     segments: list[TranscriptSegment],
-    max_duration_seconds: float = 6.0,
+    max_duration_seconds: float = 30.0,  # spec 021: increased from 6.0 to 30.0
 ) -> list[TranscriptSegment]:
     """Split segments that exceed maximum duration.
 
     Attempts to split at sentence boundaries (periods, question marks).
     Falls back to word boundaries if no sentence boundary found.
+
+    Updated for spec 021-fragment-length-30s:
+    - max_duration_seconds default changed from 6.0 to 30.0
 
     Args:
         segments: Input transcript segments

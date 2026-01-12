@@ -6,9 +6,7 @@ Defines typed models for stream lifecycle events per spec 021:
 Matches contracts/stream-schema.json.
 """
 
-from datetime import datetime
 from enum import Enum
-from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -27,6 +25,10 @@ class StreamConfig(BaseModel):
     """Stream configuration from worker.
 
     Matches spec 021 stream-schema.json stream_config definition.
+
+    Updated for spec 021-fragment-length-30s:
+    - chunk_duration_ms default changed from 6000 to 30000
+    - chunk_duration_ms max increased from 10000 to 30000 (FR-004)
     """
 
     source_language: str = Field(
@@ -47,9 +49,9 @@ class StreamConfig(BaseModel):
         description="TTS voice identifier from voices.json",
     )
     chunk_duration_ms: int = Field(
-        default=6000,
+        default=30000,  # spec 021: increased from 6000 to 30000
         ge=100,
-        le=10000,
+        le=30000,  # spec 021: increased from 10000 to 30000 (FR-004)
         description="Expected fragment duration in milliseconds",
     )
     sample_rate_hz: int = Field(
@@ -79,7 +81,7 @@ class StreamConfig(BaseModel):
                 "source_language": "en",
                 "target_language": "ja",
                 "voice_profile": "japanese_male_1",
-                "chunk_duration_ms": 6000,
+                "chunk_duration_ms": 30000,  # spec 021: 30s segments
                 "sample_rate_hz": 48000,
                 "channels": 1,
                 "format": "m4a",
@@ -153,13 +155,19 @@ class StreamInitPayload(BaseModel):
     """Inbound stream:init event payload from worker.
 
     Matches spec 021 stream-schema.json stream_init definition.
+
+    Updated for spec 021-fragment-length-30s:
+    - timeout_ms default increased from 8000 to 60000 (FR-006)
+    - timeout_ms max increased from 30000 to 120000 (FR-006)
     """
 
     stream_id: str = Field(min_length=1, description="Unique stream identifier")
     worker_id: str = Field(min_length=1, description="Worker instance identifier")
     config: StreamConfig
     max_inflight: int = Field(default=3, ge=1, le=10, description="Maximum concurrent fragments")
-    timeout_ms: int = Field(default=8000, ge=1000, le=30000, description="Processing timeout in ms")
+    timeout_ms: int = Field(
+        default=60000, ge=1000, le=120000, description="Processing timeout in ms"
+    )  # spec 021: FR-006
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -172,7 +180,7 @@ class StreamInitPayload(BaseModel):
                     "voice_profile": "spanish_male_1",
                 },
                 "max_inflight": 3,
-                "timeout_ms": 8000,
+                "timeout_ms": 60000,  # spec 021: 60s timeout for 30s segments
             }
         }
     )

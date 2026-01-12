@@ -174,19 +174,22 @@ class TestHandleStreamInit:
             "max_inflight": 3,
         }
 
-        with patch(
-            "sts_service.full.handlers.stream.load_voices_config", return_value=mock_voices_config
-        ):
-            with patch(
+        with (
+            patch(
+                "sts_service.full.handlers.stream.load_voices_config",
+                return_value=mock_voices_config,
+            ),
+            patch(
                 "sts_service.full.handlers.stream.PipelineCoordinator",
                 return_value=mock_pipeline_coordinator,
-            ):
-                await handle_stream_init(
-                    sio=mock_sio,
-                    sid="socket-123",
-                    data=payload,
-                    session_store=session_store,
-                )
+            ),
+        ):
+            await handle_stream_init(
+                sio=mock_sio,
+                sid="socket-123",
+                data=payload,
+                session_store=session_store,
+            )
 
         # Verify modules were initialized
         mock_pipeline_coordinator.initialize_modules.assert_called_once()

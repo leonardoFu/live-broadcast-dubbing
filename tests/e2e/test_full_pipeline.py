@@ -17,7 +17,6 @@ from pathlib import Path
 
 import httpx
 import pytest
-
 from helpers.metrics_parser import MetricsParser
 from helpers.stream_analyzer import StreamAnalyzer
 

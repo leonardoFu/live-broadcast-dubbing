@@ -3,8 +3,8 @@
 .PHONY: e2e-test e2e-test-p1 e2e-clean e2e-logs e2e-media-up e2e-media-down e2e-sts-up e2e-sts-down
 .PHONY: sts-docker sts-docker-stop sts-docker-logs sts-docker-status
 .PHONY: sts-elevenlabs sts-elevenlabs-stop sts-elevenlabs-logs
-.PHONY: dev-up dev-down dev-logs dev-ps dev-test
-.PHONY: dev-up-light dev-down-light
+.PHONY: dev-up dev-down dev-logs dev-ps dev-test dev-push dev-play dev-play-in
+.PHONY: dev-up-light dev-down-light dev-up-echo
 
 PYTHON := python3.10
 VENV := .venv
@@ -71,10 +71,14 @@ help:
 	@echo "Integrated Development (Media + STS Docker):"
 	@echo "  make dev-up             - Start media-service + Full STS Docker"
 	@echo "  make dev-up-light       - Start media-service + ElevenLabs STS (recommended)"
+	@echo "  make dev-up-echo        - Start media-service + Echo STS (fast testing, no API keys)"
 	@echo "  make dev-down           - Stop all development services"
 	@echo "  make dev-logs           - View logs from all services"
 	@echo "  make dev-ps             - List all running containers"
 	@echo "  make dev-test           - Publish test fixture and monitor"
+	@echo "  make dev-push           - Push speech.mp4 test stream (loops forever)"
+	@echo "  make dev-play           - Play dubbed output stream with ffplay"
+	@echo "  make dev-play-in        - Play input stream with ffplay (for comparison)"
 	@echo ""
 	@echo "Testing (E2E - Cross-Service):"
 	@echo "  make e2e-test           - Run E2E tests (auto-starts services via pytest)"
@@ -532,10 +536,40 @@ dev-up-light:
 	@echo "  make dev-test   - Publish test fixture"
 	@echo "  make dev-down   - Stop all services"
 
+# Echo STS development environment (fast testing, no API keys needed)
+dev-up-echo:
+	@echo "🚀 Starting development environment with Echo STS (fast testing mode)..."
+	@echo ""
+	@echo "Step 1: Starting Echo STS Service first..."
+	docker compose -f $(STS_SERVICE)/docker-compose.yml up echo-sts -d --build
+	@echo ""
+	@echo "Step 2: Starting media-service (pointing to echo-sts on port 3000)..."
+	STS_SERVICE_URL=http://echo-sts:3000 docker compose -f $(MEDIA_SERVICE)/docker-compose.yml up -d --build
+	@echo ""
+	@echo "Step 3: Connecting Echo STS to dubbing-network..."
+	@docker network connect dubbing-network echo-sts 2>/dev/null || echo "   (already connected or will auto-connect)"
+	@echo ""
+	@echo "✅ All services started (echo mode - no real ASR/TTS)!"
+	@echo ""
+	@echo "Services:"
+	@echo "  MediaMTX:       rtmp://localhost:1935 (RTMP), rtsp://localhost:8554 (RTSP)"
+	@echo "  MediaMTX API:   http://localhost:9997/v3/paths/list"
+	@echo "  Media Service:  http://localhost:8080/health"
+	@echo "  Echo STS:       http://localhost:3000/health (echoes audio back)"
+	@echo ""
+	@echo "⚠️  Note: Echo STS returns input audio unchanged (no translation/dubbing)"
+	@echo "   Use this mode to test pipeline flow, not audio quality."
+	@echo ""
+	@echo "Commands:"
+	@echo "  make dev-logs   - View logs from all services"
+	@echo "  make dev-test   - Publish test fixture"
+	@echo "  make dev-down   - Stop all services"
+
 dev-down:
 	@echo "🛑 Stopping all development services..."
 	@docker compose -f $(STS_SERVICE)/docker-compose.full.yml down --remove-orphans 2>/dev/null || true
 	@docker compose -f $(STS_SERVICE)/docker-compose.elevenlabs.yml down --remove-orphans 2>/dev/null || true
+	@docker compose -f $(STS_SERVICE)/docker-compose.yml down --remove-orphans 2>/dev/null || true
 	@docker compose -f $(MEDIA_SERVICE)/docker-compose.yml down -v --remove-orphans 2>/dev/null || true
 	@echo "✅ All services stopped"
 
@@ -579,3 +613,61 @@ dev-test:
 		-i $(TEST_FIXTURE) \
 		-c copy \
 		-f flv rtmp://localhost:1935/live/test_stream/in
+
+# Stream name for dev-push/dev-play commands
+DEV_STREAM_NAME ?= test-stream
+DEV_SPEECH_FIXTURE := tests/fixtures/test-streams/speech_zh.mp4
+
+dev-push:
+	@echo "🎬 Pushing test stream to media-service..."
+	@if [ ! -f $(DEV_SPEECH_FIXTURE) ]; then \
+		echo "❌ Test fixture not found: $(DEV_SPEECH_FIXTURE)"; \
+		exit 1; \
+	fi
+	@echo ""
+	@echo "Checking services..."
+	@curl -sf http://localhost:8080/health >/dev/null || (echo "❌ Media service not running. Run 'make dev-up-light' first." && exit 1)
+	@curl -sf http://localhost:8000/health >/dev/null || (echo "❌ STS service not running. Run 'make dev-up-light' first." && exit 1)
+	@echo "✅ All services healthy"
+	@echo ""
+	@echo "Publishing $(DEV_SPEECH_FIXTURE) to rtmp://localhost:1935/live/$(DEV_STREAM_NAME)/in"
+	@echo "Output will be at: rtmp://localhost:1935/live/$(DEV_STREAM_NAME)/out"
+	@echo ""
+	@echo "To play output: make dev-play"
+	@echo "To play input:  make dev-play-in"
+	@echo ""
+	@echo "Press Ctrl+C to stop"
+	@echo ""
+	ffmpeg -re -stream_loop -1 \
+		-i $(DEV_SPEECH_FIXTURE) \
+		-c:v libx264 -preset veryfast -tune zerolatency \
+		-c:a aac -b:a 128k \
+		-f flv "rtmp://localhost:1935/live/$(DEV_STREAM_NAME)/in"
+
+dev-play:
+	@echo "🎧 Playing dubbed output stream..."
+	@echo "Stream: rtsp://localhost:8554/live/$(DEV_STREAM_NAME)/out"
+	@echo ""
+	@echo "Checking if stream is active..."
+	@curl -sf http://localhost:9997/v3/paths/list | grep -q "$(DEV_STREAM_NAME)/out" || \
+		(echo "⚠️  Output stream not found. Make sure 'make dev-push' is running and pipeline has processed some data." && exit 1)
+	@echo "✅ Stream found, starting playback..."
+	@echo ""
+	@echo "Press Q or Ctrl+C to stop"
+	@echo ""
+	ffplay -fflags nobuffer -flags low_delay -framedrop \
+		"rtsp://localhost:8554/live/$(DEV_STREAM_NAME)/out"
+
+dev-play-in:
+	@echo "🎧 Playing input stream (for comparison)..."
+	@echo "Stream: rtsp://localhost:8554/live/$(DEV_STREAM_NAME)/in"
+	@echo ""
+	@echo "Checking if stream is active..."
+	@curl -sf http://localhost:9997/v3/paths/list | grep -q "$(DEV_STREAM_NAME)/in" || \
+		(echo "⚠️  Input stream not found. Make sure 'make dev-push' is running." && exit 1)
+	@echo "✅ Stream found, starting playback..."
+	@echo ""
+	@echo "Press Q or Ctrl+C to stop"
+	@echo ""
+	ffplay -fflags nobuffer -flags low_delay -framedrop \
+		"rtsp://localhost:8554/live/$(DEV_STREAM_NAME)/in"

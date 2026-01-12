@@ -5,7 +5,9 @@ Per spec 003, segments are stored as:
 - Video: MP4 files (H.264 codec-copy)
 - Audio: M4A files (AAC codec-copy)
 
-Each segment represents ~6 seconds of media with preserved timestamps.
+Updated for spec 021-fragment-length-30s:
+- Each segment represents ~30 seconds of media (increased from 6s)
+- DEFAULT_SEGMENT_DURATION_NS changed from 6_000_000_000 to 30_000_000_000
 """
 
 from __future__ import annotations
@@ -33,7 +35,7 @@ class VideoSegment:
         file_size: Size of MP4 file in bytes.
 
     Invariants:
-        - duration_ns should be ~6_000_000_000 (6 seconds) +/- 100ms
+        - duration_ns should be ~30_000_000_000 (30 seconds) +/- 100ms (spec 021)
         - file_path points to valid MP4 with H.264 video track
     """
 
@@ -45,8 +47,8 @@ class VideoSegment:
     file_path: Path
     file_size: int = 0
 
-    # Constants
-    DEFAULT_SEGMENT_DURATION_NS: ClassVar[int] = 6_000_000_000  # 6 seconds
+    # Constants (spec 021: increased from 6s to 30s)
+    DEFAULT_SEGMENT_DURATION_NS: ClassVar[int] = 30_000_000_000  # 30 seconds (spec 021)
     MIN_SEGMENT_DURATION_NS: ClassVar[int] = 1_000_000_000  # 1 second minimum for partial
     TOLERANCE_NS: ClassVar[int] = 100_000_000  # 100ms tolerance
 
@@ -109,7 +111,7 @@ class VideoSegment:
         if allow_partial:
             return self.duration_ns >= self.MIN_SEGMENT_DURATION_NS
 
-        # Full segment: 6s +/- 100ms
+        # Full segment: 30s +/- 100ms (spec 021)
         min_ns = self.DEFAULT_SEGMENT_DURATION_NS - self.TOLERANCE_NS
         max_ns = self.DEFAULT_SEGMENT_DURATION_NS + self.TOLERANCE_NS
         return min_ns <= self.duration_ns <= max_ns
@@ -134,7 +136,7 @@ class AudioSegment:
         is_dubbed: Whether STS processing completed successfully.
 
     Invariants:
-        - duration_ns should be ~6_000_000_000 (6 seconds) +/- 100ms
+        - duration_ns should be ~30_000_000_000 (30 seconds) +/- 100ms (spec 021)
         - file_path points to valid M4A with AAC audio track
     """
 
@@ -148,8 +150,8 @@ class AudioSegment:
     dubbed_file_path: Path | None = None
     is_dubbed: bool = False
 
-    # Constants (same as VideoSegment for consistency)
-    DEFAULT_SEGMENT_DURATION_NS: ClassVar[int] = 6_000_000_000  # 6 seconds
+    # Constants (same as VideoSegment for consistency) - spec 021: increased from 6s to 30s
+    DEFAULT_SEGMENT_DURATION_NS: ClassVar[int] = 30_000_000_000  # 30 seconds (spec 021)
     MIN_SEGMENT_DURATION_NS: ClassVar[int] = 1_000_000_000  # 1 second minimum for partial
     TOLERANCE_NS: ClassVar[int] = 100_000_000  # 100ms tolerance
 
@@ -242,7 +244,7 @@ class AudioSegment:
         if allow_partial:
             return self.duration_ns >= self.MIN_SEGMENT_DURATION_NS
 
-        # Full segment: 6s +/- 100ms
+        # Full segment: 30s +/- 100ms (spec 021)
         min_ns = self.DEFAULT_SEGMENT_DURATION_NS - self.TOLERANCE_NS
         max_ns = self.DEFAULT_SEGMENT_DURATION_NS + self.TOLERANCE_NS
         return min_ns <= self.duration_ns <= max_ns

@@ -16,14 +16,10 @@ from __future__ import annotations
 
 import base64
 import logging
-import struct
 import subprocess
-import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-
-import numpy as np
 
 logger = logging.getLogger(__name__)
 

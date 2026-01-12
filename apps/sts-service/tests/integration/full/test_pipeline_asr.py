@@ -17,16 +17,15 @@ Requirements:
 - ffmpeg installed (for audio extraction)
 """
 
-import base64
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
-
 from sts_service.asr import ASRConfig, ASRModelConfig, FasterWhisperASR, VADConfig
 from sts_service.full.models.asset import AssetStatus, DurationMatchMetadata
-from sts_service.full.models.fragment import FragmentData, ProcessingStatus
+from sts_service.full.models.fragment import ProcessingStatus
 from sts_service.full.models.stream import StreamSession
 from sts_service.full.pipeline import PipelineCoordinator
 

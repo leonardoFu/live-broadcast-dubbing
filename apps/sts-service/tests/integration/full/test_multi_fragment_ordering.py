@@ -22,12 +22,10 @@ import asyncio
 import base64
 import random
 import time
-from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
-
 from sts_service.full.fragment_queue import FragmentQueue
 from sts_service.full.models.asset import AssetStatus, DurationMatchMetadata
 from sts_service.full.models.fragment import (
@@ -40,8 +38,6 @@ from sts_service.full.models.fragment import (
 )
 from sts_service.full.models.stream import StreamConfig, StreamSession, StreamState
 from sts_service.full.pipeline import PipelineCoordinator
-
-from .conftest import requires_faster_whisper
 
 
 class TestFragmentQueueOrdering:

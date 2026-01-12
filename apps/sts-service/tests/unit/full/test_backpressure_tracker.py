@@ -6,15 +6,12 @@ These tests MUST be written FIRST and MUST FAIL before implementation (TDD).
 Task IDs: T073-T076
 """
 
-import pytest
-
+from sts_service.full.backpressure_tracker import BackpressureTracker
 from sts_service.full.models.backpressure import (
     BackpressureAction,
     BackpressureSeverity,
     BackpressureState,
 )
-from sts_service.full.backpressure_tracker import BackpressureTracker
-
 
 # -----------------------------------------------------------------------------
 # T073: Backpressure tracker - low severity

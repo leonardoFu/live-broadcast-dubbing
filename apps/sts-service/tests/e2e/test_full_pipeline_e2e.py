@@ -541,6 +541,6 @@ async def test_error_handling_e2e(full_sts_service: str):
         assert result_data["status"] == "success", (
             f"Valid fragment failed after error: {result_data}"
         )
-        logger.info(f"✓ Valid fragment processed successfully after error")
+        logger.info("✓ Valid fragment processed successfully after error")
 
     logger.info("✓ Test passed: Error handling")

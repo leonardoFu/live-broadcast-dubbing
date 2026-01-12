@@ -1,0 +1,19 @@
+{
+  "workflow_id": "021-fragment-length-30s",
+  "workflow_type": "full",
+  "libraries_detected": [],
+  "research_included": false,
+  "agents_to_execute": ["specify", "clarify", "plan", "checklist", "tasks", "analyze", "implement", "test", "review"],
+  "completed_agents": ["specify", "clarify", "plan", "checklist", "tasks", "analyze"],
+  "current_agent": "checkpoint",
+  "status": "awaiting_approval",
+  "user_request": "Increase the fragment length from current 6s to 30s",
+  "created_at": "2026-01-11T00:00:00Z",
+  "clarified_decisions": {
+    "sts_timeout": "60s (60000ms) with le=120000 validation max",
+    "chunk_validation": "le=30000 (exactly 30s max)",
+    "memory_handling": "No automatic handling - rely on container limits",
+    "av_offset": "35s (35_000_000_000ns)",
+    "partial_segments": "Send all >=1s to STS for processing"
+  }
+}

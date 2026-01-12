@@ -28,16 +28,16 @@ class TestStreamConfig:
     """Tests for StreamConfig data model (T015)."""
 
     def test_default_values(self) -> None:
-        """Test StreamConfig default values."""
+        """Test StreamConfig default values (spec 021: 30s chunks, zh target)."""
         config = StreamConfig()
 
         assert config.source_language == "en"
-        assert config.target_language == "es"
+        assert config.target_language == "zh"  # Updated default
         assert config.voice_profile == "default"
         assert config.format == "m4a"
         assert config.sample_rate_hz == 48000
         assert config.channels == 2
-        assert config.chunk_duration_ms == 6000
+        assert config.chunk_duration_ms == 30000  # 30s per spec 021
 
     def test_custom_values(self) -> None:
         """Test StreamConfig with custom values."""

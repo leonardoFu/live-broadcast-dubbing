@@ -7,21 +7,15 @@ Task IDs: T066-T071, T087
 """
 
 import base64
-import time
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
 # Import models from Phase 1
 from sts_service.full.models.asset import (
     AssetStatus,
-    AudioAsset,
     DurationMatchMetadata,
-    TranscriptAsset,
-    TranscriptSegment,
-    TranslationAsset,
 )
-from sts_service.full.models.error import ErrorCode, ErrorStage
 from sts_service.full.models.fragment import (
     AudioData,
     FragmentData,
@@ -29,12 +23,11 @@ from sts_service.full.models.fragment import (
     FragmentResult,
     ProcessingStatus,
 )
-from sts_service.full.models.stream import StreamConfig, StreamState
-from sts_service.full.session import StreamSession
+from sts_service.full.models.stream import StreamState
 
 # Pipeline coordinator will be implemented in Phase 2
 from sts_service.full.pipeline import PipelineCoordinator
-
+from sts_service.full.session import StreamSession
 
 # -----------------------------------------------------------------------------
 # Test Fixtures

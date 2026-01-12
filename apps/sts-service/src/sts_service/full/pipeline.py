@@ -13,7 +13,7 @@ import tempfile
 import time
 import uuid
 from pathlib import Path
-from typing import Optional, Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable
 
 from sts_service.asr.models import TranscriptAsset as ASRTranscriptAsset
 from sts_service.asr.models import TranscriptStatus
@@ -30,7 +30,7 @@ from .models.asset import (
     TranscriptAsset,
     TranslationAsset,
 )
-from .models.error import ErrorCode, ErrorResponse, ErrorStage
+from .models.error import ErrorStage
 from .models.fragment import (
     AudioData,
     DurationMetadata,
@@ -43,14 +43,11 @@ from .models.fragment import (
 from .observability.artifact_logger import ArtifactLogger
 from .observability.logger import bind_stream_context, get_logger
 from .observability.metrics import (
-    decrement_inflight,
-    increment_inflight,
     record_fragment_failure,
     record_fragment_success,
     record_stage_timing,
 )
 from .session import StreamSession
-
 
 # -----------------------------------------------------------------------------
 # Component Protocols
@@ -176,7 +173,7 @@ class PipelineCoordinator:
             artifacts_path = os.getenv("ARTIFACTS_PATH", "/tmp/sts-artifacts")
             retention_hours = int(os.getenv("ARTIFACTS_RETENTION_HOURS", "24"))
             max_count = int(os.getenv("ARTIFACTS_MAX_COUNT", "1000"))
-            self.artifact_logger: Optional[ArtifactLogger] = ArtifactLogger(
+            self.artifact_logger: ArtifactLogger | None = ArtifactLogger(
                 artifacts_path=artifacts_path,
                 enable_logging=True,
                 retention_hours=retention_hours,
@@ -658,7 +655,11 @@ class PipelineCoordinator:
                     output_format = "pcm_f32le"
             else:
                 # Audio is already in a container format
-                output_format = getattr(tts_audio_format, "value", str(tts_audio_format)) if tts_audio_format else "m4a"
+                output_format = (
+                    getattr(tts_audio_format, "value", str(tts_audio_format))
+                    if tts_audio_format
+                    else "m4a"
+                )
 
             audio_b64 = base64.b64encode(audio_bytes_out).decode("utf-8")
 

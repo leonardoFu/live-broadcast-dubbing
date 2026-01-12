@@ -44,7 +44,7 @@ class TestSegmentBufferToWriterIntegration:
             stream_id="integration-test",
             batch_number=0,
             t0_ns=0,
-            duration_ns=6_000_000_000,
+            duration_ns=30_000_000_000,  # 30s per spec 021
             file_path=segment_dir / "integration-test" / "000000_video.mp4",
         )
 
@@ -75,7 +75,7 @@ class TestSegmentBufferToWriterIntegration:
             stream_id="integration-test",
             batch_number=0,
             t0_ns=0,
-            duration_ns=6_000_000_000,
+            duration_ns=30_000_000_000,  # 30s per spec 021
             file_path=segment_dir / "integration-test" / "000000_audio.m4a",
         )
 
@@ -101,8 +101,7 @@ class TestAvSyncIntegration:
         video_writer = VideoSegmentWriter(segment_dir)
         audio_writer = AudioSegmentWriter(segment_dir)
         av_sync = AvSyncManager(
-            av_offset_ns=6_000_000_000,
-            drift_threshold_ns=120_000_000,
+            drift_threshold_ns=100_000_000,  # 100ms per spec 021
             max_buffer_size=10,
         )
 
@@ -112,7 +111,7 @@ class TestAvSyncIntegration:
             stream_id="sync-test",
             batch_number=0,
             t0_ns=0,
-            duration_ns=6_000_000_000,
+            duration_ns=30_000_000_000,  # 30s per spec 021
             file_path=segment_dir / "sync-test" / "000000_video.mp4",
         )
         video_data = b"VIDEO_DATA_" + b"\x00" * 1000
@@ -124,7 +123,7 @@ class TestAvSyncIntegration:
             stream_id="sync-test",
             batch_number=0,
             t0_ns=0,
-            duration_ns=6_000_000_000,
+            duration_ns=30_000_000_000,  # 30s per spec 021
             file_path=segment_dir / "sync-test" / "000000_audio.m4a",
         )
         audio_data = b"AUDIO_DATA_" + b"\x00" * 500
@@ -157,7 +156,7 @@ class TestAvSyncIntegration:
                 stream_id="multi-test",
                 batch_number=i,
                 t0_ns=i * 6_000_000_000,
-                duration_ns=6_000_000_000,
+                duration_ns=30_000_000_000,  # 30s per spec 021
                 file_path=segment_dir / "multi-test" / f"{i:06d}_video.mp4",
             )
             audio_segment = AudioSegment(
@@ -165,7 +164,7 @@ class TestAvSyncIntegration:
                 stream_id="multi-test",
                 batch_number=i,
                 t0_ns=i * 6_000_000_000,
-                duration_ns=6_000_000_000,
+                duration_ns=30_000_000_000,  # 30s per spec 021
                 file_path=segment_dir / "multi-test" / f"{i:06d}_audio.m4a",
             )
 
@@ -203,7 +202,7 @@ class TestDubbedAudioIntegration:
             stream_id="dub-test",
             batch_number=0,
             t0_ns=0,
-            duration_ns=6_000_000_000,
+            duration_ns=30_000_000_000,  # 30s per spec 021
             file_path=segment_dir / "dub-test" / "000000_audio.m4a",
         )
 
@@ -231,7 +230,7 @@ class TestDubbedAudioIntegration:
             stream_id="dub-test",
             batch_number=0,
             t0_ns=0,
-            duration_ns=6_000_000_000,
+            duration_ns=30_000_000_000,  # 30s per spec 021
             file_path=segment_dir / "dub-test" / "000000_video.mp4",
         )
         video_data = b"VIDEO_DATA"
