@@ -191,11 +191,18 @@ class StsSocketIOClient:
         """
         payload = FragmentProcessedPayload.from_dict(data)
 
-        logger.info(
+        log_msg = (
             f"Fragment processed: id={payload.fragment_id}, "
             f"status={payload.status}, "
             f"processing_time={payload.processing_time_ms}ms"
         )
+
+        # Log error details if processing failed
+        if payload.error:
+            log_msg += f", error_code={payload.error.code}, error_msg={payload.error.message}"
+            logger.warning(log_msg)
+        else:
+            logger.info(log_msg)
 
         if self._on_fragment_processed:
             await self._on_fragment_processed(payload)

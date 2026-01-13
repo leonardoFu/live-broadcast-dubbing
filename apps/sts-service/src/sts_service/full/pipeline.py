@@ -470,13 +470,31 @@ class PipelineCoordinator:
             logger.info("translation_completed", latency_ms=stage_timings.translation_ms)
             record_stage_timing("translation", stage_timings.translation_ms)
 
+            # DEBUG: Log translation result details
+            logger.info(
+                "DEBUG: Translation result",
+                status=str(translation_result.status),
+                translated_text_len=len(getattr(translation_result, "translated_text", "") or ""),
+                errors=str(getattr(translation_result, "errors", [])),
+                source_lang=session.source_language,
+                target_lang=session.target_language,
+            )
+
             # Check Translation status
             if self._is_failed(translation_result.status):
+                error_msg = getattr(translation_result, "error_message", None)
+                errors = getattr(translation_result, "errors", [])
+                if errors and not error_msg:
+                    error_msg = str(errors[0]) if errors else "Translation failed"
+                logger.error(
+                    "Translation failed",
+                    error_message=error_msg,
+                    errors=str(errors),
+                )
                 return self._create_failed_result(
                     fragment_data=fragment_data,
                     stage=ErrorStage.TRANSLATION,
-                    error_message=getattr(translation_result, "error_message", None)
-                    or "Translation failed",
+                    error_message=error_msg or "Translation failed",
                     stage_timings=stage_timings,
                     processing_time_ms=self._elapsed_ms(start_time),
                     retryable=True,

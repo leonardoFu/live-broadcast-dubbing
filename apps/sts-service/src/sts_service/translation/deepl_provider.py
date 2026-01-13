@@ -138,12 +138,19 @@ class DeepLTranslator(BaseTranslationComponent):
 
         # Call DeepL API
         try:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(
+                f"DEBUG DeepL: Calling API with source_lang={source_language.upper()}, "
+                f"target_lang={target_language.upper()}, text_len={len(normalized_text)}"
+            )
             result = self._translator.translate_text(
                 normalized_text,
                 source_lang=source_language.upper(),
                 target_lang=target_language.upper(),
             )
             translated_text = result.text
+            logger.info(f"DEBUG DeepL: Success, translated_text_len={len(translated_text)}")
 
             # Apply TTS cleanup if enabled
             if normalization_policy.tts_cleanup:
@@ -168,6 +175,9 @@ class DeepLTranslator(BaseTranslationComponent):
             )
 
         except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"DEBUG DeepL: Exception occurred: {type(e).__name__}: {e}")
             error = create_translation_error(e)
             processing_time_ms = int((time.time() - start_time) * 1000)
 

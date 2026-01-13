@@ -34,8 +34,8 @@ class StreamConfig:
         chunk_duration_ms: Segment duration in milliseconds.
     """
 
-    source_language: str = "en"
-    target_language: str = "zh"
+    source_language: str = "zh"
+    target_language: str = "en-us"
     voice_profile: str = "default"
     format: str = "m4a"
     sample_rate_hz: int = 48000

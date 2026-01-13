@@ -60,8 +60,8 @@ class WorkerConfig:
     rtmp_url: str
     sts_url: str
     segment_dir: Path
-    source_language: str = "en"
-    target_language: str = "zh"
+    source_language: str = "zh"
+    target_language: str = "en-us"
     voice_profile: str = "default"
     segment_duration_ns: int = 30_000_000_000  # 30 seconds per spec 021
 
@@ -220,12 +220,16 @@ class WorkerRunner:
         data: bytes,
         pts_ns: int,
         duration_ns: int,
+        is_keyframe: bool = False,
     ) -> None:
         """Handle video buffer from input pipeline.
 
         Accumulates data and emits segments when ready.
+        Keyframe info is used to align segment boundaries.
         """
-        segment, segment_data = self.segment_buffer.push_video(data, pts_ns, duration_ns)
+        segment, segment_data = self.segment_buffer.push_video(
+            data, pts_ns, duration_ns, is_keyframe
+        )
 
         if segment is not None:
             # Thread-safe queue operation

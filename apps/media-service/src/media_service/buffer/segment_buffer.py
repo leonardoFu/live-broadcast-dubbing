@@ -29,21 +29,30 @@ class BufferAccumulator:
     Attributes:
         data: Accumulated buffer bytes
         t0_ns: PTS of first buffer in segment
-        duration_ns: Total accumulated duration
+        last_pts_ns: PTS of last buffer (for PTS-based duration calculation)
+        last_duration_ns: Duration of last buffer (for final segment duration)
+        duration_ns: Total accumulated duration (PTS-based)
         buffer_count: Number of buffers accumulated
+        ready_to_emit: True when duration threshold reached, waiting for keyframe
     """
 
     data: bytearray = field(default_factory=bytearray)
     t0_ns: int = 0
+    last_pts_ns: int = 0
+    last_duration_ns: int = 0
     duration_ns: int = 0
     buffer_count: int = 0
+    ready_to_emit: bool = False
 
     def reset(self) -> None:
         """Reset accumulator to initial state."""
         self.data = bytearray()
         self.t0_ns = 0
+        self.last_pts_ns = 0
+        self.last_duration_ns = 0
         self.duration_ns = 0
         self.buffer_count = 0
+        self.ready_to_emit = False
 
     def is_empty(self) -> bool:
         """Check if accumulator has no data."""
@@ -68,6 +77,9 @@ class SegmentBuffer:
     DEFAULT_SEGMENT_DURATION_NS = 30_000_000_000
     # Minimum 1 second for partial segments
     MIN_PARTIAL_DURATION_NS = 1_000_000_000
+    # Maximum segment duration - force emit if no keyframe after this (prevents unbounded growth)
+    # Set to 45 seconds to allow for long GOP sources while preventing memory issues
+    MAX_SEGMENT_DURATION_NS = 45_000_000_000
 
     def __init__(
         self,
@@ -106,13 +118,19 @@ class SegmentBuffer:
         buffer_data: bytes,
         pts_ns: int,
         duration_ns: int,
+        is_keyframe: bool = False,
     ) -> tuple[VideoSegment | None, bytes]:
         """Push video buffer and return segment if ready.
 
+        Segments are aligned to keyframe boundaries: when duration threshold is
+        reached, we wait for the next keyframe before emitting. This ensures
+        each segment starts with an IDR frame, preventing decoder errors.
+
         Args:
-            buffer_data: Raw video buffer data (H.264)
+            buffer_data: Raw video buffer data (H.264 or MPEG-TS)
             pts_ns: Buffer presentation timestamp in nanoseconds
             duration_ns: Buffer duration in nanoseconds
+            is_keyframe: True if this buffer contains an IDR frame (keyframe)
 
         Returns:
             Tuple of (VideoSegment, accumulated_data) if segment ready,
@@ -120,17 +138,60 @@ class SegmentBuffer:
         """
         acc = self._video_accumulator
 
-        # Capture t0 from first buffer
+        # If we're ready to emit and this is a keyframe, emit BEFORE adding this data
+        # This ensures the new segment starts with the keyframe
+        if acc.ready_to_emit and is_keyframe and not acc.is_empty():
+            logger.info(
+                f"Keyframe received at pts={pts_ns / 1e9:.2f}s, "
+                f"emitting segment (waited {(pts_ns - acc.t0_ns - self.segment_duration_ns) / 1e9:.2f}s for keyframe)"
+            )
+            segment, data = self._emit_video_segment()
+
+            # Start new segment with this keyframe
+            acc.t0_ns = pts_ns
+            acc.data.extend(buffer_data)
+            acc.buffer_count = 1
+            acc.last_pts_ns = pts_ns
+            acc.last_duration_ns = duration_ns
+            acc.duration_ns = duration_ns
+
+            return segment, data
+
+        # Capture t0 from first buffer (should be a keyframe for clean start)
         if acc.is_empty():
             acc.t0_ns = pts_ns
+            if not is_keyframe:
+                logger.debug(f"First buffer is not a keyframe (pts={pts_ns / 1e9:.2f}s)")
 
         # Accumulate data
         acc.data.extend(buffer_data)
-        acc.duration_ns += duration_ns
         acc.buffer_count += 1
 
-        # Check if segment is ready
+        # Track last buffer's PTS for PTS-based duration calculation
+        # This is more accurate than summing durations, especially for MPEG-TS
+        # where individual buffer durations may be unreliable
+        acc.last_pts_ns = pts_ns
+        acc.last_duration_ns = duration_ns
+
+        # Calculate duration from PTS span (more accurate than summing durations)
+        # duration = (last_pts - first_pts) + last_duration
+        acc.duration_ns = (pts_ns - acc.t0_ns) + duration_ns
+
+        # Check if we should mark as ready to emit (waiting for next keyframe)
         if acc.duration_ns >= self.segment_duration_ns:
+            if not acc.ready_to_emit:
+                acc.ready_to_emit = True
+                logger.debug(
+                    f"Video segment ready to emit at {acc.duration_ns / 1e9:.2f}s, "
+                    "waiting for next keyframe"
+                )
+
+        # Force emit if we've exceeded max duration (prevents unbounded growth)
+        if acc.duration_ns >= self.MAX_SEGMENT_DURATION_NS:
+            logger.warning(
+                f"Forcing video segment emit at {acc.duration_ns / 1e9:.2f}s "
+                f"(no keyframe received, max={self.MAX_SEGMENT_DURATION_NS / 1e9:.0f}s)"
+            )
             return self._emit_video_segment()
 
         return None, b""
@@ -160,8 +221,15 @@ class SegmentBuffer:
 
         # Accumulate data
         acc.data.extend(buffer_data)
-        acc.duration_ns += duration_ns
         acc.buffer_count += 1
+
+        # Track last buffer's PTS for PTS-based duration calculation
+        acc.last_pts_ns = pts_ns
+        acc.last_duration_ns = duration_ns
+
+        # Calculate duration from PTS span (more accurate than summing durations)
+        # duration = (last_pts - first_pts) + last_duration
+        acc.duration_ns = (pts_ns - acc.t0_ns) + duration_ns
 
         # Check if segment is ready
         if acc.duration_ns >= self.segment_duration_ns:

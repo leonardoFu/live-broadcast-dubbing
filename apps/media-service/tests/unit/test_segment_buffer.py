@@ -123,7 +123,7 @@ class TestSegmentBufferVideo:
         assert data == b""
 
     def test_push_video_returns_segment_when_full(self, tmp_path: Path) -> None:
-        """Test push_video returns segment when duration reached."""
+        """Test push_video returns segment when duration reached and keyframe arrives."""
         buffer = SegmentBuffer(
             stream_id="test",
             segment_dir=tmp_path,
@@ -138,16 +138,26 @@ class TestSegmentBufferVideo:
         )
         assert segment is None
 
-        # Push second second - should emit
+        # Push second second - duration reached but waiting for keyframe
         segment, data = buffer.push_video(
             buffer_data=b"frame2",
             pts_ns=1_000_000_000,
             duration_ns=1_000_000_000,
         )
+        # With keyframe alignment, segment waits for keyframe
+        assert segment is None
+
+        # Push keyframe - should emit segment and start new one with keyframe
+        segment, data = buffer.push_video(
+            buffer_data=b"keyframe",
+            pts_ns=2_000_000_000,
+            duration_ns=1_000_000_000,
+            is_keyframe=True,
+        )
 
         assert segment is not None
         assert isinstance(segment, VideoSegment)
-        assert data == b"frame1frame2"
+        assert data == b"frame1frame2"  # Keyframe is NOT included (starts next segment)
         assert segment.batch_number == 0
         assert segment.stream_id == "test"
         assert segment.t0_ns == 0
@@ -161,12 +171,23 @@ class TestSegmentBufferVideo:
             segment_duration_ns=1_000_000_000,  # 1 second
         )
 
-        # Emit first segment
+        # Push first second of data (reaches threshold)
         segment1, _ = buffer.push_video(b"data", 0, 1_000_000_000)
+        assert segment1 is None  # Waiting for keyframe
+
+        # Push keyframe to emit first segment
+        segment1, _ = buffer.push_video(b"keyframe1", 1_000_000_000, 1_000_000_000, is_keyframe=True)
+        assert segment1 is not None
         assert segment1.batch_number == 0
 
-        # Emit second segment
-        segment2, _ = buffer.push_video(b"data", 1_000_000_000, 1_000_000_000)
+        # Continue accumulating (keyframe1 started new segment)
+        # Push more data to reach threshold again
+        segment2, _ = buffer.push_video(b"data2", 2_000_000_000, 1_000_000_000)
+        assert segment2 is None  # Waiting for keyframe
+
+        # Push keyframe to emit second segment
+        segment2, _ = buffer.push_video(b"keyframe2", 3_000_000_000, 1_000_000_000, is_keyframe=True)
+        assert segment2 is not None
         assert segment2.batch_number == 1
 
     def test_flush_video_returns_partial(self, tmp_path: Path) -> None:

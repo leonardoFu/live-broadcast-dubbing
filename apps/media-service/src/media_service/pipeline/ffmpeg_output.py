@@ -95,10 +95,13 @@ class FFmpegOutputPipeline:
     ) -> bytes | None:
         """Mux video and audio into FLV container.
 
+        Video input is MPEG-TS format (contains H.264 with proper timestamps).
+        Audio input is AAC ADTS format.
+
         Args:
-            video_data: H.264 video data (byte-stream format)
+            video_data: MPEG-TS video data (contains H.264 with timestamps)
             audio_data: AAC audio data (ADTS format)
-            pts_ns: Presentation timestamp in nanoseconds
+            pts_ns: Presentation timestamp in nanoseconds (for logging)
             video_duration_ns: Video duration in nanoseconds
             audio_duration_ns: Audio duration in nanoseconds
 
@@ -110,18 +113,18 @@ class FFmpegOutputPipeline:
             return None
 
         temp_path = Path(self._temp_dir.name)
-        video_path = temp_path / f"video_{pts_ns}.h264"
+        video_path = temp_path / f"video_{pts_ns}.ts"  # MPEG-TS format
         audio_path = temp_path / f"audio_{pts_ns}.aac"
         output_path = temp_path / f"muxed_{pts_ns}.flv"
 
         try:
-            # Write raw data to temp files
+            # Write data to temp files
             video_path.write_bytes(video_data)
             audio_path.write_bytes(audio_data)
 
             # Mux using ffmpeg
-            # -f h264: Input is raw H.264
-            # -f aac: Input is AAC ADTS
+            # -f mpegts: Video input is MPEG-TS (with embedded timestamps)
+            # -f aac: Audio input is AAC ADTS
             # -c copy: No re-encoding
             # -output_ts_offset: Apply timestamp offset for continuous playback
             # -f flv: Output format
@@ -129,7 +132,7 @@ class FFmpegOutputPipeline:
             cmd = [
                 "ffmpeg",
                 "-y",
-                "-f", "h264",
+                "-f", "mpegts",
                 "-i", str(video_path),
                 "-f", "aac",
                 "-i", str(audio_path),
@@ -406,9 +409,10 @@ class FFmpegOutputPipeline:
         """Push video buffer to output pipeline.
 
         Note: This method stores video data. Call push_audio() to trigger muxing.
+        Video data is expected to be MPEG-TS format (contains H.264 with timestamps).
 
         Args:
-            data: H.264 encoded video data (byte-stream format)
+            data: MPEG-TS video data (contains H.264 with proper timestamps)
             pts_ns: Presentation timestamp in nanoseconds
             duration_ns: Buffer duration in nanoseconds (optional)
 
@@ -419,26 +423,11 @@ class FFmpegOutputPipeline:
             logger.warning(f"Cannot push video - pipeline state: {self._state}")
             return False
 
-        # Extract and store SPS/PPS from first segment
-        has_sps = b"\x00\x00\x00\x01\x67" in data or b"\x00\x00\x01\x67" in data
-        has_pps = b"\x00\x00\x00\x01\x68" in data or b"\x00\x00\x01\x68" in data
-
-        if self._sps_pps_data is None and has_sps and has_pps:
-            self._sps_pps_data = self._extract_sps_pps(data)
-            if self._sps_pps_data:
-                logger.info(f"📼 Extracted SPS/PPS: {len(self._sps_pps_data)} bytes")
-
-        # Prepend SPS/PPS if missing at start
-        has_sps_at_start = (
-            b"\x00\x00\x00\x01\x67" in data[:100] or b"\x00\x00\x01\x67" in data[:100]
-        )
-        has_pps_at_start = (
-            b"\x00\x00\x00\x01\x68" in data[:200] or b"\x00\x00\x01\x68" in data[:200]
-        )
-
-        if self._sps_pps_data and not (has_sps_at_start and has_pps_at_start):
-            data = self._sps_pps_data + data
-            logger.info("📼 Prepended SPS/PPS to video data")
+        # Validate MPEG-TS format (sync byte 0x47)
+        if len(data) >= 188 and data[0] == 0x47:
+            logger.debug("📼 Valid MPEG-TS data detected")
+        else:
+            logger.warning(f"Video data may not be valid MPEG-TS (first byte: 0x{data[0]:02x})")
 
         # Store for muxing (will be used when push_audio is called)
         self._pending_video = (data, pts_ns, duration_ns)

@@ -60,7 +60,7 @@ Push the test stream to MediaMTX:
 ```bash
 ffmpeg -re -stream_loop -1 \
   -i tests/fixtures/test-streams/speech.mp4 \
-  -c:v libx264 -preset veryfast -tune zerolatency \
+  -c:v copy \
   -c:a aac -b:a 128k \
   -f flv "rtmp://localhost:1935/live/test-stream/in"
 ```
@@ -68,10 +68,12 @@ ffmpeg -re -stream_loop -1 \
 **Parameters**:
 - `-re` - Read input at native frame rate (real-time)
 - `-stream_loop -1` - Loop the input indefinitely
-- `-c:v libx264` - Re-encode video with H.264
-- `-preset veryfast -tune zerolatency` - Low latency encoding
+- `-c:v copy` - Copy video codec (required for GStreamer flvdemux compatibility)
 - `-c:a aac` - Re-encode audio with AAC
 - `-f flv` - Output as FLV container for RTMP
+
+**Note**: Using `-c:v copy` instead of `-c:v libx264` is required because GStreamer's flvdemux
+has compatibility issues with H.264 streams re-encoded by libx264.
 
 ---
 
@@ -155,7 +157,7 @@ echo "Press Ctrl+C to stop the stream..."
 # Run ffmpeg in background, capture PID
 ffmpeg -re -stream_loop -1 \
   -i tests/fixtures/test-streams/speech.mp4 \
-  -c:v libx264 -preset veryfast -tune zerolatency \
+  -c:v copy \
   -c:a aac -b:a 128k \
   -f flv "rtmp://localhost:1935/live/test-stream/in" &
 FFMPEG_PID=$!
@@ -219,7 +221,7 @@ Run ffmpeg in background to push speech.mp4:
 ```bash
 ffmpeg -re -stream_loop -1 \
   -i tests/fixtures/test-streams/speech.mp4 \
-  -c:v libx264 -preset veryfast -tune zerolatency \
+  -c:v copy \
   -c:a aac -b:a 128k \
   -f flv "rtmp://localhost:1935/live/test-stream/in"
 ```

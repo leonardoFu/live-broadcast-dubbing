@@ -626,8 +626,8 @@ dev-push:
 	fi
 	@echo ""
 	@echo "Checking services..."
-	@curl -sf http://localhost:8080/health >/dev/null || (echo "❌ Media service not running. Run 'make dev-up-light' first." && exit 1)
-	@curl -sf http://localhost:8000/health >/dev/null || (echo "❌ STS service not running. Run 'make dev-up-light' first." && exit 1)
+	@curl -sf http://localhost:8080/health >/dev/null || (echo "❌ Media service not running. Run 'make dev-up-echo' first." && exit 1)
+	@(curl -sf http://localhost:8000/health >/dev/null 2>&1 || curl -sf http://localhost:3000/health >/dev/null 2>&1) || (echo "❌ STS service not running. Run 'make dev-up-echo' or 'make dev-up-light' first." && exit 1)
 	@echo "✅ All services healthy"
 	@echo ""
 	@echo "Publishing $(DEV_SPEECH_FIXTURE) to rtmp://localhost:1935/live/$(DEV_STREAM_NAME)/in"
@@ -640,7 +640,7 @@ dev-push:
 	@echo ""
 	ffmpeg -re -stream_loop -1 \
 		-i $(DEV_SPEECH_FIXTURE) \
-		-c:v libx264 -preset veryfast -tune zerolatency \
+		-c:v copy \
 		-c:a aac -b:a 128k \
 		-f flv "rtmp://localhost:1935/live/$(DEV_STREAM_NAME)/in"
 

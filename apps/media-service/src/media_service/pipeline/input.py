@@ -37,7 +37,42 @@ except (ImportError, ValueError):
 logger = logging.getLogger(__name__)
 
 # Type alias for buffer callbacks
-BufferCallback = Callable[[bytes, int, int], None]  # (data, pts_ns, duration_ns)
+# Video callback includes is_keyframe flag for keyframe-aligned segmentation
+VideoBufferCallback = Callable[[bytes, int, int, bool], None]  # (data, pts_ns, duration_ns, is_keyframe)
+AudioBufferCallback = Callable[[bytes, int, int], None]  # (data, pts_ns, duration_ns)
+
+
+def detect_keyframe_in_mpegts(data: bytes) -> bool:
+    """Detect if MPEG-TS data contains an IDR (keyframe) NAL unit.
+
+    Searches for H.264 NAL start codes and checks if any NAL unit is type 5 (IDR).
+    This works because MPEG-TS preserves NAL start codes in PES payloads.
+
+    Args:
+        data: MPEG-TS packet data
+
+    Returns:
+        True if an IDR frame is detected, False otherwise
+    """
+    # Search for NAL start codes: 0x00 0x00 0x01 or 0x00 0x00 0x00 0x01
+    # NAL type 5 = IDR slice (keyframe)
+    i = 0
+    while i < len(data) - 4:
+        # Check for 4-byte start code
+        if data[i : i + 4] == b"\x00\x00\x00\x01":
+            nal_type = data[i + 4] & 0x1F
+            if nal_type == 5:  # IDR slice
+                return True
+            i += 4
+        # Check for 3-byte start code
+        elif data[i : i + 3] == b"\x00\x00\x01":
+            nal_type = data[i + 3] & 0x1F
+            if nal_type == 5:  # IDR slice
+                return True
+            i += 3
+        else:
+            i += 1
+    return False
 
 
 class InputPipeline:
@@ -52,7 +87,7 @@ class InputPipeline:
 
     Attributes:
         _rtmp_url: RTMP source URL
-        _on_video_buffer: Callback for video buffer processing
+        _on_video_buffer: Callback for video buffer processing (includes keyframe flag)
         _on_audio_buffer: Callback for audio buffer processing
         _pipeline: GStreamer pipeline (after build)
         _state: Current pipeline state string
@@ -63,15 +98,15 @@ class InputPipeline:
     def __init__(
         self,
         rtmp_url: str,
-        on_video_buffer: BufferCallback,
-        on_audio_buffer: BufferCallback,
+        on_video_buffer: VideoBufferCallback,
+        on_audio_buffer: AudioBufferCallback,
         max_buffers: int = 10,
     ) -> None:
         """Initialize input pipeline.
 
         Args:
             rtmp_url: RTMP URL (e.g., "rtmp://mediamtx:1935/live/stream/in")
-            on_video_buffer: Callback for video buffers (data, pts_ns, duration_ns)
+            on_video_buffer: Callback for video buffers (data, pts_ns, duration_ns, is_keyframe)
             on_audio_buffer: Callback for audio buffers (data, pts_ns, duration_ns)
             max_buffers: Maximum buffers for flvdemux queue (default 10)
 
@@ -137,7 +172,10 @@ class InputPipeline:
             raise RuntimeError("Failed to create flvdemux element")
 
         # Video path elements
+        # Use mpegtsmux to wrap H.264 in MPEG-TS container, preserving per-frame timestamps
+        # This solves the issue where raw H.264 has no timing info for ffmpeg muxing
         h264parse = Gst.ElementFactory.make("h264parse", "h264parse")
+        mpegtsmux = Gst.ElementFactory.make("mpegtsmux", "video_mpegtsmux")
         video_queue = Gst.ElementFactory.make("queue", "video_queue")
         self._video_appsink = Gst.ElementFactory.make("appsink", "video_sink")
 
@@ -147,11 +185,19 @@ class InputPipeline:
         # parse and mux the video for RTMP streaming.
         h264parse.set_property("config-interval", -1)  # -1 = insert before every IDR
 
+        # Configure mpegtsmux for streaming (no PCR/PMT tables initially)
+        # alignment=7 means 188-byte TS packets (standard)
+        if mpegtsmux is None:
+            raise RuntimeError("Failed to create mpegtsmux element")
+
         # Configure video queue for better buffering
         video_queue.set_property("max-size-buffers", 0)  # Unlimited buffers
         video_queue.set_property("max-size-bytes", 0)  # Unlimited bytes
         video_queue.set_property("max-size-time", 5 * Gst.SECOND)  # 5 seconds of data
         video_queue.set_property("leaky", 2)  # Leak downstream (drop old data if full)
+
+        # Store mpegtsmux reference for linking
+        self._video_mpegtsmux = mpegtsmux
 
         # Audio path elements
         # Add aacparse for robust caps negotiation and timestamp handling
@@ -168,6 +214,7 @@ class InputPipeline:
         # Verify all elements created
         for elem_name, elem in [
             ("h264parse", h264parse),
+            ("mpegtsmux", mpegtsmux),
             ("video_queue", video_queue),
             ("video_sink", self._video_appsink),
             ("aacparse", aacparse),
@@ -180,10 +227,8 @@ class InputPipeline:
         # Configure video appsink
         self._video_appsink.set_property("emit-signals", True)
         self._video_appsink.set_property("sync", False)
-        # Request byte-stream format with AU alignment
-        # This forces h264parse to convert AVC (from flvdemux) to byte-stream
-        # with SPS/PPS embedded inline, alignment=au for mp4mux compatibility
-        video_caps = Gst.Caps.from_string("video/x-h264,stream-format=byte-stream,alignment=au")
+        # Accept MPEG-TS format from mpegtsmux (contains H.264 with proper timestamps)
+        video_caps = Gst.Caps.from_string("video/mpegts,systemstream=true")
         self._video_appsink.set_property("caps", video_caps)
 
         # Configure audio appsink
@@ -203,6 +248,7 @@ class InputPipeline:
         self._pipeline.add(rtmpsrc)
         self._pipeline.add(flvdemux)
         self._pipeline.add(h264parse)
+        self._pipeline.add(mpegtsmux)
         self._pipeline.add(video_queue)
         self._pipeline.add(self._video_appsink)
         self._pipeline.add(aacparse)
@@ -213,9 +259,11 @@ class InputPipeline:
         if not rtmpsrc.link(flvdemux):
             raise RuntimeError("Failed to link rtmpsrc -> flvdemux")
 
-        # Link static video elements: h264parse -> queue -> sink
-        if not h264parse.link(video_queue):
-            raise RuntimeError("Failed to link h264parse -> video_queue")
+        # Link static video elements: h264parse -> mpegtsmux -> queue -> sink
+        if not h264parse.link(mpegtsmux):
+            raise RuntimeError("Failed to link h264parse -> mpegtsmux")
+        if not mpegtsmux.link(video_queue):
+            raise RuntimeError("Failed to link mpegtsmux -> video_queue")
         if not video_queue.link(self._video_appsink):
             raise RuntimeError("Failed to link video_queue -> video_sink")
 
@@ -266,7 +314,7 @@ class InputPipeline:
         structure = caps.get_structure(0)
         media_type = structure.get_name()
 
-        logger.debug(f"Pad added: {pad.get_name()}, media type: {media_type}")
+        logger.info(f"Pad added: {pad.get_name()}, media type: {media_type}")
 
         # Handle FLV demuxed pads (direct codec formats, not RTP)
         if media_type.startswith("video/x-h264"):
@@ -365,8 +413,11 @@ class InputPipeline:
                     f"Estimated video buffer duration: fps={framerate_fps}, duration={duration_ns}ns ({duration_ns / 1e6:.2f}ms)"
                 )
 
+            # Detect if this buffer contains a keyframe (IDR)
+            is_keyframe = detect_keyframe_in_mpegts(data)
+
             try:
-                self._on_video_buffer(data, pts_ns, duration_ns)
+                self._on_video_buffer(data, pts_ns, duration_ns, is_keyframe)
             except Exception as e:
                 logger.error(f"Error in video buffer callback: {e}")
 

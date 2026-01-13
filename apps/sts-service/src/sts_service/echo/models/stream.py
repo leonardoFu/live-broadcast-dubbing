@@ -17,12 +17,12 @@ class StreamConfigPayload(BaseModel):
     """
 
     source_language: str = Field(
-        default="en",
-        description="Source language code (e.g., 'en')",
+        default="zh",
+        description="Source language code (e.g., 'zh')",
     )
     target_language: str = Field(
-        default="es",
-        description="Target language code (e.g., 'es')",
+        default="en-us",
+        description="Target language code (e.g., 'en-us')",
     )
     voice_profile: str = Field(
         default="default",

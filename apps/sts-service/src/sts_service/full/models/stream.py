@@ -32,16 +32,16 @@ class StreamConfig(BaseModel):
     """
 
     source_language: str = Field(
-        default="en",
+        default="zh",
         min_length=2,
         max_length=10,
-        description="Source language code (e.g., 'en', 'es', 'fr')",
+        description="Source language code (e.g., 'zh', 'es', 'fr')",
     )
     target_language: str = Field(
-        default="ja",
+        default="en-us",
         min_length=2,
         max_length=10,
-        description="Target language code",
+        description="Target language code (e.g., 'en-us', 'en-gb')",
     )
     voice_profile: str = Field(
         default="default",
@@ -78,9 +78,9 @@ class StreamConfig(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
-                "source_language": "en",
-                "target_language": "ja",
-                "voice_profile": "japanese_male_1",
+                "source_language": "zh",
+                "target_language": "en-us",
+                "voice_profile": "english_male_1",
                 "chunk_duration_ms": 30000,  # spec 021: 30s segments
                 "sample_rate_hz": 48000,
                 "channels": 1,
@@ -175,9 +175,9 @@ class StreamInitPayload(BaseModel):
                 "stream_id": "stream-abc-123",
                 "worker_id": "worker-001",
                 "config": {
-                    "source_language": "en",
-                    "target_language": "es",
-                    "voice_profile": "spanish_male_1",
+                    "source_language": "zh",
+                    "target_language": "en-us",
+                    "voice_profile": "english_male_1",
                 },
                 "max_inflight": 3,
                 "timeout_ms": 60000,  # spec 021: 60s timeout for 30s segments

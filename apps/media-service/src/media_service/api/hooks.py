@@ -89,8 +89,8 @@ async def handle_ready_event(event: HookEvent, request: Request) -> JSONResponse
             rtmp_url=f"rtmp://{mediamtx_host}:1935/live/{stream_id}/out",
             sts_url=sts_url,
             segment_dir=segment_dir / stream_id,
-            source_language=os.getenv("WORKER_SOURCE_LANGUAGE", "en"),
-            target_language=os.getenv("WORKER_TARGET_LANGUAGE", "zh"),
+            source_language=os.getenv("WORKER_SOURCE_LANGUAGE", "zh"),
+            target_language=os.getenv("WORKER_TARGET_LANGUAGE", "en-us"),
         )
 
         # Start worker (idempotent - safe to call multiple times)
