@@ -83,10 +83,15 @@ async def handle_ready_event(event: HookEvent, request: Request) -> JSONResponse
         sts_url = os.getenv("STS_SERVICE_URL", "http://localhost:3000")
         segment_dir = Path(os.getenv("WORKER_SEGMENT_DIR", "/tmp/segments"))
 
+        # Output URL: use RTMP_OUTPUT_URL env var if set, otherwise default to MediaMTX
+        rtmp_output_url = os.getenv("RTMP_OUTPUT_URL")
+        if not rtmp_output_url:
+            rtmp_output_url = f"rtmp://{mediamtx_host}:1935/live/{stream_id}/out"
+
         config = WorkerConfig(
             stream_id=stream_id,
             rtmp_input_url=f"rtmp://{mediamtx_host}:1935/live/{stream_id}/in",
-            rtmp_url=f"rtmp://{mediamtx_host}:1935/live/{stream_id}/out",
+            rtmp_url=rtmp_output_url,
             sts_url=sts_url,
             segment_dir=segment_dir / stream_id,
             source_language=os.getenv("WORKER_SOURCE_LANGUAGE", "zh"),

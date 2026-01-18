@@ -60,11 +60,15 @@ DEFAULT_MODEL_ID = "eleven_flash_v2_5"
 # Voice IDs are from ElevenLabs voice library
 DEFAULT_VOICES: dict[str, str] = {
     "en": "21m00Tcm4TlvDq8ikWAM",  # Rachel (English)
+    "en-us": "21m00Tcm4TlvDq8ikWAM",  # Rachel (American English)
+    "en-gb": "21m00Tcm4TlvDq8ikWAM",  # Rachel (British English)
     "es": "ThT5KcBeYPX3keUQqHPh",  # Diego (Spanish)
     "fr": "N2lVS1w4EtoT3dr4eOWO",  # Thomas (French)
     "de": "pFZP5JQG7iQjIQuC4Bku",  # Sarah (German)
     "it": "onwK4e9ZLuTAKqWW03F9",  # Giovanni (Italian)
     "pt": "cjVigY5qzO86Huf0OWal",  # Domi (Portuguese)
+    "pt-br": "cjVigY5qzO86Huf0OWal",  # Domi (Brazilian Portuguese)
+    "pt-pt": "cjVigY5qzO86Huf0OWal",  # Domi (European Portuguese)
     "ja": "EXAVITQu4vr4xnSDxMaL",  # Hiro (Japanese)
     "zh": "iP95p4xoKVk53GoZ742B",  # Chinese - multilingual
 }

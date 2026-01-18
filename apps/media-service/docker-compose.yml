@@ -11,6 +11,7 @@
 #   MEDIAMTX_API_PORT - Control API port (default: 9997)
 #   MEDIA_SERVICE_PORT - HTTP API port (default: 8080)
 #   STS_SERVICE_URL - STS service endpoint (required for production)
+#   RTMP_OUTPUT_URL - Custom RTMP output (e.g., rtmp://a.rtmp.youtube.com/live2/STREAM_KEY)
 #   LOG_LEVEL - Logging level (default: INFO)
 
 services:
@@ -93,6 +94,7 @@ services:
       - GST_DEBUG=${GST_DEBUG:-0}  # GStreamer debug level (0=none, 3=FIXME, 5=DEBUG)
       - MEDIAMTX_RTSP_URL=${MEDIAMTX_RTSP_URL:-rtsp://mediamtx:8554}
       - MEDIAMTX_RTMP_URL=${MEDIAMTX_RTMP_URL:-rtmp://mediamtx:1935}
+      - RTMP_OUTPUT_URL=${RTMP_OUTPUT_URL:-}  # Custom output URL (e.g., rtmp://a.rtmp.youtube.com/live2/STREAM_KEY)
       - STS_SERVICE_URL=${STS_SERVICE_URL:-http://full-sts-service:8000}  # Full STS on shared network
       - SKIP_STS_CONNECTION=${SKIP_STS_CONNECTION:-false}  # Set to true for testing without STS
       - SEGMENT_DIR=${SEGMENT_DIR:-/tmp/segments}
