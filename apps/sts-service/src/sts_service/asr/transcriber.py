@@ -175,7 +175,11 @@ class FasterWhisperASR(BaseASRComponent):
 
             # DEBUG: Log transcription config
             logger.info(
-                f"DEBUG transcriber: no_speech_threshold={trans_config.no_speech_threshold}"
+                f"DEBUG transcriber: beam_size={trans_config.beam_size}, "
+                f"condition_on_previous_text={trans_config.condition_on_previous_text}, "
+                f"compression_ratio_threshold={trans_config.compression_ratio_threshold}, "
+                f"log_prob_threshold={trans_config.log_prob_threshold}, "
+                f"no_speech_threshold={trans_config.no_speech_threshold}"
             )
             logger.info(f"DEBUG transcriber: vad_filter={vad_filter}, vad_params={vad_parameters}")
 
@@ -196,6 +200,7 @@ class FasterWhisperASR(BaseASRComponent):
                 compression_ratio_threshold=trans_config.compression_ratio_threshold,
                 log_prob_threshold=trans_config.log_prob_threshold,
                 no_speech_threshold=trans_config.no_speech_threshold,
+                condition_on_previous_text=trans_config.condition_on_previous_text,
                 word_timestamps=trans_config.word_timestamps,
                 vad_filter=vad_filter,
                 vad_parameters=vad_parameters if vad_filter else None,

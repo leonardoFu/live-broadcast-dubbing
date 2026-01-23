@@ -17,6 +17,7 @@ import os
 import subprocess
 import tempfile
 import threading
+import time
 from pathlib import Path
 from queue import Empty, Queue
 
@@ -60,6 +61,14 @@ class FFmpegOutputPipeline:
         self._publisher_thread: threading.Thread | None = None
         self._publisher_running = False
 
+        # Stderr reader thread for monitoring FFmpeg errors
+        self._stderr_thread: threading.Thread | None = None
+
+        # Stats for debugging
+        self._segments_pushed = 0
+        self._bytes_pushed = 0
+        self._last_push_time: float = 0.0
+
         # Store codec parameters
         self._sps_pps_data: bytes | None = None
 
@@ -98,6 +107,10 @@ class FFmpegOutputPipeline:
         Video input is MPEG-TS format (contains H.264 with proper timestamps).
         Audio input is AAC ADTS format.
 
+        If audio duration doesn't match video duration, audio is time-stretched
+        using ffmpeg's atempo filter to maintain A/V sync. This prevents YouTube
+        disconnections due to accumulated A/V desync.
+
         Args:
             video_data: MPEG-TS video data (contains H.264 with timestamps)
             audio_data: AAC audio data (ADTS format)
@@ -122,31 +135,63 @@ class FFmpegOutputPipeline:
             video_path.write_bytes(video_data)
             audio_path.write_bytes(audio_data)
 
-            # Mux using ffmpeg
-            # -f mpegts: Video input is MPEG-TS (with embedded timestamps)
-            # -f aac: Audio input is AAC ADTS
-            # -c copy: No re-encoding
-            # -output_ts_offset: Apply timestamp offset for continuous playback
-            # -f flv: Output format
+            # Calculate tempo factor for audio time-stretch if durations don't match
+            video_duration_s = video_duration_ns / 1e9
+            audio_duration_s = audio_duration_ns / 1e9
             pts_seconds = pts_ns / 1e9
-            cmd = [
-                "ffmpeg",
-                "-y",
-                "-f", "mpegts",
-                "-i", str(video_path),
-                "-f", "aac",
-                "-i", str(audio_path),
-                "-c:v", "copy",
-                "-c:a", "copy",
-                "-output_ts_offset", str(pts_seconds),
-                "-f", "flv",
-                str(output_path),
-            ]
+
+            # Determine if we need audio time-stretching
+            duration_diff = abs(video_duration_s - audio_duration_s)
+            needs_timestretch = duration_diff > 0.1  # More than 100ms difference
+
+            if needs_timestretch and audio_duration_s > 0:
+                # Calculate tempo factor: audio needs to be stretched to match video
+                # atempo = original_duration / target_duration
+                tempo = audio_duration_s / video_duration_s
+
+                # atempo filter only supports range [0.5, 2.0]
+                tempo = max(0.5, min(2.0, tempo))
+
+                logger.info(
+                    f"⏱️ Time-stretching audio: {audio_duration_s:.2f}s -> "
+                    f"{video_duration_s:.2f}s (tempo={tempo:.4f})"
+                )
+
+                cmd = [
+                    "ffmpeg",
+                    "-y",
+                    "-f", "mpegts",
+                    "-i", str(video_path),
+                    "-f", "aac",
+                    "-i", str(audio_path),
+                    "-c:v", "copy",
+                    "-af", f"atempo={tempo}",  # Time-stretch audio
+                    "-c:a", "aac",  # Re-encode audio after tempo change
+                    "-b:a", "128k",  # Audio bitrate
+                    "-output_ts_offset", str(pts_seconds),
+                    "-f", "flv",
+                    str(output_path),
+                ]
+            else:
+                # No time-stretching needed, just copy streams
+                cmd = [
+                    "ffmpeg",
+                    "-y",
+                    "-f", "mpegts",
+                    "-i", str(video_path),
+                    "-f", "aac",
+                    "-i", str(audio_path),
+                    "-c:v", "copy",
+                    "-c:a", "copy",
+                    "-output_ts_offset", str(pts_seconds),
+                    "-f", "flv",
+                    str(output_path),
+                ]
 
             result = subprocess.run(
                 cmd,
                 capture_output=True,
-                timeout=30,
+                timeout=60,  # Increased timeout for time-stretching
             )
 
             if result.returncode != 0:
@@ -230,9 +275,9 @@ class FFmpegOutputPipeline:
             FLV data with header stripped if applicable
         """
         # FLV header is 13 bytes: 9-byte header + 4-byte first previous tag size
-        FLV_HEADER_SIZE = 13
+        flv_header_size = 13
 
-        if len(data) < FLV_HEADER_SIZE:
+        if len(data) < flv_header_size:
             return data
 
         # Verify this is actually FLV data (starts with "FLV")
@@ -240,13 +285,89 @@ class FFmpegOutputPipeline:
             return data
 
         # Strip header from subsequent segments
-        return data[FLV_HEADER_SIZE:]
+        return data[flv_header_size:]
+
+    def _restart_ffmpeg(self) -> bool:
+        """Restart FFmpeg process after a crash.
+
+        Clears queued segments since they have stale timestamps that won't work
+        with the new RTMP connection. Fresh segments will be generated.
+
+        Returns:
+            True if restart succeeded
+        """
+        logger.info("🔄 Attempting to restart FFmpeg...")
+
+        # Clean up old process
+        if self._process:
+            try:
+                if self._process.stdin:
+                    self._process.stdin.close()
+                self._process.terminate()
+                self._process.wait(timeout=2)
+            except Exception:
+                try:
+                    self._process.kill()
+                    self._process.wait(timeout=1)
+                except Exception:
+                    pass
+            self._process = None
+
+        # Clear queued segments - they have stale timestamps
+        # New connection needs fresh segments starting from current time
+        dropped_count = 0
+        while not self._segment_queue.empty():
+            try:
+                self._segment_queue.get_nowait()
+                dropped_count += 1
+            except Empty:
+                break
+        if dropped_count > 0:
+            logger.warning(f"🗑️ Dropped {dropped_count} stale segments from queue")
+
+        # Reset state for new stream
+        self._first_segment_sent = False
+
+        # Start new FFmpeg process
+        if self._start_ffmpeg_publisher():
+            logger.info("✅ FFmpeg restarted successfully - waiting for fresh segments")
+            return True
+        else:
+            logger.error("❌ Failed to restart FFmpeg")
+            return False
 
     def _publisher_loop(self) -> None:
         """Publisher thread loop - reads muxed segments and pushes to ffmpeg."""
         logger.info("📡 Publisher thread started")
+        restart_attempts = 0
+        max_restart_attempts = 3
 
         while self._publisher_running:
+            # Check if FFmpeg process is still alive
+            if self._process and self._process.poll() is not None:
+                exit_code = self._process.returncode
+                logger.error(f"🔴 FFmpeg process died with exit code {exit_code}")
+                self._check_ffmpeg_error()
+
+                # Try to restart FFmpeg
+                restart_attempts += 1
+                if restart_attempts <= max_restart_attempts:
+                    logger.info(
+                        f"🔄 Restart attempt {restart_attempts}/{max_restart_attempts}"
+                    )
+                    if self._restart_ffmpeg():
+                        restart_attempts = 0  # Reset on success
+                        continue
+                    else:
+                        logger.error("Failed to restart FFmpeg, will retry...")
+                        time.sleep(1)
+                        continue
+                else:
+                    logger.error(
+                        f"❌ FFmpeg restart failed after {max_restart_attempts} attempts"
+                    )
+                    break
+
             try:
                 segment_data = self._segment_queue.get(timeout=0.5)
                 if segment_data is None:  # Poison pill
@@ -264,11 +385,21 @@ class FFmpegOutputPipeline:
 
                         self._process.stdin.write(segment_data)
                         self._process.stdin.flush()
-                        logger.info(f"📤 Pushed {len(segment_data)} bytes to ffmpeg")
+                        self._segments_pushed += 1
+                        self._bytes_pushed += len(segment_data)
+                        self._last_push_time = time.time()
+                        total_mb = self._bytes_pushed / 1024 / 1024
+                        logger.info(
+                            f"📤 Pushed segment #{self._segments_pushed}: "
+                            f"{len(segment_data)} bytes (total: {total_mb:.1f}MB)"
+                        )
+                        # Reset restart counter on successful push
+                        restart_attempts = 0
                     except BrokenPipeError:
-                        logger.error("ffmpeg stdin broken pipe - process may have crashed")
+                        logger.error("ffmpeg stdin broken pipe - restarting...")
                         self._check_ffmpeg_error()
-                        break
+                        # Don't break, let the loop detect dead process and restart
+                        continue
                     except Exception as e:
                         logger.error(f"Error writing to ffmpeg: {e}")
 
@@ -290,6 +421,35 @@ class FFmpegOutputPipeline:
                         logger.error(f"ffmpeg stderr: {stderr.decode()}")
             except Exception:
                 pass
+
+    def _stderr_reader_loop(self) -> None:
+        """Continuously read FFmpeg stderr for error monitoring."""
+        logger.info("🔍 FFmpeg stderr monitor started")
+
+        while self._publisher_running and self._process:
+            try:
+                if self._process.stderr:
+                    line = self._process.stderr.readline()
+                    if line:
+                        decoded = line.decode(errors="replace").strip()
+                        # Log warnings/errors at appropriate levels
+                        if "error" in decoded.lower() or "failed" in decoded.lower():
+                            logger.error(f"🔴 FFmpeg: {decoded}")
+                        elif "warning" in decoded.lower():
+                            logger.warning(f"🟡 FFmpeg: {decoded}")
+                        elif decoded:  # Other output at debug level
+                            logger.debug(f"FFmpeg: {decoded}")
+                    else:
+                        # Empty line might mean process ended, check status
+                        if self._process.poll() is not None:
+                            exit_code = self._process.returncode
+                            logger.error(f"🔴 FFmpeg process exited with code {exit_code}")
+                            break
+            except Exception as e:
+                logger.warning(f"Stderr reader error: {e}")
+                break
+
+        logger.info("🔍 FFmpeg stderr monitor stopped")
 
     def _extract_sps_pps(self, data: bytes) -> bytes | None:
         """Extract SPS and PPS NAL units from H.264 byte-stream data.
@@ -514,6 +674,14 @@ class FFmpegOutputPipeline:
             )
             self._publisher_thread.start()
 
+            # Start stderr reader thread for monitoring
+            self._stderr_thread = threading.Thread(
+                target=self._stderr_reader_loop,
+                name="FFmpegStderrReader",
+                daemon=True,
+            )
+            self._stderr_thread.start()
+
             self._state = "PLAYING"
             logger.info(f"🚀 FFmpeg output pipeline started -> {self._rtmp_url}")
             return True
@@ -539,9 +707,12 @@ class FFmpegOutputPipeline:
         except Exception:
             pass
 
-        # Wait for thread
+        # Wait for threads
         if self._publisher_thread and self._publisher_thread.is_alive():
             self._publisher_thread.join(timeout=2)
+
+        if self._stderr_thread and self._stderr_thread.is_alive():
+            self._stderr_thread.join(timeout=1)
 
         # Stop ffmpeg
         if self._process:

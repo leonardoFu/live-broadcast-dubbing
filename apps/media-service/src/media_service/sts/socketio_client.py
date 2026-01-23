@@ -81,6 +81,10 @@ class StsSocketIOClient:
         self._ready_event = asyncio.Event()
         self._sequence_number = 0
 
+        # Store stream config for reconnection
+        self._stream_config: StreamConfig | None = None
+        self._pending_reinit = False
+
         # Callbacks
         self._on_fragment_processed: FragmentProcessedCallback | None = None
         self._on_backpressure: BackpressureCallback | None = None
@@ -131,11 +135,24 @@ class StsSocketIOClient:
             logger.info("Socket.IO connected")
             self._connected = True
 
+            # Auto-reinitialize stream if we had one before disconnect
+            if self.stream_id and self._stream_config and not self._stream_ready:
+                logger.info(f"Reconnected - reinitializing stream: {self.stream_id}")
+                self._pending_reinit = True
+                asyncio.create_task(self._reinit_stream())
+
         @self._sio.on("disconnect", namespace=self.namespace)
         async def on_disconnect() -> None:
             logger.warning("Socket.IO disconnected")
             self._connected = False
             self._stream_ready = False
+            # Start background reconnection monitor
+            # This gives auto-reconnection time to work, then tries manual reconnect
+            asyncio.create_task(self._reconnection_monitor())
+
+        @self._sio.on("connect_error", namespace=self.namespace)
+        async def on_connect_error(data: dict | None = None) -> None:
+            logger.error(f"Socket.IO connection error: {data}")
 
         @self._sio.on("stream:ready", namespace=self.namespace)
         async def on_stream_ready(data: dict) -> None:
@@ -156,6 +173,104 @@ class StsSocketIOClient:
         @self._sio.on("error", namespace=self.namespace)
         async def on_error(data: dict) -> None:
             await self._handle_error(data)
+
+    async def _reconnection_monitor(self) -> None:
+        """Monitor reconnection status and trigger manual reconnect if needed.
+
+        Waits for auto-reconnection to complete, then tries manual reconnect
+        if still disconnected.
+        """
+        # Wait for auto-reconnection to potentially succeed
+        # python-socketio default: 5 attempts with exponential backoff (~31 seconds max)
+        auto_reconnect_timeout = 45.0  # Give some buffer
+
+        logger.info(
+            f"🔍 Reconnection monitor started, waiting {auto_reconnect_timeout}s "
+            "for auto-reconnection"
+        )
+
+        await asyncio.sleep(auto_reconnect_timeout)
+
+        if self._connected:
+            logger.info("✅ Auto-reconnection succeeded, monitor exiting")
+            return
+
+        logger.warning("⚠️ Auto-reconnection timed out, starting manual reconnect")
+        await self._manual_reconnect()
+
+    async def _manual_reconnect(self) -> None:
+        """Manually reconnect when auto-reconnection fails.
+
+        Tries to reconnect with exponential backoff up to max_manual_retries.
+        """
+        max_manual_retries = 10
+        base_delay = 2.0
+
+        for attempt in range(1, max_manual_retries + 1):
+            if self._connected:
+                logger.info("Already connected, stopping manual reconnect")
+                return
+
+            # Check if client was intentionally disconnected (sio set to None)
+            if self._sio is None:
+                logger.info("🛑 Client was disconnected, stopping manual reconnect")
+                return
+
+            delay = min(base_delay * (2 ** (attempt - 1)), 60.0)  # Cap at 60s
+            logger.info(
+                f"🔄 Manual reconnection attempt {attempt}/{max_manual_retries} "
+                f"in {delay:.1f}s"
+            )
+            await asyncio.sleep(delay)
+
+            # Re-check after sleep in case disconnect() was called
+            if self._sio is None:
+                logger.info("🛑 Client was disconnected during wait, stopping manual reconnect")
+                return
+
+            try:
+                # Disconnect cleanly first
+                try:
+                    await self._sio.disconnect()
+                except Exception:
+                    pass
+
+                # Reconnect
+                await self._sio.connect(
+                    self.server_url,
+                    namespaces=[self.namespace],
+                    transports=["websocket"],
+                )
+                logger.info("✅ Manual reconnection successful")
+                return
+
+            except Exception as e:
+                logger.warning(f"Manual reconnection attempt {attempt} failed: {e}")
+
+        logger.error(f"❌ Manual reconnection failed after {max_manual_retries} attempts")
+
+    async def _reinit_stream(self) -> None:
+        """Reinitialize stream after reconnection.
+
+        Uses stored stream_id and config from previous init_stream() call.
+        """
+        if not self.stream_id or not self._stream_config:
+            logger.warning("Cannot reinit stream - no stored stream_id or config")
+            self._pending_reinit = False
+            return
+
+        try:
+            logger.info(f"Reinitializing stream: {self.stream_id}")
+            await self.init_stream(
+                stream_id=self.stream_id,
+                config=self._stream_config,
+                timeout=10.0,
+            )
+            logger.info(f"Stream reinitialized successfully: {self.stream_id}")
+        except Exception as e:
+            logger.error(f"Failed to reinitialize stream: {e}")
+        finally:
+            self._pending_reinit = False
 
     async def _handle_stream_ready(self, data: dict) -> None:
         """Handle stream:ready event from server.
@@ -265,6 +380,7 @@ class StsSocketIOClient:
             raise ConnectionError("Not connected to STS Service")
 
         self.stream_id = stream_id
+        self._stream_config = config  # Store for reconnection
         self._ready_event.clear()
         self._sequence_number = 0
 
@@ -359,6 +475,7 @@ class StsSocketIOClient:
 
         self._stream_ready = False
         self.stream_id = None
+        self._stream_config = None  # Clear to prevent auto-reinit
 
     async def disconnect(self) -> None:
         """Disconnect from STS Service."""
@@ -368,6 +485,7 @@ class StsSocketIOClient:
 
         self._connected = False
         self._stream_ready = False
+        self._stream_config = None  # Clear stored config
         logger.info("Disconnected from STS Service")
 
     def set_fragment_processed_callback(

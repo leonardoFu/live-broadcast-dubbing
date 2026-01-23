@@ -45,7 +45,9 @@ class EchoConfig:
 
     # Timeouts (in seconds)
     ping_interval: int = field(default_factory=lambda: int(os.getenv("WS_PING_INTERVAL", "25")))
-    ping_timeout: int = field(default_factory=lambda: int(os.getenv("WS_PING_TIMEOUT", "10")))
+    # Increased from 10s to 60s - TTS processing can take 15+ seconds
+    # which may block the event loop and delay ping responses
+    ping_timeout: int = field(default_factory=lambda: int(os.getenv("WS_PING_TIMEOUT", "60")))
 
     # Auto-disconnect after stream:complete (in seconds)
     auto_disconnect_delay: int = field(

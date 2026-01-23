@@ -6,6 +6,7 @@ asset lineage tracking, and stage timing.
 Task IDs: T079-T083
 """
 
+import asyncio
 import base64
 import os
 import subprocess
@@ -14,6 +15,11 @@ import time
 import uuid
 from pathlib import Path
 from typing import Protocol, runtime_checkable
+
+# Timeout constants (in seconds)
+ASR_TIMEOUT = 15.0  # ASR should complete well under real-time
+TRANSLATION_TIMEOUT = 10.0  # API call timeout
+TTS_TIMEOUT = 30.0  # TTS may take longer for long text
 
 from sts_service.asr.models import TranscriptAsset as ASRTranscriptAsset
 from sts_service.asr.models import TranscriptStatus
@@ -306,19 +312,35 @@ class PipelineCoordinator:
                 f"DEBUG pipeline: Decoded PCM size: {len(audio_bytes)} bytes ({actual_samples} samples), expected: {expected_samples} samples for {fragment_data.audio.duration_ms}ms"
             )
 
-            # Step 2: ASR transcription
+            # Step 2: ASR transcription (run in thread with timeout)
             logger.info("asr_started")
             asr_start = time.perf_counter()
-            asr_result = self._asr.transcribe(
-                audio_data=audio_bytes,
-                stream_id=fragment_data.stream_id,
-                sequence_number=fragment_data.sequence_number,
-                start_time_ms=0,
-                end_time_ms=fragment_data.audio.duration_ms,
-                sample_rate_hz=16000,  # PCM was decoded to 16kHz above
-                domain=session.domain_hints[0] if session.domain_hints else "general",
-                language=session.source_language,
-            )
+            try:
+                asr_result = await asyncio.wait_for(
+                    asyncio.to_thread(
+                        self._asr.transcribe,
+                        audio_data=audio_bytes,
+                        stream_id=fragment_data.stream_id,
+                        sequence_number=fragment_data.sequence_number,
+                        start_time_ms=0,
+                        end_time_ms=fragment_data.audio.duration_ms,
+                        sample_rate_hz=16000,  # PCM was decoded to 16kHz above
+                        domain=session.domain_hints[0] if session.domain_hints else "general",
+                        language=session.source_language,
+                    ),
+                    timeout=ASR_TIMEOUT,
+                )
+            except asyncio.TimeoutError:
+                stage_timings.asr_ms = int((time.perf_counter() - asr_start) * 1000)
+                logger.error("asr_timeout", timeout_s=ASR_TIMEOUT, elapsed_ms=stage_timings.asr_ms)
+                return self._create_failed_result(
+                    fragment_data=fragment_data,
+                    stage=ErrorStage.ASR,
+                    error_message=f"ASR timeout after {ASR_TIMEOUT}s (possible hallucination)",
+                    stage_timings=stage_timings,
+                    processing_time_ms=self._elapsed_ms(start_time),
+                    retryable=True,
+                )
             stage_timings.asr_ms = int((time.perf_counter() - asr_start) * 1000)
 
             logger.info("asr_completed", latency_ms=stage_timings.asr_ms)
@@ -454,17 +476,34 @@ class PipelineCoordinator:
                     error=None,
                 )
 
-            # Step 3: Translation
+            # Step 3: Translation (run in thread with timeout)
             logger.info("translation_started")
             translation_start = time.perf_counter()
-            translation_result = self._translation.translate(
-                source_text=transcript,
-                stream_id=fragment_data.stream_id,
-                sequence_number=fragment_data.sequence_number,
-                source_language=session.source_language,
-                target_language=session.target_language,
-                parent_asset_ids=[getattr(asr_result, "asset_id", f"asr-{uuid.uuid4()}")],
-            )
+            try:
+                translation_result = await asyncio.wait_for(
+                    asyncio.to_thread(
+                        self._translation.translate,
+                        source_text=transcript,
+                        stream_id=fragment_data.stream_id,
+                        sequence_number=fragment_data.sequence_number,
+                        source_language=session.source_language,
+                        target_language=session.target_language,
+                        parent_asset_ids=[getattr(asr_result, "asset_id", f"asr-{uuid.uuid4()}")],
+                    ),
+                    timeout=TRANSLATION_TIMEOUT,
+                )
+            except asyncio.TimeoutError:
+                stage_timings.translation_ms = int((time.perf_counter() - translation_start) * 1000)
+                logger.error("translation_timeout", timeout_s=TRANSLATION_TIMEOUT)
+                return self._create_failed_result(
+                    fragment_data=fragment_data,
+                    stage=ErrorStage.TRANSLATION,
+                    error_message=f"Translation timeout after {TRANSLATION_TIMEOUT}s",
+                    stage_timings=stage_timings,
+                    processing_time_ms=self._elapsed_ms(start_time),
+                    retryable=True,
+                    transcript=transcript,
+                )
             stage_timings.translation_ms = int((time.perf_counter() - translation_start) * 1000)
 
             logger.info("translation_completed", latency_ms=stage_timings.translation_ms)
@@ -534,15 +573,33 @@ class PipelineCoordinator:
                 )
                 self.artifact_logger.log_translation(translation_asset)
 
-            # Step 4: TTS synthesis
+            # Step 4: TTS synthesis (run in thread with timeout)
             logger.info("tts_started")
             tts_start = time.perf_counter()
-            tts_result = self._tts.synthesize(
-                text_asset=translation_result,
-                target_duration_ms=fragment_data.audio.duration_ms,
-                output_sample_rate_hz=session.sample_rate_hz,
-                output_channels=session.channels,
-            )
+            try:
+                tts_result = await asyncio.wait_for(
+                    asyncio.to_thread(
+                        self._tts.synthesize,
+                        text_asset=translation_result,
+                        target_duration_ms=fragment_data.audio.duration_ms,
+                        output_sample_rate_hz=session.sample_rate_hz,
+                        output_channels=session.channels,
+                    ),
+                    timeout=TTS_TIMEOUT,
+                )
+            except asyncio.TimeoutError:
+                stage_timings.tts_ms = int((time.perf_counter() - tts_start) * 1000)
+                logger.error("tts_timeout", timeout_s=TTS_TIMEOUT)
+                return self._create_failed_result(
+                    fragment_data=fragment_data,
+                    stage=ErrorStage.TTS,
+                    error_message=f"TTS timeout after {TTS_TIMEOUT}s",
+                    stage_timings=stage_timings,
+                    processing_time_ms=self._elapsed_ms(start_time),
+                    retryable=True,
+                    transcript=transcript,
+                    translated_text=translated_text,
+                )
             stage_timings.tts_ms = int((time.perf_counter() - tts_start) * 1000)
 
             logger.info("tts_completed", latency_ms=stage_timings.tts_ms)

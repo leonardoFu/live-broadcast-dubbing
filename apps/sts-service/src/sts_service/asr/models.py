@@ -340,7 +340,13 @@ class TranscriptAsset(AssetIdentifiers):
 
 
 class ASRModelConfig(BaseModel):
-    """Configuration for the Whisper model instance."""
+    """Configuration for the Whisper model instance.
+
+    Note on compute_type:
+    - CPU: Use "int8" (float16 not supported on CPU)
+    - GPU (CUDA): Use "float16" (recommended) or "int8"
+    - float16 on GPU reduces hallucinations vs int8
+    """
 
     model_size: str = Field(
         default="small",
@@ -355,7 +361,7 @@ class ASRModelConfig(BaseModel):
     compute_type: str = Field(
         default="int8",
         pattern=r"^(int8|float16|float32)$",
-        description="Compute precision",
+        description="Compute precision (int8 for CPU, float16 for GPU recommended)",
     )
 
 
@@ -376,21 +382,42 @@ class VADConfig(BaseModel):
 
 
 class TranscriptionConfig(BaseModel):
-    """Transcription behavior configuration."""
+    """Transcription behavior configuration.
+
+    Default values are tuned to reduce hallucinations, especially for non-English
+    languages like Chinese/Mandarin. Key changes from Whisper defaults:
+    - beam_size=3 (not 5): Lower beam size reduces hallucination loops
+    - condition_on_previous_text=False: Prevents hallucination propagation
+    - compression_ratio_threshold=2.0: Stricter check for repetitive text
+    - log_prob_threshold=-0.7: Rejects low-confidence (likely hallucinated) text
+    """
 
     language: str = Field(default="en", description="Expected language code")
     word_timestamps: bool = Field(default=True, description="Enable word-level timestamps")
-    beam_size: int = Field(default=8, ge=1, le=10, description="Beam search width")
-    best_of: int = Field(default=8, ge=1, le=10, description="Number of candidates")
+    beam_size: int = Field(
+        default=3, ge=1, le=10, description="Beam search width (lower = fewer hallucinations)"
+    )
+    best_of: int = Field(
+        default=3, ge=1, le=10, description="Number of candidates (lower = fewer hallucinations)"
+    )
     temperature: list[float] = Field(
-        default=[0.0, 0.2, 0.4], description="Temperature ensemble for sampling"
+        default=[0.0, 0.2, 0.4, 0.6],
+        description="Temperature fallback sequence for sampling (more steps = better recovery)",
     )
     compression_ratio_threshold: float = Field(
-        default=2.4, ge=1.0, description="Compression ratio quality guard"
+        default=2.0,
+        ge=1.0,
+        description="Compression ratio threshold - lower catches repetitive text earlier",
     )
-    log_prob_threshold: float = Field(default=-1.0, description="Log probability quality guard")
+    log_prob_threshold: float = Field(
+        default=-0.7, description="Log probability threshold - higher rejects low-confidence text"
+    )
     no_speech_threshold: float = Field(
-        default=0.6, ge=0.0, le=1.0, description="No-speech detection threshold"
+        default=0.5, ge=0.0, le=1.0, description="No-speech detection threshold"
+    )
+    condition_on_previous_text: bool = Field(
+        default=False,
+        description="Use previous text as prompt (False prevents hallucination feedback loops)",
     )
 
 
