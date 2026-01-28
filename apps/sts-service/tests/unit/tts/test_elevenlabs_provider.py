@@ -252,7 +252,7 @@ class TestElevenLabsVoiceSelection:
     def test_elevenlabs_voice_id_language_default_english(
         self, mock_elevenlabs_api, mock_audio_segment, default_tts_config
     ):
-        """Test English default voice (Rachel)."""
+        """Test English default voice (Adam)."""
         from sts_service.tts.elevenlabs_provider import ElevenLabsTTSComponent
 
         text_asset = TextAsset(
@@ -272,10 +272,10 @@ class TestElevenLabsVoiceSelection:
             component = ElevenLabsTTSComponent(config=default_tts_config)
             component.synthesize(text_asset=text_asset, voice_profile=voice_profile)
 
-        # Rachel voice ID
+        # Adam voice ID
         mock_elevenlabs_api.text_to_speech.convert.assert_called_once()
         call_args = mock_elevenlabs_api.text_to_speech.convert.call_args
-        assert call_args.kwargs.get("voice_id") == "21m00Tcm4TlvDq8ikWAM"
+        assert call_args.kwargs.get("voice_id") == "QIhD5ivPGEoYZQDocuHI"
 
     def test_elevenlabs_voice_id_language_default_spanish(
         self, mock_elevenlabs_api, mock_audio_segment, default_tts_config
@@ -364,7 +364,7 @@ class TestElevenLabsVoiceSelection:
     def test_elevenlabs_voice_id_unsupported_language_fallback(
         self, mock_elevenlabs_api, mock_audio_segment, default_tts_config
     ):
-        """Test unsupported language falls back to English (Rachel) with warning."""
+        """Test unsupported language falls back to English (Adam) with warning."""
         from sts_service.tts.elevenlabs_provider import ElevenLabsTTSComponent
 
         text_asset = TextAsset(
@@ -388,10 +388,10 @@ class TestElevenLabsVoiceSelection:
                 # Should log a warning about fallback
                 mock_logger.warning.assert_called()
 
-        # Should fallback to Rachel (English)
+        # Should fallback to Adam (English)
         mock_elevenlabs_api.text_to_speech.convert.assert_called_once()
         call_args = mock_elevenlabs_api.text_to_speech.convert.call_args
-        assert call_args.kwargs.get("voice_id") == "21m00Tcm4TlvDq8ikWAM"
+        assert call_args.kwargs.get("voice_id") == "QIhD5ivPGEoYZQDocuHI"
 
     def test_elevenlabs_model_id_default(
         self, mock_elevenlabs_api, mock_audio_segment, sample_text_asset, default_tts_config

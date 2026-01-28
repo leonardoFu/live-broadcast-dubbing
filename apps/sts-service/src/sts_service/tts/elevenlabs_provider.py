@@ -59,9 +59,9 @@ DEFAULT_MODEL_ID = "eleven_flash_v2_5"
 # Default voice mappings by language (FR-008)
 # Voice IDs are from ElevenLabs voice library
 DEFAULT_VOICES: dict[str, str] = {
-    "en": "21m00Tcm4TlvDq8ikWAM",  # Rachel (English)
-    "en-us": "21m00Tcm4TlvDq8ikWAM",  # Rachel (American English)
-    "en-gb": "21m00Tcm4TlvDq8ikWAM",  # Rachel (British English)
+    "en": "QIhD5ivPGEoYZQDocuHI",  # Adam (English)
+    "en-us": "QIhD5ivPGEoYZQDocuHI",  # Adam (American English)
+    "en-gb": "QIhD5ivPGEoYZQDocuHI",  # Adam (British English)
     "es": "ThT5KcBeYPX3keUQqHPh",  # Diego (Spanish)
     "fr": "N2lVS1w4EtoT3dr4eOWO",  # Thomas (French)
     "de": "pFZP5JQG7iQjIQuC4Bku",  # Sarah (German)
@@ -74,7 +74,7 @@ DEFAULT_VOICES: dict[str, str] = {
 }
 
 # Fallback voice when language not in mapping
-FALLBACK_VOICE = "21m00Tcm4TlvDq8ikWAM"  # Rachel (English)
+FALLBACK_VOICE = "QIhD5ivPGEoYZQDocuHI"  # Adam (English)
 
 
 class ElevenLabsTTSComponent(BaseTTSComponent):
