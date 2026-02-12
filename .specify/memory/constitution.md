@@ -1,191 +1,217 @@
-# Live Stream Dubbing Constitution
-
 <!--
-SYNC IMPACT REPORT - Constitution v1.1.0
-===========================================
-Version: 1.0.0 → 1.1.0
-Modified Principles: Added Principle VIII (Test-First Development)
-Added Sections: Principle VIII - TDD enforcement mandate
-Removed Sections: None
+  SYNC IMPACT REPORT
+  ==================
+  Version change: N/A → v1.0.0 (initial creation)
 
-Templates Requiring Updates:
-⚠️  plan-template.md - Constitution Check section needs Principle VIII gate
-⚠️  spec-template.md - Independent Test field needs structured TDD format
-⚠️  tasks-template.md - Tests must change from OPTIONAL to MANDATORY
-✅ CLAUDE.md - Testing guidelines match constitution expectations
+  Modified Principles: N/A (initial creation)
 
-Follow-up TODOs:
-- Update plan-template.md to include Principle VIII in Constitution Check
-- Update spec-template.md to add structured test requirements (unit, contract, integration)
-- Update tasks-template.md to make tests mandatory with TDD naming conventions
-===========================================
+  Added Sections:
+  - Project Identity
+  - Core Principles (5 principles)
+  - Architecture Guidelines
+  - Quality Standards
+  - Governance
+
+  Removed Sections: N/A (initial creation)
+
+  Templates requiring updates:
+  - .specify/templates/plan-template.md: ✅ compatible (Constitution Check section exists)
+  - .specify/templates/spec-template.md: ✅ compatible (requirements/scenarios structure aligns)
+  - .specify/templates/tasks-template.md: ✅ compatible (phase structure supports principles)
+
+  Follow-up TODOs: None
 -->
+
+# Project Constitution
+
+**Project Name**: speckit-wiggum-toolkit
+**Version**: v1.0.0
+**Ratification Date**: 2025-01-28
+**Last Amended Date**: 2025-01-28
+
+## Project Identity
+
+### Mission
+
+Build a robust AI development toolkit that combines specification-driven development
+(spec-kit) with automated workflow orchestration (ralph-wiggum) to enable consistent,
+high-quality project scaffolding for TypeScript/Node.js projects.
+
+### Scope
+
+This toolkit provides:
+- CLI-based project scaffolding from templates
+- Specification writing and management workflows
+- Task generation and implementation planning
+- Multi-agent orchestration for AI-assisted development
+- Progress tracking and milestone management
+
+### Target Users
+
+- Software engineers bootstrapping new TypeScript/Node.js projects
+- Teams adopting specification-driven development practices
+- AI-assisted development workflows using Claude or similar agents
 
 ## Core Principles
 
-### I. Real-Time First
+### Principle 1: Specification First
 
-All components MUST be designed for live streaming with minimal latency. Processing pipelines must handle continuous data flow, not batch operations. Target added latency: 3-8 seconds end-to-end.
+All features MUST be fully specified before implementation begins.
 
-**Rationale**: The system processes live streams in real-time. Any design optimized for batch processing or file-based workflows will fail to meet core requirements. Components blocking on completion before output violate this principle.
+**Rules**:
+- Every feature MUST have a `spec.md` documenting user scenarios and requirements
+- Implementation planning (`plan.md`) MUST NOT begin until spec is complete
+- Task generation (`tasks.md`) MUST derive from approved specifications
+- Changes to implementation MUST trace back to specification changes
 
-### II. Testability Through Isolation
+**Rationale**: Specifications prevent scope creep, ensure alignment between stakeholders,
+and provide the foundation for testable acceptance criteria. AI agents perform better
+with clear, complete requirements.
 
-Every module MUST be independently testable without requiring live RTMP endpoints or external services. Mock STS events (`fragment:data`, `fragment:processed`) and use deterministic test fixtures.
+### Principle 2: Simplicity Over Cleverness
 
-**Rationale**: Live stream dependencies make tests flaky, slow, and environment-dependent. Mock-based testing enables fast iteration, CI/CD automation, and reliable quality gates. Tests requiring actual MediaMTX instances or cloud services are acceptable only in dedicated integration test suites.
+Prefer straightforward solutions over sophisticated abstractions.
 
-### III. Spec-Driven Development (NON-NEGOTIABLE)
+**Rules**:
+- MUST NOT introduce abstractions until the third concrete use case (Rule of Three)
+- MUST NOT add configurability for hypothetical future requirements
+- MUST NOT use design patterns unless they solve a present problem
+- Code MUST be readable by developers unfamiliar with the codebase
 
-Changes to architecture, data models, or inter-service contracts MUST be documented in `specs/` before implementation. Specs provide the source of truth. Implementation follows specs, not the reverse.
+**Rationale**: AI development toolkits are used across diverse projects. Complexity in
+the toolkit propagates to every project it scaffolds. Simple, predictable behavior
+enables reliable automation.
 
-**Rationale**: This project's complexity (GStreamer, STS, A/V sync, multiple services) demands clear documentation before coding. Ad-hoc implementation leads to integration failures, sync issues, and maintenance nightmares. The `specs/` directory is the project's blueprint.
+### Principle 3: Explicit Over Implicit
 
-### IV. Observability & Debuggability
+All behavior, configuration, and dependencies MUST be clearly visible and documented.
 
-All processing pipelines MUST emit structured logs with `streamId`, `fragment.id`, and `batchNumber`. Metrics MUST track fragment latency, queue depth, A/V sync delta, and fallback activation. Rolling audio dumps for debugging are encouraged.
+**Rules**:
+- Templates MUST contain placeholders that are self-documenting
+- Default values MUST be stated explicitly, not assumed
+- File paths and naming conventions MUST follow documented patterns
+- Error messages MUST explain what went wrong and suggest resolution
 
-**Rationale**: Real-time A/V processing failures are hard to reproduce. Without comprehensive logging and metrics, debugging latency spikes, sync drift, or STS failures becomes impossible. Observability is not optional—it's survival.
+**Rationale**: AI agents and human developers both benefit from explicit context.
+Implicit behavior leads to confusion, debugging difficulty, and inconsistent outcomes
+across different environments.
 
-### V. Graceful Degradation
+### Principle 4: Incremental Delivery
 
-When STS processing fails or overloads, the system MUST maintain stream continuity using configurable fallback modes (passthrough, background-only, silence). Circuit breakers MUST prevent cascading failures.
+Features MUST be deliverable in independently testable increments.
 
-**Rationale**: Live streams cannot tolerate hard failures. A crashed STS module should not kill the entire stream. Fallback policies ensure viewers receive output even when dubbing is degraded or disabled.
+**Rules**:
+- User stories MUST be independently implementable and testable
+- Each task phase MUST produce a verifiable checkpoint
+- Features MUST NOT require other incomplete features to function
+- MVP (Minimum Viable Product) MUST be achievable from the first user story
 
-### VI. A/V Sync Discipline
+**Rationale**: Incremental delivery enables progress verification, reduces risk of
+large failed investments, and allows early feedback. AI agents work more effectively
+on bounded, completable units of work.
 
-Video passthrough MUST preserve original timestamps. Audio processing MUST track PTSs relative to the GStreamer pipeline clock. A/V drift detection and correction via audio time-stretch is mandatory.
+### Principle 5: Traceability and Auditability
 
-**Rationale**: Out-of-sync audio ruins user experience. GStreamer's timestamp management is the authoritative source. Any component ignoring PTSs or fabricating timestamps will cause drift.
+All artifacts MUST maintain clear lineage to their sources.
 
-### VII. Incremental Delivery
+**Rules**:
+- Tasks MUST reference their source user story (US1, US2, etc.)
+- Implementation files MUST trace to task IDs
+- Changes MUST be tracked through version control with descriptive commits
+- Progress MUST be tracked and reportable at any point
 
-Features MUST be implemented in independently deployable milestones: (1) Video passthrough + dubbed audio, (2) Background separation and remix, (3) Overlap + crossfade, (4) Fallback modes, (5) Quality tuning.
+**Rationale**: Development workflows involving AI agents require auditability to verify
+work quality, understand decision history, and enable effective handoffs between human
+and AI collaborators.
 
-**Rationale**: Attempting to build everything at once delays validation and increases risk. Each milestone delivers measurable value and can be tested end-to-end. Incremental delivery enables fast feedback and course correction.
+## Architecture Guidelines
 
-### VIII. Test-First Development (NON-NEGOTIABLE)
+### Project Structure
 
-All production code MUST be preceded by failing tests. Tests define behavior before implementation. Coverage gates MUST block CI/CD pipeline. Mock-based unit tests run on every commit; integration tests gate deployment.
+```text
+src/
+├── cli/          # Command-line interface entry points
+├── lib/          # Core library functions
+├── models/       # Data structures and types
+└── services/     # Business logic and orchestration
 
-**Rationale**: TDD is not optional—it's a quality gate. Writing tests after code leads to untestable designs, missing edge cases, and regression-prone systems. In a real-time A/V pipeline where latency and sync bugs are catastrophic, comprehensive test coverage is survival. Tests document intent, enable fearless refactoring, and prevent production failures.
+tests/
+├── unit/         # Unit tests for individual functions
+├── integration/  # Integration tests for workflows
+└── contract/     # Contract tests for external interfaces
+```
 
-**Enforcement**:
-- Pre-commit hooks block commits without corresponding tests
-- CI fails if test coverage drops below 80% for new code
-- PRs without tests are automatically rejected
-- `/speckit.implement` workflow validates test existence before proceeding
+### Dependency Constraints
 
-**Test Levels** (per Principle II):
-1. **Unit Tests** (mandatory): Pure functions, business logic, calculations
-2. **Contract Tests** (mandatory): API contracts, event schemas, STS fragments
-3. **Integration Tests** (required for workflows): Pipeline assembly, service integration
-4. **E2E Tests** (optional): Full system validation with real dependencies
+- External dependencies MUST be declared in `package.json` with pinned major versions
+- New dependencies MUST NOT duplicate functionality of existing dependencies
+- CLI dependencies (commander, inquirer, chalk) MUST remain minimal
+- Development dependencies MUST NOT be required at runtime
 
-**Coverage Requirements**:
-- New modules: 80% minimum line coverage
-- Critical paths (A/V sync, STS pipeline): 95% minimum
-- Utility functions: 100% (no excuses—they're small)
-- Integration tests: All user stories must have at least one happy path test
+### Technology Stack
 
-**Exemptions** (requires explicit justification in PR):
-- Prototype/spike code (must be in separate branch, never merged to main)
-- Generated code (clearly marked with generator tool)
-- Vendor/third-party code (must be in separate directory)
+- **Language**: TypeScript 5.x (strict mode)
+- **Runtime**: Node.js 20+
+- **Testing**: Vitest
+- **Linting**: ESLint with TypeScript parser
+- **Build**: TypeScript compiler (tsc)
 
-## Technology Constraints
+## Quality Standards
 
-### Language & Frameworks
+### Code Quality Gates
 
-- **Primary Language**: Python 3.11+
-- **Streaming**: GStreamer (audio/video processing), MediaMTX (ingest/egress)
-- **STS Pipeline**: Whisper (ASR), translation service (MT), TTS synthesis
-- **Audio Processing**: 2-stem speech separation or VAD + spectral gating
-- **Testing**: pytest (mocked STS events, deterministic audio fixtures)
+Before any feature is considered complete:
 
-**Justification**: GStreamer is the industry standard for low-latency A/V processing. Python provides rich ML/audio libraries for STS. MediaMTX handles multi-protocol ingest (RTMP/RTSP/SRT/WebRTC) with minimal configuration.
+- [ ] All TypeScript compilation errors resolved (`npm run typecheck`)
+- [ ] All linting rules pass (`npm run lint`)
+- [ ] All existing tests pass (`npm run test`)
+- [ ] New functionality has corresponding tests where specified
 
-### Storage & State
+### Documentation Requirements
 
-- **Configuration**: YAML or environment variables (no hardcoded stream keys)
-- **State Management**: Per-stream workers maintain in-memory state (fragment queues, circuit breaker status)
-- **Persistence**: Optional rolling audio dumps for debugging; MediaMTX handles stream recording if required
+- Public functions MUST have JSDoc comments explaining purpose and parameters
+- CLI commands MUST have `--help` documentation
+- Breaking changes MUST be documented in release notes
 
-**Constraints**: Real-time systems minimize disk I/O. State should be ephemeral and recoverable.
+### Commit Standards
 
-### Performance & Scale
-
-- **One worker per stream**: Scale horizontally by running more workers
-- **FIFO ordering**: Fragments processed in arrival order (per stream)
-- **Max in-flight fragments**: Configurable (default: 3-5 to balance latency vs. throughput)
-- **Circuit breaker thresholds**: Configurable STS timeout and failure rate
-
-**Trade-offs**: Per-stream isolation simplifies state management but requires orchestration (see Stream Orchestrator spec).
-
-## Development Workflow
-
-### Code Organization
-
-- **`specs/`**: Architecture and design documents (source of truth)
-- **`.specify/`**: Spec templates and constitution (this file)
-- **`apps/sts-service/`**: Speech-to-text-to-speech module (in-process library)
-- **`apps/stream-worker/`**: GStreamer-based worker (pulls from MediaMTX, processes, republishes)
-- **`infra/` or `deploy/`**: Container configs, MediaMTX configuration, docker-compose files
-
-**Convention**: Use kebab-case for spec filenames (`002-mediamtx.md`). Keep headings stable across spec revisions.
-
-### Testing Levels
-
-1. **Unit Tests**: Test individual functions (audio chunking, time-stretching, PTS calculations) with mock inputs
-2. **Contract Tests**: Verify STS module contracts (`fragment:data` → `fragment:processed`) with deterministic fixtures
-3. **Integration Tests**: Test GStreamer pipeline assembly and MediaMTX communication with mock streams
-4. **E2E Tests** (optional): Full pipeline with real MediaMTX instance (slow, reserved for critical path validation)
-
-**Rule**: Unit and contract tests run on every commit. Integration tests in CI. E2E tests on demand.
-
-### Commit & PR Standards
-
-- **Commit Format**: Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`)
-- **PR Requirements**:
-  - Link to relevant spec (e.g., `specs/003-gstreamer-stream-worker.md`)
-  - Describe latency/A/V-sync impact
-  - Document config changes or new env vars (add to `.env.example`)
-  - Include test evidence (logs showing fragment processing, sync deltas)
-
-**Security**: Never commit secrets (RTMP stream keys, API tokens). Use `.env` files excluded from git.
-
-### Code Review Focus
-
-1. **Spec Compliance**: Does the code match the spec? If not, update spec first or justify deviation.
-2. **Latency Impact**: Does this change add buffering, blocking, or processing time?
-3. **Sync Safety**: Are timestamps preserved? Is A/V drift monitored?
-4. **Observability**: Are logs/metrics sufficient to debug this in production?
-5. **Testability**: Can this be tested without live streams?
+Commits MUST follow conventional commit format:
+- `feat:` for new features
+- `fix:` for bug fixes
+- `docs:` for documentation changes
+- `refactor:` for code restructuring without behavior change
+- `test:` for test additions or modifications
 
 ## Governance
 
-### Amendment Process
+### Amendment Procedure
 
-Constitution changes require:
+1. Propose changes via discussion with project maintainers
+2. Draft amendment with clear rationale and impact assessment
+3. Update constitution version according to semantic versioning:
+   - **MAJOR**: Principle removals or incompatible governance changes
+   - **MINOR**: New principles or substantial guidance additions
+   - **PATCH**: Clarifications, typo fixes, non-semantic refinements
+4. Update `Last Amended Date` to reflect change date
+5. Propagate changes to dependent templates via Sync Impact Report
 
-1. Proposal with rationale (why does current principle block progress?)
-2. Review against existing specs (will this invalidate prior decisions?)
-3. Version bump following semantic versioning:
-   - **MAJOR**: Principle removal or incompatible redefinition (e.g., dropping real-time requirement)
-   - **MINOR**: New principle or materially expanded guidance (e.g., adding security requirements)
-   - **PATCH**: Clarifications, wording, typo fixes
-4. Update to this file and sync report in HTML comment header
+### Compliance Review
 
-### Compliance & Enforcement
+- All implementation plans MUST pass Constitution Check before proceeding
+- Violations MUST be justified in the Complexity Tracking section of `plan.md`
+- Repeated violations indicate the constitution may need amendment
 
-- **All PRs**: Reviewers verify compliance with Principles I-VII
-- **Complexity Justification**: Violations of simplicity (e.g., adding 4th service when 3 exist) require documented rationale in `plan.md` Complexity Tracking section
-- **Spec Updates**: Architectural changes without spec updates are rejected
-- **Test Coverage**: Code without deterministic tests (per Principle II) requires explicit justification
+### Template Synchronization
 
-### Development Guidance
+When the constitution changes, the following templates MUST be reviewed:
+- `.specify/templates/plan-template.md` - Constitution Check alignment
+- `.specify/templates/spec-template.md` - Requirements structure
+- `.specify/templates/tasks-template.md` - Task categorization
+- `.specify/templates/milestone-template.md` - Milestone criteria
+- `.specify/templates/progress-template.md` - Progress tracking fields
 
-Runtime development guidance (build commands, local dev setup, framework versions) lives in `CLAUDE.md`, not in this constitution. The constitution defines what (principles), CLAUDE.md defines how (commands).
+---
 
-**Version**: 1.1.0 | **Ratified**: 2025-12-24 | **Last Amended**: 2025-12-24
+*This constitution establishes the foundational principles and governance for the
+speckit-wiggum-toolkit project. All contributors and AI agents operating within
+this project MUST adhere to these guidelines.*

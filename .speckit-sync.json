@@ -1,0 +1,236 @@
+{
+  "templateRepo": "leonardoFu/speckit-wiggum-toolkit",
+  "templateVersion": "0.1.0",
+  "templateCommit": "4ec5447",
+  "lastSyncDate": "2026-02-12T06:42:39Z",
+  "syncedCategories": [
+    "\nSelect",
+    "categories",
+    "to",
+    "sync:\n\n\n\n\n",
+    "claude",
+    "specify"
+  ],
+  "syncedFiles": [
+    {
+      "path": ".claude/commands/speckit.checklist.md",
+      "checksum": "250efcfd07d75291200beb3309e16739"
+    },
+    {
+      "path": ".claude/commands/speckit.plan.md",
+      "checksum": "9c4a7dea5faafd4febc67c7d8b4bf9c7"
+    },
+    {
+      "path": ".claude/commands/speckit.reflect.md",
+      "checksum": "a5f6b42ac17d554154e93111b1f3736f"
+    },
+    {
+      "path": ".claude/commands/speckit.analyze.md",
+      "checksum": "1db648184d67573b23e23a20d22fcb55"
+    },
+    {
+      "path": ".claude/commands/speckit.constitution.md",
+      "checksum": "8dcff610c865a24813acb1e0d3f0ad21"
+    },
+    {
+      "path": ".claude/commands/speckit.clarify.md",
+      "checksum": "128e21311bea77ee29478e2625f1af1c"
+    },
+    {
+      "path": ".claude/commands/speckit.review.md",
+      "checksum": "8730547500393772779890fdbaa6cb90"
+    },
+    {
+      "path": ".claude/commands/speckit.research.md",
+      "checksum": "2d6ffd1d5361471b0b4315809b8974ae"
+    },
+    {
+      "path": ".claude/commands/speckit.implement.md",
+      "checksum": "fc8612e3688ddbe353487dfc52702b65"
+    },
+    {
+      "path": ".claude/commands/speckit.taskstoissues.md",
+      "checksum": "0cb6a1734ef1054358b0dd2762dc1e09"
+    },
+    {
+      "path": ".claude/commands/commit-push.md",
+      "checksum": "3283ec185c3fa09138c5ddb07fd524a2"
+    },
+    {
+      "path": ".claude/commands/speckit.specify.md",
+      "checksum": "6b9d80b408d06b9dc322f5b0621e306f"
+    },
+    {
+      "path": ".claude/commands/speckit.tasks.md",
+      "checksum": "feccf0ebbff126f72f60d5f46d4c9394"
+    },
+    {
+      "path": ".claude/skills/local-media-test/SKILL.md",
+      "checksum": "9f124a0cd50b4430370f5d0e81fea927"
+    },
+    {
+      "path": ".claude/skills/milestone-breakdown/SKILL.md",
+      "checksum": "80d7c9e6918007baf8c8a2a387367903"
+    },
+    {
+      "path": ".claude/skills/speckit-worker/SKILL.md",
+      "checksum": "1cf5172c1bb9fce560c6068bb2b3f5ee"
+    },
+    {
+      "path": ".claude/skills/systematic-debugging/references/third-party-investigation.md",
+      "checksum": "bff93f5ddc0b68b69e94e375cf99706c"
+    },
+    {
+      "path": ".claude/skills/systematic-debugging/references/condition-based-waiting.md",
+      "checksum": "3da18cd9cf334d09776e956b56608ce9"
+    },
+    {
+      "path": ".claude/skills/systematic-debugging/references/defense-in-depth.md",
+      "checksum": "6e5669c33c568625cae4597822ff5c99"
+    },
+    {
+      "path": ".claude/skills/systematic-debugging/references/root-cause-tracing.md",
+      "checksum": "dd2db9960b0c34043e91a847033adb7b"
+    },
+    {
+      "path": ".claude/skills/systematic-debugging/references/condition-based-waiting-example.ts",
+      "checksum": "9d0108acd46bf72582f1e357a371b23f"
+    },
+    {
+      "path": ".claude/skills/systematic-debugging/scripts/find-polluter.sh",
+      "checksum": "b97e0e0115c06e9d63871808a166f718"
+    },
+    {
+      "path": ".claude/skills/systematic-debugging/SKILL.md",
+      "checksum": "be86f227cfc732ec02c642365502d30f"
+    },
+    {
+      "path": ".claude/skills/speckit-orchestrator/SKILL.md",
+      "checksum": "425e04d8791258c60fa95c886e748d26"
+    },
+    {
+      "path": ".claude/skills/dev-stream-test/SKILL.md",
+      "checksum": "489fd83970673286afad0f794ab94759"
+    },
+    {
+      "path": ".claude/skills/problem-solver/SKILL.md",
+      "checksum": "ebe79e5e8a9f9dd6a3cb2dff4b111f9d"
+    },
+    {
+      "path": ".claude/skills/architecture/SKILL.md",
+      "checksum": "15a9205f776f09e6da068249065884f3"
+    },
+    {
+      "path": ".claude/skills/skill-creator/scripts/init_skill.py",
+      "checksum": "4fabeb114d3a0ea2e9403535414ac3ab"
+    },
+    {
+      "path": ".claude/skills/skill-creator/scripts/quick_validate.py",
+      "checksum": "c5e98951dfc9cc4cd124341b45a0e184"
+    },
+    {
+      "path": ".claude/skills/skill-creator/scripts/package_skill.md",
+      "checksum": "4fabeb114d3a0ea2e9403535414ac3ab"
+    },
+    {
+      "path": ".claude/skills/skill-creator/SKILL.md",
+      "checksum": "13f5acdffe9f74249cfb7fa6bf628c2f"
+    },
+    {
+      "path": ".claude/skills/youtube-rtmp-debug/SKILL.md",
+      "checksum": "0285a2abbfceea899e23192c9395feb4"
+    },
+    {
+      "path": ".claude/skills/youtube-rtmp-debug/TROUBLESHOOTING_STATUS.md",
+      "checksum": "9433a9b07064f5b4c6bef84f1af31efd"
+    },
+    {
+      "path": ".claude/skills/speckit-worker-light/SKILL.md",
+      "checksum": "8b70424eb70221f88ee90bef74cef0cb"
+    },
+    {
+      "path": ".claude/schemas/agent-response.md",
+      "checksum": "d30967dc57ce563be840606b50fc6998"
+    },
+    {
+      "path": ".specify/templates/agent-file-template.md",
+      "checksum": "b8247a4214e5a2fb2468ad8dcf5fca50"
+    },
+    {
+      "path": ".specify/templates/notes-template.md",
+      "checksum": "d90a72624b8ad798c57c1494ca0e92fa"
+    },
+    {
+      "path": ".specify/templates/debug-context-template.md",
+      "checksum": "c9f1a9b41e34b80505086ea0cbbb1358"
+    },
+    {
+      "path": ".specify/templates/checklist-template.md",
+      "checksum": "87c4b390cebe71d15364bcd4690a102f"
+    },
+    {
+      "path": ".specify/templates/test-fixtures/sts-events.py",
+      "checksum": "396394fd3e91195caa9e605c4aae00d5"
+    },
+    {
+      "path": ".specify/templates/test-fixtures/README.md",
+      "checksum": "8b80097caa49d160dc5d59467bba47ba"
+    },
+    {
+      "path": ".specify/templates/tasks-template.md",
+      "checksum": "9bbe5c1fbdbe93da7c522f085de7c0e1"
+    },
+    {
+      "path": ".specify/templates/spec-template.md",
+      "checksum": "51e09a9259a1b4021a6aae22d612052d"
+    },
+    {
+      "path": ".specify/templates/progress-template.md",
+      "checksum": "e2be9f1c25e5d58f8f06ea8a020d2c74"
+    },
+    {
+      "path": ".specify/templates/milestone-template.md",
+      "checksum": "043714cb8835cb2dcd7e115a2707a121"
+    },
+    {
+      "path": ".specify/templates/plan-template.md",
+      "checksum": "da13d515cc460ff32df879f1878d7d60"
+    },
+    {
+      "path": ".specify/scripts/check_tests_exist.py",
+      "checksum": "c926daa9bff4ab29b316f516538bd05f"
+    },
+    {
+      "path": ".specify/scripts/pre_implement_check.py",
+      "checksum": "7954e00435e09d5d05d046460ff30afc"
+    },
+    {
+      "path": ".specify/scripts/bash/common.sh",
+      "checksum": "9221ae87db6704d4d532718f4424dd00"
+    },
+    {
+      "path": ".specify/scripts/bash/setup-plan.sh",
+      "checksum": "4ce206b50f766fbf36a2d69e448356e9"
+    },
+    {
+      "path": ".specify/scripts/bash/check-prerequisites.sh",
+      "checksum": "a8738d6f126b60481413b0e9ef6ef4ae"
+    },
+    {
+      "path": ".specify/scripts/bash/update-agent-context.sh",
+      "checksum": "7593ba8c83a162ca6a9ad214d084948f"
+    },
+    {
+      "path": ".specify/scripts/bash/create-new-feature.sh",
+      "checksum": "eb8c4468ab330f53daa53b3c6a785637"
+    },
+    {
+      "path": ".specify/scripts/pr_test_enforcement.py",
+      "checksum": "c1486558b5f3d501c416d369f66a82a9"
+    },
+    {
+      "path": ".specify/memory/constitution.md",
+      "checksum": "945e3f62cd61072bdba7ba6cc59a8d3c"
+    }
+  ]
+}

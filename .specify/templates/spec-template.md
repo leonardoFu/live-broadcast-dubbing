@@ -26,17 +26,7 @@
 
 **Why this priority**: [Explain the value and why it has this priority level]
 
-**Independent Test**: [Describe how this can be tested independently]
-- **Unit test**: [Specific function/module to test and expected behavior]
-- **Contract test**: [API/event contract to verify - e.g., STS fragment schema]
-- **Integration test**: [End-to-end workflow to validate - e.g., full pipeline with mocks]
-- **Success criteria**: [Measurable outcome - e.g., "All tests pass with 80% coverage"]
-
-**Example**:
-- Unit test: `test_chunk_audio_happy_path()` validates 1s chunks from 10s PCM input
-- Contract test: `test_sts_fragment_data_schema()` validates fragment event structure
-- Integration test: `test_worker_processes_mock_stream()` validates full pipeline with mock RTSP
-- Success criteria: All tests pass, 80% coverage achieved, <100ms latency per fragment
+**Independent Test**: [Describe how this can be tested independently - e.g., "Can be fully tested by [specific action] and delivers [specific value]"]
 
 **Acceptance Scenarios**:
 
@@ -52,10 +42,6 @@
 **Why this priority**: [Explain the value and why it has this priority level]
 
 **Independent Test**: [Describe how this can be tested independently]
-- **Unit test**: [Specific function/module to test and expected behavior]
-- **Contract test**: [API/event contract to verify]
-- **Integration test**: [End-to-end workflow to validate]
-- **Success criteria**: [Measurable outcome]
 
 **Acceptance Scenarios**:
 
@@ -70,10 +56,6 @@
 **Why this priority**: [Explain the value and why it has this priority level]
 
 **Independent Test**: [Describe how this can be tested independently]
-- **Unit test**: [Specific function/module to test and expected behavior]
-- **Contract test**: [API/event contract to verify]
-- **Integration test**: [End-to-end workflow to validate]
-- **Success criteria**: [Measurable outcome]
 
 **Acceptance Scenarios**:
 
