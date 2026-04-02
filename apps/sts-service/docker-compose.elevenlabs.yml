@@ -56,6 +56,10 @@ services:
       # Translation configuration
       - TRANSLATION_TIMEOUT_MS=${TRANSLATION_TIMEOUT_MS:-5000}
 
+      # Language configuration for dubbing
+      - SOURCE_LANGUAGE=${SOURCE_LANGUAGE:-zh}
+      - TARGET_LANGUAGE=${TARGET_LANGUAGE:-en}
+
       # Duration matching thresholds
       - DURATION_VARIANCE_SUCCESS_MAX=${DURATION_VARIANCE_SUCCESS_MAX:-0.10}
       - DURATION_VARIANCE_PARTIAL_MAX=${DURATION_VARIANCE_PARTIAL_MAX:-0.20}

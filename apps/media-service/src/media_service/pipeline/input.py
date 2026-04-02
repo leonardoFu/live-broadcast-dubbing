@@ -10,6 +10,12 @@ Per spec 020-rtmp-stream-pull:
 - Appsink callbacks for buffer processing
 - Pipeline state management (NULL -> READY -> PAUSED -> PLAYING)
 - Audio track validation (rejects video-only streams)
+
+Per spec 023-vad-audio-segmentation:
+- Level element in audio path for RMS measurement
+- Tee splits audio: decode branch (level) + passthrough branch (appsink)
+- Level messages posted to bus for VAD processing
+- RuntimeError if level element unavailable (fail-fast, no fallback)
 """
 
 from __future__ import annotations
@@ -38,6 +44,7 @@ logger = logging.getLogger(__name__)
 
 # Type alias for buffer callbacks
 BufferCallback = Callable[[bytes, int, int], None]  # (data, pts_ns, duration_ns)
+LevelCallback = Callable[[float, int], None]  # (rms_db, timestamp_ns)
 
 
 class InputPipeline:
@@ -47,13 +54,19 @@ class InputPipeline:
     1. Pulls RTMP stream from MediaMTX via rtmpsrc
     2. Demuxes FLV container into video (H.264) and audio (AAC) via flvdemux
     3. Routes streams to appsinks for callback-based processing
+    4. (Optional) Measures audio levels via GStreamer level element for VAD
 
     The pipeline preserves original codecs (no re-encoding).
+
+    Audio path with VAD enabled:
+    flvdemux -> aacparse -> tee -> queue -> appsink (AAC ADTS)
+                               -> decodebin -> audioconvert -> level -> fakesink
 
     Attributes:
         _rtmp_url: RTMP source URL
         _on_video_buffer: Callback for video buffer processing
         _on_audio_buffer: Callback for audio buffer processing
+        _on_level_message: Callback for level element messages (optional)
         _pipeline: GStreamer pipeline (after build)
         _state: Current pipeline state string
         has_video_pad: Whether video pad has been linked
@@ -66,6 +79,8 @@ class InputPipeline:
         on_video_buffer: BufferCallback,
         on_audio_buffer: BufferCallback,
         max_buffers: int = 10,
+        on_level_message: LevelCallback | None = None,
+        level_interval_ns: int = 100_000_000,  # 100ms default
     ) -> None:
         """Initialize input pipeline.
 
@@ -74,6 +89,10 @@ class InputPipeline:
             on_video_buffer: Callback for video buffers (data, pts_ns, duration_ns)
             on_audio_buffer: Callback for audio buffers (data, pts_ns, duration_ns)
             max_buffers: Maximum buffers for flvdemux queue (default 10)
+            on_level_message: Callback for level messages (rms_db, timestamp_ns)
+                If provided, VAD level element will be created. If creation fails,
+                RuntimeError is raised (fail-fast, no fallback to fixed segments).
+            level_interval_ns: Interval for level measurements in nanoseconds (default 100ms)
 
         Raises:
             ValueError: If RTMP URL is empty or invalid format
@@ -88,11 +107,14 @@ class InputPipeline:
         self._on_video_buffer = on_video_buffer
         self._on_audio_buffer = on_audio_buffer
         self._max_buffers = max_buffers
+        self._on_level_message = on_level_message
+        self._level_interval_ns = level_interval_ns
         self._pipeline: Gst.Pipeline | None = None
         self._state = "NULL"
         self._bus: Gst.Bus | None = None
         self._video_appsink: Gst.Element | None = None
         self._audio_appsink: Gst.Element | None = None
+        self._level_element: Gst.Element | None = None
 
         # Pad detection flags for audio validation
         self.has_video_pad = False
@@ -165,6 +187,57 @@ class InputPipeline:
         audio_queue.set_property("max-size-time", 5 * Gst.SECOND)  # 5 seconds of data
         audio_queue.set_property("leaky", 2)  # Leak downstream (drop old data if full)
 
+        # VAD level element path (optional, for RMS measurement)
+        # This creates a parallel branch that decodes audio and measures levels
+        audio_tee = None
+        level_decodebin = None
+        audioconvert = None
+        level_queue = None
+        fakesink = None
+
+        if self._on_level_message is not None:
+            # Create tee to split audio into two branches
+            audio_tee = Gst.ElementFactory.make("tee", "audio_tee")
+            if audio_tee is None:
+                raise RuntimeError("Failed to create tee element for VAD - level element required")
+
+            # Create level measurement branch elements
+            level_queue = Gst.ElementFactory.make("queue", "level_queue")
+            level_decodebin = Gst.ElementFactory.make("decodebin", "level_decodebin")
+            audioconvert = Gst.ElementFactory.make("audioconvert", "audioconvert")
+            self._level_element = Gst.ElementFactory.make("level", "audio_level")
+            fakesink = Gst.ElementFactory.make("fakesink", "level_fakesink")
+
+            # Verify level element created - fail-fast, no fallback!
+            if self._level_element is None:
+                raise RuntimeError(
+                    "Failed to create level element - GStreamer gst-plugins-good package "
+                    "may be missing. VAD-based segmentation requires level element. "
+                    "No fallback to fixed 6-second segments."
+                )
+
+            # Verify all other level path elements
+            for elem_name, elem in [
+                ("level_queue", level_queue),
+                ("level_decodebin", level_decodebin),
+                ("audioconvert", audioconvert),
+                ("level_fakesink", fakesink),
+            ]:
+                if elem is None:
+                    raise RuntimeError(f"Failed to create {elem_name} element for VAD")
+
+            # Configure level element
+            self._level_element.set_property("interval", self._level_interval_ns)
+            self._level_element.set_property("post-messages", True)
+
+            # Configure level queue
+            level_queue.set_property("max-size-buffers", 10)
+            level_queue.set_property("leaky", 2)  # Drop old if full
+
+            # Configure fakesink (silent, no output)
+            fakesink.set_property("sync", False)
+            fakesink.set_property("async", False)
+
         # Verify all elements created
         for elem_name, elem in [
             ("h264parse", h264parse),
@@ -209,6 +282,15 @@ class InputPipeline:
         self._pipeline.add(audio_queue)
         self._pipeline.add(self._audio_appsink)
 
+        # Add level measurement branch if VAD enabled
+        if self._on_level_message is not None:
+            self._pipeline.add(audio_tee)
+            self._pipeline.add(level_queue)
+            self._pipeline.add(level_decodebin)
+            self._pipeline.add(audioconvert)
+            self._pipeline.add(self._level_element)
+            self._pipeline.add(fakesink)
+
         # Link static source elements: rtmpsrc -> flvdemux
         if not rtmpsrc.link(flvdemux):
             raise RuntimeError("Failed to link rtmpsrc -> flvdemux")
@@ -219,14 +301,47 @@ class InputPipeline:
         if not video_queue.link(self._video_appsink):
             raise RuntimeError("Failed to link video_queue -> video_sink")
 
-        # Link static audio elements: aacparse -> queue -> sink
+        # Link static audio elements based on VAD configuration
         # Note: Do NOT pre-link aacparse to queue! This must happen dynamically
         # after flvdemux creates the audio pad, otherwise the sink pad will be
         # occupied and _on_pad_added will fail to link flvdemux -> aacparse
-        if not aacparse.link(audio_queue):
-            raise RuntimeError("Failed to link aacparse -> audio_queue")
-        if not audio_queue.link(self._audio_appsink):
-            raise RuntimeError("Failed to link audio_queue -> audio_sink")
+        if self._on_level_message is not None:
+            # With VAD: aacparse -> tee -> queue -> sink (passthrough for appsink)
+            #                          -> level_queue -> decodebin -> ... (level measurement)
+            if not aacparse.link(audio_tee):
+                raise RuntimeError("Failed to link aacparse -> audio_tee")
+
+            # Link passthrough branch: tee -> queue -> appsink
+            if not audio_tee.link(audio_queue):
+                raise RuntimeError("Failed to link audio_tee -> audio_queue")
+            if not audio_queue.link(self._audio_appsink):
+                raise RuntimeError("Failed to link audio_queue -> audio_sink")
+
+            # Link level measurement branch: tee -> level_queue -> decodebin
+            # Note: decodebin -> audioconvert linking happens dynamically via pad-added
+            if not audio_tee.link(level_queue):
+                raise RuntimeError("Failed to link audio_tee -> level_queue")
+            if not level_queue.link(level_decodebin):
+                raise RuntimeError("Failed to link level_queue -> level_decodebin")
+
+            # Link post-decode elements: audioconvert -> level -> fakesink
+            if not audioconvert.link(self._level_element):
+                raise RuntimeError("Failed to link audioconvert -> level")
+            if not self._level_element.link(fakesink):
+                raise RuntimeError("Failed to link level -> fakesink")
+
+            # Store references for dynamic pad linking from decodebin
+            self._audioconvert = audioconvert
+            self._level_decodebin = level_decodebin
+
+            # Connect decodebin pad-added signal for dynamic linking
+            level_decodebin.connect("pad-added", self._on_level_decodebin_pad_added)
+        else:
+            # Without VAD: aacparse -> queue -> sink (original path)
+            if not aacparse.link(audio_queue):
+                raise RuntimeError("Failed to link aacparse -> audio_queue")
+            if not audio_queue.link(self._audio_appsink):
+                raise RuntimeError("Failed to link audio_queue -> audio_sink")
 
         # Store references for dynamic pad linking
         self._h264parse = h264parse
@@ -244,6 +359,37 @@ class InputPipeline:
 
         self._state = "READY"
         logger.info(f"Input pipeline built for {self._rtmp_url}")
+
+    def _on_level_decodebin_pad_added(self, element: Gst.Element, pad: Gst.Pad) -> None:
+        """Handle dynamic pad creation from decodebin for level measurement.
+
+        Links decoded audio pad to audioconvert for level measurement.
+
+        Args:
+            element: Source element (decodebin)
+            pad: Newly created pad
+        """
+        caps = pad.get_current_caps()
+        if caps is None:
+            caps = pad.query_caps(None)
+
+        if caps is None or caps.is_empty():
+            return
+
+        structure = caps.get_structure(0)
+        media_type = structure.get_name()
+
+        logger.debug(f"Level decodebin pad added: {pad.get_name()}, media type: {media_type}")
+
+        # Only link audio pads
+        if media_type.startswith("audio/"):
+            sink_pad = self._audioconvert.get_static_pad("sink")
+            if sink_pad and not sink_pad.is_linked():
+                result = pad.link(sink_pad)
+                if result == Gst.PadLinkReturn.OK:
+                    logger.info("Linked decodebin audio pad to audioconvert for level measurement")
+                else:
+                    logger.error(f"Failed to link level decodebin audio pad: {result}")
 
     def _on_pad_added(self, element: Gst.Element, pad: Gst.Pad) -> None:
         """Handle dynamic pad creation from flvdemux.
@@ -452,7 +598,58 @@ class InputPipeline:
                 logger.debug(f"Pipeline state: {old.value_nick} -> {new.value_nick}")
                 self._state = new.value_nick.upper()
 
+        elif msg_type == Gst.MessageType.ELEMENT:
+            # Handle level element messages for VAD
+            self._handle_level_message(message)
+
         return True
+
+    def _handle_level_message(self, message: Gst.Message) -> None:
+        """Handle level element message and extract RMS.
+
+        Args:
+            message: GStreamer ELEMENT message
+        """
+        if self._on_level_message is None:
+            return
+
+        structure = message.get_structure()
+        if structure is None:
+            return
+
+        if structure.get_name() != "level":
+            return
+
+        # Extract RMS array (per-channel)
+        success, rms_array = structure.get_array("rms")
+        if not success or rms_array is None:
+            return
+
+        if rms_array.n_values == 0:
+            return
+
+        # Get peak RMS across all channels (max = loudest)
+        rms_values = []
+        for i in range(rms_array.n_values):
+            gvalue = rms_array.get_nth(i)
+            if gvalue is not None:
+                rms_values.append(gvalue.get_double())
+
+        if not rms_values:
+            return
+
+        peak_rms_db = max(rms_values)
+
+        # Extract timestamp
+        success, timestamp_ns = structure.get_uint64("running-time")
+        if not success:
+            timestamp_ns = 0
+
+        # Call callback
+        try:
+            self._on_level_message(peak_rms_db, timestamp_ns)
+        except Exception as e:
+            logger.error(f"Error in level message callback: {e}")
 
     def start(self) -> bool:
         """Start the pipeline (transition to PLAYING).

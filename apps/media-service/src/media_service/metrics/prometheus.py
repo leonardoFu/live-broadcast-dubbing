@@ -9,6 +9,14 @@ Per spec 003:
 - Circuit breaker state gauge
 - A/V sync delta gauge
 - Error counters by type
+
+Per spec 023-vad-audio-segmentation:
+- VAD silence detections counter
+- VAD forced emissions counter (max duration reached)
+- VAD min duration violations counter
+- VAD accumulator duration gauge
+- VAD accumulator bytes gauge
+- VAD segment duration histogram
 """
 
 from __future__ import annotations
@@ -88,6 +96,16 @@ class WorkerMetrics:
     _errors: ClassVar[Counter | None] = None
     _pipeline_state: ClassVar[Gauge | None] = None
     _backpressure_events: ClassVar[Counter | None] = None
+
+    # VAD (Voice Activity Detection) metrics - spec 023
+    _vad_silence_detections: ClassVar[Counter | None] = None
+    _vad_forced_emissions: ClassVar[Counter | None] = None
+    _vad_min_duration_violations: ClassVar[Counter | None] = None
+    _vad_memory_limit_emissions: ClassVar[Counter | None] = None
+    _vad_accumulator_duration_ns: ClassVar[Gauge | None] = None
+    _vad_accumulator_bytes: ClassVar[Gauge | None] = None
+    _vad_segment_duration_seconds: ClassVar[Histogram | None] = None
+
     _metrics_initialized: ClassVar[bool] = False
 
     def __init__(self, stream_id: str | None = None) -> None:
@@ -217,6 +235,50 @@ class WorkerMetrics:
             ["stream_id", "action"],  # action: slow_down|pause|none
         )
 
+        # VAD (Voice Activity Detection) metrics - spec 023
+        cls._vad_silence_detections = Counter(
+            f"{prefix}_vad_silence_detections_total",
+            "Total segments emitted due to silence boundary detection",
+            ["stream_id"],
+        )
+
+        cls._vad_forced_emissions = Counter(
+            f"{prefix}_vad_forced_emissions_total",
+            "Total segments emitted due to max duration reached",
+            ["stream_id"],
+        )
+
+        cls._vad_min_duration_violations = Counter(
+            f"{prefix}_vad_min_duration_violations_total",
+            "Total times min duration prevented segment emission",
+            ["stream_id"],
+        )
+
+        cls._vad_memory_limit_emissions = Counter(
+            f"{prefix}_vad_memory_limit_emissions_total",
+            "Total segments emitted due to memory limit reached",
+            ["stream_id"],
+        )
+
+        cls._vad_accumulator_duration_ns = Gauge(
+            f"{prefix}_vad_accumulator_duration_ns",
+            "Current VAD accumulator duration in nanoseconds",
+            ["stream_id"],
+        )
+
+        cls._vad_accumulator_bytes = Gauge(
+            f"{prefix}_vad_accumulator_bytes",
+            "Current VAD accumulator size in bytes",
+            ["stream_id"],
+        )
+
+        cls._vad_segment_duration_seconds = Histogram(
+            f"{prefix}_vad_segment_duration_seconds",
+            "VAD segment duration distribution in seconds",
+            ["stream_id"],
+            buckets=[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 8.0, 10.0, 12.0, 15.0],
+        )
+
         cls._metrics_initialized = True
 
     # Property accessors for metrics (for backwards compatibility)
@@ -287,6 +349,35 @@ class WorkerMetrics:
     @property
     def backpressure_events(self) -> Counter:
         return self._backpressure_events
+
+    # VAD metric properties
+    @property
+    def vad_silence_detections(self) -> Counter:
+        return self._vad_silence_detections
+
+    @property
+    def vad_forced_emissions(self) -> Counter:
+        return self._vad_forced_emissions
+
+    @property
+    def vad_min_duration_violations(self) -> Counter:
+        return self._vad_min_duration_violations
+
+    @property
+    def vad_memory_limit_emissions(self) -> Counter:
+        return self._vad_memory_limit_emissions
+
+    @property
+    def vad_accumulator_duration_ns(self) -> Gauge:
+        return self._vad_accumulator_duration_ns
+
+    @property
+    def vad_accumulator_bytes(self) -> Gauge:
+        return self._vad_accumulator_bytes
+
+    @property
+    def vad_segment_duration_seconds(self) -> Histogram:
+        return self._vad_segment_duration_seconds
 
     def set_stream_id(self, stream_id: str) -> None:
         """Update stream ID for metric labels.
@@ -439,3 +530,68 @@ class WorkerMetrics:
             stream_id=self.stream_id,
             action=action,
         ).inc()
+
+    # VAD metric recording methods
+
+    def record_vad_silence_detection(self) -> None:
+        """Record VAD silence boundary detection."""
+        self.vad_silence_detections.labels(stream_id=self.stream_id).inc()
+
+    def record_vad_forced_emission(self) -> None:
+        """Record VAD forced emission (max duration reached)."""
+        self.vad_forced_emissions.labels(stream_id=self.stream_id).inc()
+
+    def record_vad_min_duration_violation(self) -> None:
+        """Record VAD min duration violation."""
+        self.vad_min_duration_violations.labels(stream_id=self.stream_id).inc()
+
+    def record_vad_memory_limit_emission(self) -> None:
+        """Record VAD memory limit emission."""
+        self.vad_memory_limit_emissions.labels(stream_id=self.stream_id).inc()
+
+    def set_vad_accumulator_state(self, duration_ns: int, size_bytes: int) -> None:
+        """Set VAD accumulator state gauges.
+
+        Args:
+            duration_ns: Current accumulated duration in nanoseconds
+            size_bytes: Current accumulated size in bytes
+        """
+        self.vad_accumulator_duration_ns.labels(stream_id=self.stream_id).set(duration_ns)
+        self.vad_accumulator_bytes.labels(stream_id=self.stream_id).set(size_bytes)
+
+    def record_vad_segment_duration(self, duration_seconds: float) -> None:
+        """Record VAD segment duration in histogram.
+
+        Args:
+            duration_seconds: Segment duration in seconds
+        """
+        self.vad_segment_duration_seconds.labels(stream_id=self.stream_id).observe(duration_seconds)
+
+    def update_vad_metrics_from_segmenter(
+        self,
+        silence_detections: int,
+        forced_emissions: int,
+        min_duration_violations: int,
+        memory_limit_emissions: int,
+        accumulated_duration_ns: int,
+        accumulated_bytes: int,
+    ) -> None:
+        """Bulk update VAD metrics from VADAudioSegmenter.
+
+        This method is called periodically to sync internal segmenter
+        counters with Prometheus metrics.
+
+        Args:
+            silence_detections: Total silence detections
+            forced_emissions: Total forced emissions
+            min_duration_violations: Total min duration violations
+            memory_limit_emissions: Total memory limit emissions
+            accumulated_duration_ns: Current accumulator duration
+            accumulated_bytes: Current accumulator size
+        """
+        # Note: For counters, we track deltas since Prometheus counters
+        # can only increment. For simplicity, we just set gauges here.
+        self.vad_accumulator_duration_ns.labels(stream_id=self.stream_id).set(
+            accumulated_duration_ns
+        )
+        self.vad_accumulator_bytes.labels(stream_id=self.stream_id).set(accumulated_bytes)

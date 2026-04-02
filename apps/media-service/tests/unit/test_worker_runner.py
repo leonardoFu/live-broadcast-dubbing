@@ -33,7 +33,7 @@ def worker_config(tmp_segment_dir: Path) -> WorkerConfig:
         sts_url="http://localhost:3000",
         segment_dir=tmp_segment_dir,
         source_language="en",
-        target_language="es",
+        target_language="zh",
     )
 
 
@@ -51,7 +51,7 @@ class TestWorkerConfigInit:
         )
 
         assert config.source_language == "en"
-        assert config.target_language == "es"
+        assert config.target_language == "zh"
         assert config.voice_profile == "default"
         assert config.segment_duration_ns == 6_000_000_000
 
@@ -201,7 +201,11 @@ class TestWorkerRunnerProcessVideoSegment:
     async def test_process_video_segment_writes_and_syncs(
         self, worker_config: WorkerConfig, tmp_segment_dir: Path
     ) -> None:
-        """Test video segment processing."""
+        """Test video segment processing.
+
+        Per T033: Video segments skip disk writing and use in-memory data directly.
+        The implementation just updates segment.file_size and pushes to A/V sync.
+        """
         worker = WorkerRunner(worker_config)
 
         segment = VideoSegment(
@@ -215,13 +219,14 @@ class TestWorkerRunnerProcessVideoSegment:
 
         data = b"video_data_content"
 
-        # Mock writer
-        worker.video_writer.write = AsyncMock(return_value=segment)
+        # Mock A/V sync
         worker.av_sync.push_video = AsyncMock(return_value=None)
 
         await worker._process_video_segment(segment, data)
 
-        worker.video_writer.write.assert_called_once_with(segment, data)
+        # T033: No video_writer.write call - uses in-memory data
+        # Verify segment file_size was updated and A/V sync was called
+        assert segment.file_size == len(data)
         worker.av_sync.push_video.assert_called_once()
 
     @pytest.mark.asyncio

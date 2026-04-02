@@ -4,11 +4,16 @@ Defines typed input/output contracts for Socket.IO events and pipeline processin
 Based on specs/021-full-sts-service/spec.md and contracts/*.json.
 """
 
+import os
 from datetime import datetime
 from enum import Enum
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+# Language configuration from environment variables
+DEFAULT_SOURCE_LANGUAGE = os.environ.get("SOURCE_LANGUAGE", "zh")
+DEFAULT_TARGET_LANGUAGE = os.environ.get("TARGET_LANGUAGE", "en")
 
 
 # -----------------------------------------------------------------------------
@@ -367,16 +372,16 @@ class StreamConfig(BaseModel):
     """
 
     source_language: str = Field(
-        default="en",
+        default_factory=lambda: DEFAULT_SOURCE_LANGUAGE,
         min_length=2,
         max_length=10,
-        description="Source language code (e.g., 'en')",
+        description="Source language code (e.g., 'zh')",
     )
     target_language: str = Field(
-        default="es",
+        default_factory=lambda: DEFAULT_TARGET_LANGUAGE,
         min_length=2,
         max_length=10,
-        description="Target language code (e.g., 'es')",
+        description="Target language code (e.g., 'en')",
     )
     voice_profile: str = Field(
         default="default",
@@ -413,9 +418,9 @@ class StreamConfig(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
-                "source_language": "en",
-                "target_language": "es",
-                "voice_profile": "spanish_male_1",
+                "source_language": "zh",
+                "target_language": "en",
+                "voice_profile": "english_male_1",
                 "chunk_duration_ms": 6000,
                 "sample_rate_hz": 48000,
                 "channels": 1,
@@ -454,9 +459,9 @@ class StreamInitPayload(BaseModel):
                 "stream_id": "stream-abc-123",
                 "worker_id": "worker-001",
                 "config": {
-                    "source_language": "en",
-                    "target_language": "es",
-                    "voice_profile": "spanish_male_1",
+                    "source_language": "zh",
+                    "target_language": "en",
+                    "voice_profile": "english_male_1",
                     "chunk_duration_ms": 6000,
                     "sample_rate_hz": 48000,
                     "channels": 1,

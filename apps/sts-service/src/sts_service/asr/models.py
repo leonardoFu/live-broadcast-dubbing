@@ -5,12 +5,16 @@ Defines typed input/output contracts for audio transcription.
 Based on specs/005-audio-transcription-module/data-model.md.
 """
 
+import os
 import uuid
 from datetime import datetime
 from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
+
+# Language configuration from environment variables (ASR uses source language)
+DEFAULT_SOURCE_LANGUAGE = os.environ.get("SOURCE_LANGUAGE", "zh")
 
 # -----------------------------------------------------------------------------
 # Enums
@@ -87,7 +91,10 @@ class AudioFragment(BaseModel):
         default="general",
         description="Domain hint for vocabulary priming (sports, news, interview, general)",
     )
-    language: str | None = Field(default="en", description="Expected language code (ISO 639-1)")
+    language: str | None = Field(
+        default_factory=lambda: DEFAULT_SOURCE_LANGUAGE,
+        description="Expected language code (ISO 639-1)",
+    )
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -101,7 +108,7 @@ class AudioFragment(BaseModel):
                 "end_time_ms": 86000,
                 "payload_ref": "mem://fragments/stream-abc-123/42",
                 "domain": "sports",
-                "language": "en",
+                "language": "zh",
             }
         }
     )
@@ -310,7 +317,7 @@ class TranscriptAsset(AssetIdentifiers):
                 "created_at": "2025-12-28T10:30:00Z",
                 "component": "asr",
                 "component_instance": "faster-whisper-base",
-                "language": "en",
+                "language": "zh",
                 "language_probability": 0.99,
                 "segments": [
                     {
@@ -378,7 +385,10 @@ class VADConfig(BaseModel):
 class TranscriptionConfig(BaseModel):
     """Transcription behavior configuration."""
 
-    language: str = Field(default="en", description="Expected language code")
+    language: str = Field(
+        default_factory=lambda: DEFAULT_SOURCE_LANGUAGE,
+        description="Expected language code",
+    )
     word_timestamps: bool = Field(default=True, description="Enable word-level timestamps")
     beam_size: int = Field(default=8, ge=1, le=10, description="Beam search width")
     best_of: int = Field(default=8, ge=1, le=10, description="Number of candidates")

@@ -310,7 +310,12 @@ class PipelineCoordinator:
             )
 
             # Step 2: ASR transcription
-            logger.info("asr_started")
+            logger.info(
+                "📝 ASR STARTED",
+                fragment_id=fragment_data.fragment_id,
+                sequence_number=fragment_data.sequence_number,
+                audio_duration_ms=fragment_data.audio.duration_ms,
+            )
             asr_start = time.perf_counter()
             asr_result = self._asr.transcribe(
                 audio_data=audio_bytes,
@@ -324,7 +329,11 @@ class PipelineCoordinator:
             )
             stage_timings.asr_ms = int((time.perf_counter() - asr_start) * 1000)
 
-            logger.info("asr_completed", latency_ms=stage_timings.asr_ms)
+            logger.info(
+                "📝 ASR COMPLETED",
+                fragment_id=fragment_data.fragment_id,
+                latency_ms=stage_timings.asr_ms,
+            )
             record_stage_timing("asr", stage_timings.asr_ms)
 
             # DEBUG: Log ASR result
@@ -658,7 +667,11 @@ class PipelineCoordinator:
                     output_format = "pcm_f32le"
             else:
                 # Audio is already in a container format
-                output_format = getattr(tts_audio_format, "value", str(tts_audio_format)) if tts_audio_format else "m4a"
+                output_format = (
+                    getattr(tts_audio_format, "value", str(tts_audio_format))
+                    if tts_audio_format
+                    else "m4a"
+                )
 
             audio_b64 = base64.b64encode(audio_bytes_out).decode("utf-8")
 

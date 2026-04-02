@@ -5,10 +5,15 @@ with pipeline coordination and processing tracking.
 """
 
 import asyncio
+import os
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
+
+# Language configuration from environment variables
+DEFAULT_SOURCE_LANGUAGE = os.environ.get("SOURCE_LANGUAGE", "zh")
+DEFAULT_TARGET_LANGUAGE = os.environ.get("TARGET_LANGUAGE", "en")
 
 from sts_service.full.models.stream import StreamState
 
@@ -89,8 +94,8 @@ class StreamSession:
     created_at: datetime = field(default_factory=datetime.utcnow)
 
     # Configuration (from stream:init)
-    source_language: str = "en"
-    target_language: str = "zh"
+    source_language: str = field(default_factory=lambda: DEFAULT_SOURCE_LANGUAGE)
+    target_language: str = field(default_factory=lambda: DEFAULT_TARGET_LANGUAGE)
     voice_profile: str = "default"
     chunk_duration_ms: int = 6000
     sample_rate_hz: int = 48000
@@ -110,6 +115,9 @@ class StreamSession:
 
     # Statistics
     statistics: SessionStatistics = field(default_factory=SessionStatistics)
+
+    # Duplicate detection for debugging
+    _processed_fragment_ids: set[str] = field(default_factory=set, repr=False)
 
     # Lifecycle
     _stream_end_received: bool = field(default=False, repr=False)
@@ -173,6 +181,25 @@ class StreamSession:
     def decrement_inflight(self) -> None:
         """Decrement the in-flight fragment count."""
         self.inflight_count = max(0, self.inflight_count - 1)
+
+    def register_fragment(self, fragment_id: str) -> bool:
+        """Register a fragment for processing and check for duplicates.
+
+        Args:
+            fragment_id: The fragment ID to register.
+
+        Returns:
+            True if this is a new fragment, False if it's a duplicate.
+        """
+        if fragment_id in self._processed_fragment_ids:
+            return False
+        self._processed_fragment_ids.add(fragment_id)
+        return True
+
+    @property
+    def processed_fragment_count(self) -> int:
+        """Number of fragments processed in this session."""
+        return len(self._processed_fragment_ids)
 
     def add_pending_fragment(
         self,

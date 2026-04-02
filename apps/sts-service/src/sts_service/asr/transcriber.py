@@ -24,6 +24,71 @@ from .models import (
 from .postprocessing import shape_utterances
 from .preprocessing import preprocess_audio
 
+import logging
+import re
+
+logger = logging.getLogger(__name__)
+
+
+def detect_hallucination(text: str, threshold: float = 0.5) -> bool:
+    """Detect if text is a Whisper hallucination (repetitive output).
+
+    Whisper can get stuck in repetition loops, outputting the same word/phrase
+    many times. This function detects such patterns.
+
+    Args:
+        text: The transcribed text to check
+        threshold: Ratio of repeated content to total that triggers detection
+
+    Returns:
+        True if the text appears to be a hallucination
+    """
+    if not text or len(text) < 20:
+        return False
+
+    # Normalize text
+    text = text.strip().lower()
+
+    # Check 1: Repeated short patterns (like "2020, 2020, 2020")
+    # Find any word/number that repeats more than 5 times
+    words = re.findall(r'\b\w+\b', text)
+    if words:
+        from collections import Counter
+        word_counts = Counter(words)
+        most_common_word, count = word_counts.most_common(1)[0]
+        repetition_ratio = count / len(words)
+
+        if count >= 5 and repetition_ratio > threshold:
+            logger.warning(
+                f"Hallucination detected: '{most_common_word}' repeated {count} times "
+                f"({repetition_ratio:.1%} of text)"
+            )
+            return True
+
+    # Check 2: Repeated phrases (like "thank you for watching" x10)
+    # Look for any 2-4 word phrase that repeats many times
+    for phrase_len in [2, 3, 4]:
+        if len(words) >= phrase_len * 3:
+            phrases = [' '.join(words[i:i+phrase_len]) for i in range(len(words) - phrase_len + 1)]
+            phrase_counts = Counter(phrases)
+            if phrase_counts:
+                most_common_phrase, count = phrase_counts.most_common(1)[0]
+                if count >= 4:
+                    logger.warning(
+                        f"Hallucination detected: phrase '{most_common_phrase}' repeated {count} times"
+                    )
+                    return True
+
+    # Check 3: Very low character diversity (text is mostly the same characters)
+    unique_chars = len(set(text.replace(' ', '').replace(',', '')))
+    if len(text) > 50 and unique_chars < 10:
+        logger.warning(
+            f"Hallucination detected: only {unique_chars} unique characters in {len(text)} char text"
+        )
+        return True
+
+    return False
+
 # Global model cache keyed by (model_size, device, compute_type)
 _MODEL_CACHE: dict[tuple[str, str, str], WhisperModel] = {}
 
@@ -140,10 +205,8 @@ class FasterWhisperASR(BaseASRComponent):
             )
 
             # DEBUG
-            import logging
             import numpy as np
 
-            logger = logging.getLogger(__name__)
             logger.info(
                 f"DEBUG transcriber: Audio shape={audio.shape if hasattr(audio, 'shape') else len(audio)}, dtype={audio.dtype if hasattr(audio, 'dtype') else type(audio)}"
             )
@@ -202,9 +265,6 @@ class FasterWhisperASR(BaseASRComponent):
             )
 
             # DEBUG: Convert to list immediately to check
-            import logging
-
-            logger = logging.getLogger(__name__)
             segments_list = list(segments_iter)
             logger.info(
                 f"DEBUG transcriber: faster-whisper returned {len(segments_list)} raw segments"
@@ -222,9 +282,6 @@ class FasterWhisperASR(BaseASRComponent):
             )
 
             # DEBUG
-            import logging
-
-            logger = logging.getLogger(__name__)
             logger.info(f"DEBUG transcriber: Converted {len(transcript_segments)} segments")
 
             # Apply utterance shaping
@@ -237,6 +294,27 @@ class FasterWhisperASR(BaseASRComponent):
             logger.info(f"DEBUG transcriber: Shaped {len(shaped_segments)} segments")
 
             processing_time_ms = int((time.time() - start_time) * 1000)
+
+            # Check for hallucination (repetitive output)
+            total_text = " ".join(seg.text for seg in shaped_segments)
+            if detect_hallucination(total_text):
+                logger.warning(
+                    f"Hallucination detected in ASR output, marking as NO_SPEECH. "
+                    f"Original text: '{total_text[:100]}...'"
+                )
+                result = TranscriptAsset(
+                    stream_id=stream_id,
+                    sequence_number=sequence_number,
+                    component_instance=self.component_instance,
+                    language=info.language,
+                    language_probability=info.language_probability,
+                    segments=[],  # Empty segments for hallucination
+                    status=TranscriptStatus.NO_SPEECH,
+                    processing_time_ms=processing_time_ms,
+                    model_info=self.component_instance,
+                )
+                self._emit_transcript_artifact(result)
+                return result
 
             result = TranscriptAsset(
                 stream_id=stream_id,
@@ -291,10 +369,6 @@ class FasterWhisperASR(BaseASRComponent):
         """
         result = []
         fragment_duration_s = (end_time_ms - start_time_ms) / 1000.0
-
-        import logging
-
-        logger = logging.getLogger(__name__)
         segment_count = 0
 
         for segment in segments_iter:

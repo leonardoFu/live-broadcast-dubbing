@@ -152,7 +152,7 @@ class ArtifactLogger:
                 # Try interpreting as float32 and check value statistics
                 try:
                     test_array = np.frombuffer(
-                        pcm_audio[:min(4000, len(pcm_audio))], dtype=np.float32
+                        pcm_audio[: min(4000, len(pcm_audio))], dtype=np.float32
                     )
                     # Float32 audio should have:
                     # 1. Most values in reasonable audio range (not NaN/Inf)
@@ -172,13 +172,9 @@ class ArtifactLogger:
                         # We don't check std_dev as very quiet audio can have tiny std
                         if max_abs < 10.0:
                             is_float32 = True
-                            logger.info(
-                                f"Detected float32 audio (max_abs={max_abs:.6f})"
-                            )
+                            logger.info(f"Detected float32 audio (max_abs={max_abs:.6f})")
                         else:
-                            logger.debug(
-                                f"Not float32: max_abs={max_abs:.4f} (>= 10.0)"
-                            )
+                            logger.debug(f"Not float32: max_abs={max_abs:.4f} (>= 10.0)")
                     else:
                         logger.debug("No valid values in test array")
                 except Exception as e:
@@ -306,10 +302,7 @@ class ArtifactLogger:
 
             # Check if input is already M4A/MP4 format (starts with ftyp box)
             # M4A files typically start with: 00 00 00 XX 66 74 79 70 (ftyp)
-            is_already_m4a = (
-                len(audio_data) >= 8
-                and audio_data[4:8] == b"ftyp"
-            )
+            is_already_m4a = len(audio_data) >= 8 and audio_data[4:8] == b"ftyp"
 
             if is_already_m4a:
                 logger.debug("Original audio is already M4A format, saving directly")

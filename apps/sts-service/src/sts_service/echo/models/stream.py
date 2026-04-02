@@ -4,7 +4,13 @@ Implements stream:init, stream:ready, stream:pause, stream:resume, stream:end,
 and stream:complete messages as defined in spec 016.
 """
 
+import os
+
 from pydantic import BaseModel, Field
+
+# Language configuration from environment variables
+DEFAULT_SOURCE_LANGUAGE = os.environ.get("SOURCE_LANGUAGE", "zh")
+DEFAULT_TARGET_LANGUAGE = os.environ.get("TARGET_LANGUAGE", "en")
 
 
 class StreamConfigPayload(BaseModel):
@@ -14,12 +20,12 @@ class StreamConfigPayload(BaseModel):
     """
 
     source_language: str = Field(
-        default="en",
-        description="Source language code (e.g., 'en')",
+        default_factory=lambda: DEFAULT_SOURCE_LANGUAGE,
+        description="Source language code (e.g., 'zh')",
     )
     target_language: str = Field(
-        default="es",
-        description="Target language code (e.g., 'es')",
+        default_factory=lambda: DEFAULT_TARGET_LANGUAGE,
+        description="Target language code (e.g., 'en')",
     )
     voice_profile: str = Field(
         default="default",

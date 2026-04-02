@@ -1,11 +1,13 @@
 """
-Output pipeline for RTMP stream publishing.
+Output pipeline for RTMP stream publishing with A/V re-encoding.
 
-Publishes remuxed video (H.264) and audio (AAC) to MediaMTX via RTMP.
+Publishes re-encoded video (H.264) and audio (AAC) to MediaMTX via RTMP.
+Both streams are re-encoded to ensure synchronized PTS and smooth playback.
 
-Per spec 003:
-- Video codec-copied (H.264 passthrough)
-- Audio AAC for output
+Per spec 003 + 024-pts-av-pairing:
+- Video: decode H.264 → re-encode with x264enc (zerolatency)
+- Audio: decode AAC → re-encode with voaacenc
+- Synchronized PTS: both streams share monotonic output PTS
 - FLV mux with streamable=true for RTMP
 - appsrc with is-live=true, format=time
 """
@@ -33,12 +35,19 @@ logger = logging.getLogger(__name__)
 
 
 class OutputPipeline:
-    """RTMP output pipeline with video and audio appsrcs.
+    """RTMP output pipeline with video and audio re-encoding.
 
     Constructs a GStreamer pipeline that:
     1. Receives video and audio buffers via appsrc push
-    2. Muxes into FLV container
-    3. Publishes to RTMP endpoint
+    2. Re-encodes both streams for synchronized timing
+    3. Muxes into FLV container with aligned PTS
+    4. Publishes to RTMP endpoint
+
+    Pipeline structure:
+    Video: appsrc → h264parse → avdec_h264 → videoconvert → x264enc → h264parse → flvmux
+    Audio: appsrc → aacparse → avdec_aac → audioconvert → audioresample → voaacenc → flvmux
+                                                                                      ↓
+                                                                                 rtmpsink
 
     Attributes:
         _rtmp_url: RTMP destination URL
@@ -46,6 +55,9 @@ class OutputPipeline:
         _video_appsrc: Video source element
         _audio_appsrc: Audio source element
         _state: Current pipeline state string
+        _output_pts_ns: Monotonically increasing output PTS counter
+        _first_video_pts_ns: PTS of first video buffer (for offset calculation)
+        _first_audio_pts_ns: PTS of first audio buffer (for offset calculation)
     """
 
     def __init__(self, rtmp_url: str) -> None:
@@ -71,16 +83,27 @@ class OutputPipeline:
         self._bus: Gst.Bus | None = None
 
         # Store SPS/PPS NAL units extracted from first video segment
-        # These will be prepended to all subsequent segments to ensure
-        # codec parameters are always available for h264parse/flvmux
         self._sps_pps_data: bytes | None = None
 
+        # Synchronized PTS tracking
+        # We track the first PTS of each stream and compute output PTS relative to a common base
+        self._first_video_pts_ns: int | None = None
+        self._first_audio_pts_ns: int | None = None
+        self._base_pts_ns: int | None = None  # Common base for both streams
+        self._last_video_output_pts_ns: int = 0
+        self._last_audio_output_pts_ns: int = 0
+
+        # Track end PTS for A/V sync summary
+        self._last_video_end_pts_ns: int = 0
+        self._last_audio_end_pts_ns: int = 0
+        self._push_count: int = 0
+
     def build(self) -> None:
-        """Build the GStreamer output pipeline.
+        """Build the GStreamer output pipeline with A/V re-encoding.
 
         Creates pipeline structure:
-        video_appsrc -> h264parse -> queue -> flvmux -> rtmpsink
-        audio_appsrc -> aacparse -> queue -^
+        Video: appsrc → h264parse → avdec_h264 → videoconvert → x264enc → flvmux
+        Audio: appsrc → aacparse → avdec_aac → audioconvert → voaacenc → flvmux → rtmpsink
 
         Raises:
             RuntimeError: If GStreamer not available or element creation fails
@@ -96,8 +119,8 @@ class OutputPipeline:
         if self._pipeline is None:
             raise RuntimeError("Failed to create GStreamer pipeline")
 
-        # Create video path elements with DECODE → ENCODE pipeline
-        # This re-encodes video to ensure proper keyframe alignment and codec_data generation
+        # ============ VIDEO PATH ============
+        # appsrc → h264parse → avdec_h264 → videoconvert → x264enc → h264parse → queue
         self._video_appsrc = Gst.ElementFactory.make("appsrc", "video_src")
         h264parse_in = Gst.ElementFactory.make("h264parse", "h264parse_in")
         avdec_h264 = Gst.ElementFactory.make("avdec_h264", "avdec_h264")
@@ -106,30 +129,40 @@ class OutputPipeline:
         h264parse_out = Gst.ElementFactory.make("h264parse", "h264parse_out")
         video_queue = Gst.ElementFactory.make("queue", "video_queue")
 
-        # Configure input h264parse to handle byte-stream input
+        # Configure input h264parse
         h264parse_in.set_property("config-interval", -1)  # Insert SPS/PPS for decoder
 
         # Configure x264enc for low-latency streaming
-        # - tune=zerolatency: minimize latency
-        # - key-int-max=30: keyframe every 1 second at 30fps
-        # - bframes=0: no B-frames for lower latency
-        # - speed-preset=veryfast: balance quality/speed
-        # - bitrate=2000: maintain quality (kbps)
         x264enc.set_property("tune", 0x00000004)  # zerolatency
-        x264enc.set_property("key-int-max", 30)
-        x264enc.set_property("bframes", 0)
+        x264enc.set_property("key-int-max", 30)  # Keyframe every 1s at 30fps
+        x264enc.set_property("bframes", 0)  # No B-frames
         x264enc.set_property("speed-preset", 3)  # veryfast
-        x264enc.set_property("bitrate", 2000)
+        x264enc.set_property("bitrate", 2000)  # 2 Mbps
 
-        # Configure output h264parse for AVC output to flvmux
+        # Configure output h264parse for AVC output
         h264parse_out.set_property("config-interval", -1)
 
-        # Create audio path elements
+        # ============ AUDIO PATH ============
+        # appsrc → aacparse → avdec_aac → audioconvert → audioresample → voaacenc → aacparse → queue
         self._audio_appsrc = Gst.ElementFactory.make("appsrc", "audio_src")
-        aacparse = Gst.ElementFactory.make("aacparse", "aacparse")
+        aacparse_in = Gst.ElementFactory.make("aacparse", "aacparse_in")
+        avdec_aac = Gst.ElementFactory.make("avdec_aac", "avdec_aac")
+        audioconvert = Gst.ElementFactory.make("audioconvert", "audioconvert")
+        audioresample = Gst.ElementFactory.make("audioresample", "audioresample")
+
+        # Try voaacenc first (commonly available), fallback to avenc_aac
+        voaacenc = Gst.ElementFactory.make("voaacenc", "voaacenc")
+        if voaacenc is None:
+            logger.warning("voaacenc not available, trying avenc_aac")
+            voaacenc = Gst.ElementFactory.make("avenc_aac", "avenc_aac")
+            if voaacenc is None:
+                logger.warning("avenc_aac not available, trying fdkaacenc")
+                voaacenc = Gst.ElementFactory.make("fdkaacenc", "fdkaacenc")
+
+        aacparse_out = Gst.ElementFactory.make("aacparse", "aacparse_out")
         audio_queue = Gst.ElementFactory.make("queue", "audio_queue")
 
-        # Create muxer and sink
+        # ============ MUXER AND SINK ============
         flvmux = Gst.ElementFactory.make("flvmux", "flvmux")
         rtmpsink = Gst.ElementFactory.make("rtmpsink", "rtmpsink")
 
@@ -143,7 +176,12 @@ class OutputPipeline:
             ("h264parse_out", h264parse_out),
             ("video_queue", video_queue),
             ("audio_src", self._audio_appsrc),
-            ("aacparse", aacparse),
+            ("aacparse_in", aacparse_in),
+            ("avdec_aac", avdec_aac),
+            ("audioconvert", audioconvert),
+            ("audioresample", audioresample),
+            ("aac_encoder", voaacenc),
+            ("aacparse_out", aacparse_out),
             ("audio_queue", audio_queue),
             ("flvmux", flvmux),
             ("rtmpsink", rtmpsink),
@@ -153,38 +191,32 @@ class OutputPipeline:
             if elem is None:
                 raise RuntimeError(f"Failed to create {elem_name} element")
 
-        # Configure video appsrc
-        # Note: We use byte-stream format and let h264parse convert to AVC for flvmux.
-        # The h264parse will extract SPS/PPS from the byte-stream data and set codec_data.
-        # config-interval=-1 ensures SPS/PPS is re-inserted before each IDR frame.
-        video_caps = Gst.Caps.from_string(
-            "video/x-h264,stream-format=byte-stream,alignment=au"
-        )
+        # ============ CONFIGURE APPSRCS ============
+        # Video appsrc - byte-stream H.264
+        video_caps = Gst.Caps.from_string("video/x-h264,stream-format=byte-stream,alignment=au")
         self._video_appsrc.set_property("caps", video_caps)
         self._video_appsrc.set_property("is-live", True)
         self._video_appsrc.set_property("format", 3)  # GST_FORMAT_TIME
         self._video_appsrc.set_property("do-timestamp", False)
 
-        # Configure audio appsrc
-        # Use flexible caps - aacparse will determine sample rate and channels from ADTS headers.
-        # Don't hardcode rate/channels to avoid mismatch with input (which may be 44100 Hz).
+        # Audio appsrc - ADTS AAC
         audio_caps = Gst.Caps.from_string("audio/mpeg,mpegversion=4,stream-format=adts")
         self._audio_appsrc.set_property("caps", audio_caps)
         self._audio_appsrc.set_property("is-live", True)
         self._audio_appsrc.set_property("format", 3)  # GST_FORMAT_TIME
         self._audio_appsrc.set_property("do-timestamp", False)
 
-        # Configure flvmux for streaming
+        # ============ CONFIGURE FLVMUX ============
         flvmux.set_property("streamable", True)
 
-        # Configure rtmpsink
+        # ============ CONFIGURE RTMPSINK ============
         rtmpsink.set_property("location", self._rtmp_url)
 
-        # Add elements to pipeline
+        # ============ ADD ELEMENTS TO PIPELINE ============
         for _, elem in elements:
             self._pipeline.add(elem)
 
-        # Link video path: appsrc → h264parse_in → avdec_h264 → videoconvert → x264enc → h264parse_out → queue
+        # ============ LINK VIDEO PATH ============
         if not self._video_appsrc.link(h264parse_in):
             raise RuntimeError("Failed to link video_src -> h264parse_in")
         if not h264parse_in.link(avdec_h264):
@@ -198,13 +230,23 @@ class OutputPipeline:
         if not h264parse_out.link(video_queue):
             raise RuntimeError("Failed to link h264parse_out -> video_queue")
 
-        # Link audio path
-        if not self._audio_appsrc.link(aacparse):
-            raise RuntimeError("Failed to link audio_src -> aacparse")
-        if not aacparse.link(audio_queue):
-            raise RuntimeError("Failed to link aacparse -> audio_queue")
+        # ============ LINK AUDIO PATH ============
+        if not self._audio_appsrc.link(aacparse_in):
+            raise RuntimeError("Failed to link audio_src -> aacparse_in")
+        if not aacparse_in.link(avdec_aac):
+            raise RuntimeError("Failed to link aacparse_in -> avdec_aac")
+        if not avdec_aac.link(audioconvert):
+            raise RuntimeError("Failed to link avdec_aac -> audioconvert")
+        if not audioconvert.link(audioresample):
+            raise RuntimeError("Failed to link audioconvert -> audioresample")
+        if not audioresample.link(voaacenc):
+            raise RuntimeError("Failed to link audioresample -> voaacenc")
+        if not voaacenc.link(aacparse_out):
+            raise RuntimeError("Failed to link voaacenc -> aacparse_out")
+        if not aacparse_out.link(audio_queue):
+            raise RuntimeError("Failed to link aacparse_out -> audio_queue")
 
-        # Link queues to flvmux using request pads
+        # ============ LINK TO FLVMUX ============
         video_mux_pad = flvmux.get_request_pad("video")
         audio_mux_pad = flvmux.get_request_pad("audio")
 
@@ -216,30 +258,75 @@ class OutputPipeline:
         if audio_queue_src.link(audio_mux_pad) != Gst.PadLinkReturn.OK:
             raise RuntimeError("Failed to link audio_queue -> flvmux")
 
-        # Link muxer to sink
+        # ============ LINK TO RTMPSINK ============
         if not flvmux.link(rtmpsink):
             raise RuntimeError("Failed to link flvmux -> rtmpsink")
 
         # Set up bus for polling-based message handling
-        # Note: We use polling instead of signals to avoid GLib main loop requirement
         self._bus = self._pipeline.get_bus()
 
         self._state = "READY"
+        encoder_name = voaacenc.get_factory().get_name() if voaacenc else "unknown"
         logger.info(
-            f"🎬 Output pipeline built with VIDEO RE-ENCODING for {self._rtmp_url}\n"
-            f"   Pipeline: appsrc → h264parse → avdec_h264 → videoconvert → x264enc → h264parse → flvmux → rtmpsink"
+            f"🎬 Output pipeline built with A/V RE-ENCODING for {self._rtmp_url}"
         )
+        logger.info("   Video: appsrc → h264parse → avdec → x264enc → flvmux")
+        logger.info(f"   Audio: appsrc → aacparse → avdec → {encoder_name} → flvmux → rtmpsink")
 
-    def _on_bus_message(self, bus: Gst.Bus, message: Gst.Message) -> bool:
-        """Handle GStreamer bus messages.
+    def _compute_output_pts(self, input_pts_ns: int, is_video: bool) -> int:
+        """Compute synchronized output PTS from input PTS.
+
+        Uses the first PTS received (from either stream) as the base.
+        All subsequent PTS values are computed relative to this base,
+        ensuring both streams are synchronized.
 
         Args:
-            bus: The pipeline bus
-            message: The bus message
+            input_pts_ns: Input PTS in nanoseconds
+            is_video: True for video, False for audio
 
         Returns:
-            True to continue receiving messages
+            Output PTS in nanoseconds (monotonically increasing)
         """
+        # Track first PTS for each stream
+        if is_video:
+            if self._first_video_pts_ns is None:
+                self._first_video_pts_ns = input_pts_ns
+                logger.info(f"🎬 First video PTS: {input_pts_ns / 1e9:.3f}s")
+        else:
+            if self._first_audio_pts_ns is None:
+                self._first_audio_pts_ns = input_pts_ns
+                logger.info(f"🔊 First audio PTS: {input_pts_ns / 1e9:.3f}s")
+
+        # Set base PTS from the first stream that arrives
+        if self._base_pts_ns is None:
+            self._base_pts_ns = input_pts_ns
+            logger.info(f"📐 Base PTS set: {self._base_pts_ns / 1e9:.3f}s")
+
+        # Compute output PTS relative to base
+        output_pts_ns = input_pts_ns - self._base_pts_ns
+
+        # Ensure monotonically increasing (handle out-of-order arrivals)
+        if is_video:
+            if output_pts_ns < self._last_video_output_pts_ns:
+                logger.warning(
+                    f"⚠️ Video PTS went backwards: {output_pts_ns / 1e9:.3f}s < "
+                    f"{self._last_video_output_pts_ns / 1e9:.3f}s, using last"
+                )
+                output_pts_ns = self._last_video_output_pts_ns
+            self._last_video_output_pts_ns = output_pts_ns
+        else:
+            if output_pts_ns < self._last_audio_output_pts_ns:
+                logger.warning(
+                    f"⚠️ Audio PTS went backwards: {output_pts_ns / 1e9:.3f}s < "
+                    f"{self._last_audio_output_pts_ns / 1e9:.3f}s, using last"
+                )
+                output_pts_ns = self._last_audio_output_pts_ns
+            self._last_audio_output_pts_ns = output_pts_ns
+
+        return output_pts_ns
+
+    def _on_bus_message(self, bus: Gst.Bus, message: Gst.Message) -> bool:
+        """Handle GStreamer bus messages."""
         msg_type = message.type
 
         if msg_type == Gst.MessageType.ERROR:
@@ -274,31 +361,20 @@ class OutputPipeline:
             logger.info(f"✅ OUTPUT ASYNC DONE: {message.src.get_name()}")
 
         elif msg_type == Gst.MessageType.ELEMENT:
-            # Log element-specific messages (useful for rtmpsink connection events)
             structure = message.get_structure()
             if structure:
-                logger.info(
+                logger.debug(
                     f"📨 OUTPUT ELEMENT MESSAGE [{message.src.get_name()}]: {structure.to_string()}"
                 )
 
         return True
 
     def _poll_bus_messages(self) -> None:
-        """Poll bus for messages without requiring GLib main loop.
-
-        This method processes pending bus messages using polling instead of
-        signal-based callbacks. This allows the pipeline to progress through
-        state changes without requiring a separate GLib main loop thread.
-
-        Should be called periodically (e.g., before pushing buffers) to ensure
-        pipeline state changes and error messages are processed in a timely manner.
-        """
+        """Poll bus for messages without requiring GLib main loop."""
         if not self._bus:
             return
 
-        # Process all pending messages
         while True:
-            # Pop message from bus (non-blocking)
             msg = self._bus.pop_filtered(
                 Gst.MessageType.ERROR
                 | Gst.MessageType.WARNING
@@ -310,135 +386,27 @@ class OutputPipeline:
             )
 
             if not msg:
-                # No more messages
                 break
 
-            # Process message using existing handler
             self._on_bus_message(self._bus, msg)
-
-    def _wait_for_state_change(self, target_state: Gst.State, timeout_ms: int = 5000) -> bool:
-        """Wait for pipeline to reach target state by polling bus messages.
-
-        Args:
-            target_state: The state to wait for
-            timeout_ms: Maximum time to wait in milliseconds
-
-        Returns:
-            True if target state reached, False if timeout or error
-        """
-        import time
-
-        start_time = time.time()
-        timeout_s = timeout_ms / 1000.0
-
-        while True:
-            # Check if target state reached
-            if self._state == target_state.value_nick.upper():
-                return True
-
-            # Check for error state
-            if self._state == "ERROR":
-                logger.error("Pipeline entered ERROR state while waiting")
-                return False
-
-            # Check timeout
-            elapsed = time.time() - start_time
-            if elapsed >= timeout_s:
-                logger.warning(
-                    f"Timeout waiting for {target_state.value_nick} state "
-                    f"(current: {self._state}, elapsed: {elapsed:.2f}s)"
-                )
-                return False
-
-            # Poll messages to progress state transitions
-            self._poll_bus_messages()
-
-            # Small sleep to avoid busy-waiting
-            time.sleep(0.01)
-
-    def _read_mp4_video(self, mp4_path: str) -> bytes:
-        """Read H.264 video data from MP4 file in correct format.
-
-        Uses GStreamer to demux MP4 and extract H.264 in byte-stream format.
-
-        Args:
-            mp4_path: Path to MP4 video file
-
-        Returns:
-            H.264 video data in byte-stream format with start codes
-        """
-        if not GST_AVAILABLE or Gst is None:
-            raise RuntimeError("GStreamer not available")
-
-        logger.debug(f"🎬 _read_mp4_video: {mp4_path}")
-
-        # Create a pipeline to read and convert the video
-        # filesrc ! qtdemux ! h264parse config-interval=-1 ! appsink
-        pipeline_str = (
-            f"filesrc location={mp4_path} ! "
-            "qtdemux name=demux demux.video_0 ! "
-            "h264parse config-interval=-1 ! "  # Insert SPS/PPS before each IDR
-            "video/x-h264,stream-format=byte-stream,alignment=au ! "
-            "appsink name=sink emit-signals=true sync=false"
-        )
-        logger.debug(f"Pipeline: {pipeline_str}")
-
-        pipeline = Gst.parse_launch(pipeline_str)
-        appsink = pipeline.get_by_name("sink")
-
-        # Collect all buffers
-        video_data = bytearray()
-
-        def on_new_sample(sink):
-            sample = sink.emit("pull-sample")
-            if sample:
-                buffer = sample.get_buffer()
-                success, map_info = buffer.map(Gst.MapFlags.READ)
-                if success:
-                    video_data.extend(map_info.data)
-                    buffer.unmap(map_info)
-            return Gst.FlowReturn.OK
-
-        appsink.connect("new-sample", on_new_sample)
-
-        # Run pipeline
-        pipeline.set_state(Gst.State.PLAYING)
-        bus = pipeline.get_bus()
-        msg = bus.timed_pop_filtered(
-            Gst.CLOCK_TIME_NONE, Gst.MessageType.EOS | Gst.MessageType.ERROR
-        )
-
-        if msg and msg.type == Gst.MessageType.ERROR:
-            err, debug = msg.parse_error()
-            pipeline.set_state(Gst.State.NULL)
-            logger.error(f"❌ GStreamer error reading MP4: {err.message}, debug: {debug}")
-            raise RuntimeError(f"Error reading MP4: {err.message}")
-
-        pipeline.set_state(Gst.State.NULL)
-
-        logger.debug(f"✅ Read {len(video_data)} bytes of H.264 from {mp4_path}")
-        return bytes(video_data)
 
     def convert_m4a_bytes_to_adts(self, m4a_data: bytes) -> bytes:
         """Convert M4A container bytes to raw ADTS AAC frames.
 
         Uses GStreamer to demux M4A and extract AAC in ADTS format.
-        This is needed when audio data is in M4A format (from STS service)
-        but the output pipeline expects raw ADTS frames.
 
         Args:
             m4a_data: M4A container data (in memory)
 
         Returns:
-            AAC audio data in ADTS format (self-describing)
+            AAC audio data in ADTS format
         """
         if not GST_AVAILABLE or Gst is None:
             raise RuntimeError("GStreamer not available")
 
-        import tempfile
         import os
+        import tempfile
 
-        # Write M4A to temp file (GStreamer qtdemux requires seekable source)
         with tempfile.NamedTemporaryFile(suffix=".m4a", delete=False) as tmp:
             tmp.write(m4a_data)
             tmp_path = tmp.name
@@ -446,7 +414,6 @@ class OutputPipeline:
         try:
             logger.debug(f"🔊 Converting M4A bytes ({len(m4a_data)} bytes) to ADTS")
 
-            # Create a pipeline to read and convert the audio
             pipeline_str = (
                 f"filesrc location={tmp_path} ! "
                 "qtdemux name=demux demux.audio_0 ! "
@@ -458,7 +425,6 @@ class OutputPipeline:
             pipeline = Gst.parse_launch(pipeline_str)
             appsink = pipeline.get_by_name("sink")
 
-            # Collect all buffers
             audio_data = bytearray()
 
             def on_new_sample(sink):
@@ -473,11 +439,10 @@ class OutputPipeline:
 
             appsink.connect("new-sample", on_new_sample)
 
-            # Run pipeline
             pipeline.set_state(Gst.State.PLAYING)
             bus = pipeline.get_bus()
             msg = bus.timed_pop_filtered(
-                5 * Gst.SECOND,  # 5 second timeout
+                5 * Gst.SECOND,
                 Gst.MessageType.EOS | Gst.MessageType.ERROR,
             )
 
@@ -492,200 +457,47 @@ class OutputPipeline:
             logger.debug(f"✅ Converted M4A to {len(audio_data)} bytes of ADTS")
             return bytes(audio_data)
         finally:
-            # Clean up temp file
             try:
                 os.unlink(tmp_path)
             except OSError:
                 pass
 
-    def _read_m4a_audio(self, m4a_path: str) -> bytes:
-        """Read AAC audio data from M4A file in correct format.
-
-        Uses GStreamer to demux M4A and extract AAC in ADTS format.
-
-        Args:
-            m4a_path: Path to M4A audio file
-
-        Returns:
-            AAC audio data in ADTS format (self-describing)
-        """
-        if not GST_AVAILABLE or Gst is None:
-            raise RuntimeError("GStreamer not available")
-
-        logger.debug(f"🔊 _read_m4a_audio: {m4a_path}")
-
-        # Create a pipeline to read and convert the audio
-        # filesrc ! qtdemux ! aacparse ! appsink
-        pipeline_str = (
-            f"filesrc location={m4a_path} ! "
-            "qtdemux name=demux demux.audio_0 ! "
-            "aacparse ! "
-            "audio/mpeg,mpegversion=4,stream-format=adts ! "
-            "appsink name=sink emit-signals=true sync=false"
-        )
-        logger.debug(f"Pipeline: {pipeline_str}")
-
-        pipeline = Gst.parse_launch(pipeline_str)
-        appsink = pipeline.get_by_name("sink")
-
-        # Collect all buffers
-        audio_data = bytearray()
-
-        def on_new_sample(sink):
-            sample = sink.emit("pull-sample")
-            if sample:
-                buffer = sample.get_buffer()
-                success, map_info = buffer.map(Gst.MapFlags.READ)
-                if success:
-                    audio_data.extend(map_info.data)
-                    buffer.unmap(map_info)
-            return Gst.FlowReturn.OK
-
-        appsink.connect("new-sample", on_new_sample)
-
-        # Run pipeline
-        pipeline.set_state(Gst.State.PLAYING)
-        bus = pipeline.get_bus()
-        msg = bus.timed_pop_filtered(
-            Gst.CLOCK_TIME_NONE, Gst.MessageType.EOS | Gst.MessageType.ERROR
-        )
-
-        if msg and msg.type == Gst.MessageType.ERROR:
-            err, debug = msg.parse_error()
-            pipeline.set_state(Gst.State.NULL)
-            logger.error(f"❌ GStreamer error reading M4A: {err.message}, debug: {debug}")
-            raise RuntimeError(f"Error reading M4A: {err.message}")
-
-        pipeline.set_state(Gst.State.NULL)
-
-        logger.debug(f"✅ Read {len(audio_data)} bytes of AAC from {m4a_path}")
-        return bytes(audio_data)
-
-    def push_segment_files(
-        self,
-        video_mp4_path: str,
-        audio_m4a_path: str,
-        pts_ns: int,
-        video_duration_ns: int,
-        audio_duration_ns: int,
-    ) -> bool:
-        """Push video and audio segment files to output pipeline.
-
-        Reads MP4/M4A files, demuxes them to get properly formatted H.264/AAC,
-        and pushes to the output pipeline.
-
-        Args:
-            video_mp4_path: Path to video MP4 file
-            audio_m4a_path: Path to audio M4A file
-            pts_ns: Presentation timestamp in nanoseconds
-            video_duration_ns: Video duration in nanoseconds
-            audio_duration_ns: Audio duration in nanoseconds
-
-        Returns:
-            True if both pushes succeeded
-        """
-        logger.info(
-            f"📦 PUSH_SEGMENT_FILES CALLED: "
-            f"video={video_mp4_path}, audio={audio_m4a_path}, "
-            f"pts={pts_ns / 1e9:.2f}s"
-        )
-
-        try:
-            # Check if files exist
-            import os
-
-            if not os.path.exists(video_mp4_path):
-                logger.error(f"❌ Video file not found: {video_mp4_path}")
-                return False
-            if not os.path.exists(audio_m4a_path):
-                logger.error(f"❌ Audio file not found: {audio_m4a_path}")
-                return False
-
-            video_size = os.path.getsize(video_mp4_path)
-            audio_size = os.path.getsize(audio_m4a_path)
-            logger.info(f"📁 File sizes: video={video_size}B, audio={audio_size}B")
-
-            # Read and demux video
-            logger.info(f"📖 Reading MP4 video from {video_mp4_path}...")
-            video_data = self._read_mp4_video(video_mp4_path)
-            logger.info(f"✅ Read {len(video_data)} bytes of H.264 video data")
-
-            # Read and demux audio
-            logger.info(f"📖 Reading M4A audio from {audio_m4a_path}...")
-            audio_data = self._read_m4a_audio(audio_m4a_path)
-            logger.info(f"✅ Read {len(audio_data)} bytes of AAC audio data")
-
-            # Push to pipeline
-            logger.info(f"⬆️ Pushing video data to output pipeline...")
-            video_ok = self.push_video(video_data, pts_ns, video_duration_ns)
-            logger.info(f"⬆️ Pushing audio data to output pipeline...")
-            audio_ok = self.push_audio(audio_data, pts_ns, audio_duration_ns)
-
-            result = video_ok and audio_ok
-            logger.info(f"{'✅' if result else '❌'} PUSH_SEGMENT_FILES result: {result}")
-            return result
-
-        except Exception as e:
-            logger.error(f"❌ Error pushing segment files: {e}", exc_info=True)
-            return False
-
     def _extract_sps_pps(self, data: bytes) -> bytes | None:
-        """Extract SPS and PPS NAL units from H.264 byte-stream data.
-
-        Scans the data for SPS (NAL type 7) and PPS (NAL type 8) NAL units
-        and returns them as a contiguous byte string with start codes.
-
-        Args:
-            data: H.264 byte-stream data
-
-        Returns:
-            Bytes containing SPS and PPS NAL units with start codes,
-            or None if not found
-        """
+        """Extract SPS and PPS NAL units from H.264 byte-stream data."""
         sps_data = None
         pps_data = None
 
-        # Find all NAL unit start positions
         i = 0
         while i < len(data) - 4:
-            # Look for 4-byte start code (0x00000001)
-            if data[i:i+4] == b'\x00\x00\x00\x01':
-                nal_type = data[i+4] & 0x1F
-                # Find the end of this NAL unit (next start code or end of data)
+            if data[i : i + 4] == b"\x00\x00\x00\x01":
+                nal_type = data[i + 4] & 0x1F
                 next_start = len(data)
                 for j in range(i + 4, min(len(data) - 3, i + 10000)):
-                    if data[j:j+4] == b'\x00\x00\x00\x01' or data[j:j+3] == b'\x00\x00\x01':
+                    if data[j : j + 4] == b"\x00\x00\x00\x01" or data[j : j + 3] == b"\x00\x00\x01":
                         next_start = j
                         break
 
-                if nal_type == 7 and sps_data is None:  # SPS
+                if nal_type == 7 and sps_data is None:
                     sps_data = data[i:next_start]
-                    logger.debug(f"Found SPS at offset {i}, size={len(sps_data)}")
-                elif nal_type == 8 and pps_data is None:  # PPS
+                elif nal_type == 8 and pps_data is None:
                     pps_data = data[i:next_start]
-                    logger.debug(f"Found PPS at offset {i}, size={len(pps_data)}")
 
                 if sps_data and pps_data:
                     break
 
                 i = next_start
-            # Look for 3-byte start code (0x000001)
-            elif data[i:i+3] == b'\x00\x00\x01':
-                nal_type = data[i+3] & 0x1F
-                # Find the end of this NAL unit
+            elif data[i : i + 3] == b"\x00\x00\x01":
+                nal_type = data[i + 3] & 0x1F
                 next_start = len(data)
                 for j in range(i + 3, min(len(data) - 3, i + 10000)):
-                    if data[j:j+4] == b'\x00\x00\x00\x01' or data[j:j+3] == b'\x00\x00\x01':
+                    if data[j : j + 4] == b"\x00\x00\x00\x01" or data[j : j + 3] == b"\x00\x00\x01":
                         next_start = j
                         break
 
-                if nal_type == 7 and sps_data is None:  # SPS
-                    # Convert to 4-byte start code for consistency
-                    sps_data = b'\x00\x00\x00\x01' + data[i+3:next_start]
-                    logger.debug(f"Found SPS (3-byte) at offset {i}, size={len(sps_data)}")
-                elif nal_type == 8 and pps_data is None:  # PPS
-                    pps_data = b'\x00\x00\x00\x01' + data[i+3:next_start]
-                    logger.debug(f"Found PPS (3-byte) at offset {i}, size={len(pps_data)}")
+                if nal_type == 7 and sps_data is None:
+                    sps_data = b"\x00\x00\x00\x01" + data[i + 3 : next_start]
+                elif nal_type == 8 and pps_data is None:
+                    pps_data = b"\x00\x00\x00\x01" + data[i + 3 : next_start]
 
                 if sps_data and pps_data:
                     break
@@ -708,50 +520,42 @@ class OutputPipeline:
 
         Returns:
             True if push succeeded
-
-        Raises:
-            RuntimeError: If pipeline not built
         """
         if self._video_appsrc is None:
             raise RuntimeError("Pipeline not built - call build() first")
 
-        # Check for SPS/PPS in entire data (h264parse inserts them before each IDR)
-        has_sps = b'\x00\x00\x00\x01\x67' in data or b'\x00\x00\x01\x67' in data
-        has_pps = b'\x00\x00\x00\x01\x68' in data or b'\x00\x00\x01\x68' in data
-        # Check if SPS/PPS is at the START (first 100 bytes) for proper initialization
-        has_sps_at_start = b'\x00\x00\x00\x01\x67' in data[:100] or b'\x00\x00\x01\x67' in data[:100]
-        has_pps_at_start = b'\x00\x00\x00\x01\x68' in data[:200] or b'\x00\x00\x01\x68' in data[:200]
+        # Check for SPS/PPS
+        has_sps = b"\x00\x00\x00\x01\x67" in data or b"\x00\x00\x01\x67" in data
+        has_pps = b"\x00\x00\x00\x01\x68" in data or b"\x00\x00\x01\x68" in data
+        has_sps_at_start = (
+            b"\x00\x00\x00\x01\x67" in data[:100] or b"\x00\x00\x01\x67" in data[:100]
+        )
+        has_pps_at_start = (
+            b"\x00\x00\x00\x01\x68" in data[:200] or b"\x00\x00\x01\x68" in data[:200]
+        )
 
-        # Extract and store SPS/PPS from first segment that has them
+        # Extract and store SPS/PPS
         if self._sps_pps_data is None and has_sps and has_pps:
             self._sps_pps_data = self._extract_sps_pps(data)
             if self._sps_pps_data:
-                logger.info(
-                    f"📼 Extracted SPS/PPS from video data: {len(self._sps_pps_data)} bytes"
-                )
+                logger.info(f"📼 Extracted SPS/PPS: {len(self._sps_pps_data)} bytes")
 
-        # Prepend SPS/PPS if data lacks codec parameters at START
-        # (even if they exist later in the segment, h264parse needs them early)
-        original_size = len(data)
+        # Prepend SPS/PPS if needed
         if self._sps_pps_data and not (has_sps_at_start and has_pps_at_start):
             data = self._sps_pps_data + data
-            logger.info(
-                f"📼 Prepended SPS/PPS: {len(self._sps_pps_data)} bytes to "
-                f"{original_size} bytes (SPS/PPS was later in segment)"
-            )
+            logger.debug("📼 Prepended SPS/PPS to video data")
 
-        # Poll bus messages to process pipeline state changes
+        # Compute synchronized output PTS
+        output_pts_ns = self._compute_output_pts(pts_ns, is_video=True)
+
+        # Poll bus messages
         self._poll_bus_messages()
 
         buffer = Gst.Buffer.new_allocate(None, len(data), None)
         buffer.fill(0, data)
-        buffer.pts = pts_ns
+        buffer.pts = output_pts_ns
         if duration_ns > 0:
             buffer.duration = duration_ns
-
-        # Mark buffer as keyframe since we always have SPS/PPS at start
-        # (either originally or prepended). This helps h264parse/flvmux process correctly.
-        # LIVE flag indicates this is a live stream, no DELTA_UNIT means it's a keyframe.
         buffer.set_flags(Gst.BufferFlags.LIVE)
 
         ret = self._video_appsrc.emit("push-buffer", buffer)
@@ -759,14 +563,20 @@ class OutputPipeline:
 
         if not success:
             logger.error(
-                f"❌ VIDEO PUSH FAILED: pts={pts_ns / 1e9:.2f}s, "
-                f"size={len(data)}, ret={ret.value_nick}"
+                f"❌ VIDEO PUSH FAILED: input_pts={pts_ns / 1e9:.2f}s, "
+                f"output_pts={output_pts_ns / 1e9:.2f}s, ret={ret.value_nick}"
             )
         else:
+            in_pts = pts_ns / 1e9
+            out_pts = output_pts_ns / 1e9
+            dur = duration_ns / 1e9
+            end_pts = out_pts + dur
+            self._last_video_end_pts_ns = output_pts_ns + duration_ns
             logger.info(
-                f"📹 VIDEO PUSHED: pts={pts_ns / 1e9:.2f}s, "
-                f"size={len(data)}, duration={duration_ns / 1e9:.3f}s"
+                f"📹 VIDEO PUSHED: in={in_pts:.2f}s → out=[{out_pts:.2f}s - {end_pts:.2f}s] "
+                f"dur={dur:.3f}s size={len(data)}"
             )
+            self._log_av_sync_summary()
 
         return success
 
@@ -774,25 +584,25 @@ class OutputPipeline:
         """Push audio buffer to output pipeline.
 
         Args:
-            data: AAC encoded audio data
+            data: AAC encoded audio data (ADTS format)
             pts_ns: Presentation timestamp in nanoseconds
             duration_ns: Buffer duration in nanoseconds (optional)
 
         Returns:
             True if push succeeded
-
-        Raises:
-            RuntimeError: If pipeline not built
         """
         if self._audio_appsrc is None:
             raise RuntimeError("Pipeline not built - call build() first")
 
-        # Poll bus messages to process pipeline state changes
+        # Compute synchronized output PTS
+        output_pts_ns = self._compute_output_pts(pts_ns, is_video=False)
+
+        # Poll bus messages
         self._poll_bus_messages()
 
         buffer = Gst.Buffer.new_allocate(None, len(data), None)
         buffer.fill(0, data)
-        buffer.pts = pts_ns
+        buffer.pts = output_pts_ns
         if duration_ns > 0:
             buffer.duration = duration_ns
 
@@ -801,26 +611,40 @@ class OutputPipeline:
 
         if not success:
             logger.error(
-                f"❌ AUDIO PUSH FAILED: pts={pts_ns / 1e9:.2f}s, "
-                f"size={len(data)}, ret={ret.value_nick}"
+                f"❌ AUDIO PUSH FAILED: input_pts={pts_ns / 1e9:.2f}s, "
+                f"output_pts={output_pts_ns / 1e9:.2f}s, ret={ret.value_nick}"
             )
         else:
+            in_pts = pts_ns / 1e9
+            out_pts = output_pts_ns / 1e9
+            dur = duration_ns / 1e9
+            end_pts = out_pts + dur
+            self._last_audio_end_pts_ns = output_pts_ns + duration_ns
             logger.info(
-                f"🔊 AUDIO PUSHED: pts={pts_ns / 1e9:.2f}s, "
-                f"size={len(data)}, duration={duration_ns / 1e9:.3f}s"
+                f"🔊 AUDIO PUSHED: in={in_pts:.2f}s → out=[{out_pts:.2f}s - {end_pts:.2f}s] "
+                f"dur={dur:.3f}s size={len(data)}"
             )
+            self._log_av_sync_summary()
 
         return success
 
+    def _log_av_sync_summary(self) -> None:
+        """Log A/V sync summary showing current state of both streams."""
+        self._push_count += 1
+        # Log summary every push to show timeline alignment
+        v_end = self._last_video_end_pts_ns / 1e9
+        a_end = self._last_audio_end_pts_ns / 1e9
+        delta = (self._last_video_end_pts_ns - self._last_audio_end_pts_ns) / 1e6  # ms
+
+        if self._last_video_end_pts_ns > 0 and self._last_audio_end_pts_ns > 0:
+            sync_status = "SYNC" if abs(delta) < 500 else ("V_AHEAD" if delta > 0 else "A_AHEAD")
+            logger.info(
+                f"⏱️  A/V TIMELINE: video_end={v_end:.2f}s audio_end={a_end:.2f}s "
+                f"delta={delta:+.0f}ms [{sync_status}]"
+            )
+
     def start(self) -> bool:
-        """Start the pipeline (transition to PLAYING).
-
-        Returns:
-            True if state change succeeded
-
-        Raises:
-            RuntimeError: If pipeline not built
-        """
+        """Start the pipeline (transition to PLAYING)."""
         if self._pipeline is None:
             raise RuntimeError("Pipeline not built - call build() first")
 
@@ -832,12 +656,7 @@ class OutputPipeline:
             return False
         elif ret == Gst.StateChangeReturn.ASYNC:
             logger.info(f"⏳ OUTPUT PIPELINE STARTING (ASYNC) -> {self._rtmp_url}")
-            # For appsrc-based pipelines, the transition to PLAYING may not complete
-            # until buffers are pushed. Don't wait synchronously - let it transition
-            # naturally as data flows.
-            logger.info(
-                f"✅ OUTPUT PIPELINE SET TO PLAYING (will complete when data flows) -> {self._rtmp_url}"
-            )
+            logger.info("✅ OUTPUT PIPELINE SET TO PLAYING (will complete when data flows)")
         else:
             logger.info(f"✅ OUTPUT PIPELINE STARTED (SYNC) -> {self._rtmp_url}")
 
@@ -848,7 +667,6 @@ class OutputPipeline:
         if self._pipeline is None:
             return
 
-        # Send EOS to appsrcs for clean shutdown
         if self._video_appsrc:
             self._video_appsrc.emit("end-of-stream")
         if self._audio_appsrc:
@@ -859,21 +677,25 @@ class OutputPipeline:
         logger.info("Output pipeline stopped")
 
     def get_state(self) -> str:
-        """Get current pipeline state.
-
-        Returns:
-            State string: "NULL", "READY", "PAUSED", "PLAYING", "ERROR", or "EOS"
-        """
+        """Get current pipeline state."""
         return self._state
 
     def cleanup(self) -> None:
         """Clean up pipeline resources."""
         self.stop()
-
-        # Release bus reference (no signal watch to remove with polling-based approach)
         self._bus = None
-
         self._pipeline = None
         self._video_appsrc = None
         self._audio_appsrc = None
+
+        # Reset PTS tracking
+        self._first_video_pts_ns = None
+        self._first_audio_pts_ns = None
+        self._base_pts_ns = None
+        self._last_video_output_pts_ns = 0
+        self._last_audio_output_pts_ns = 0
+        self._last_video_end_pts_ns = 0
+        self._last_audio_end_pts_ns = 0
+        self._push_count = 0
+
         logger.info("Output pipeline cleaned up")
